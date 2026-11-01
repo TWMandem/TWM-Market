@@ -94,7 +94,8 @@ jobs:
           for _ in $(seq 1 30); do curl -fsS http://127.0.0.1:3000/health && break; sleep 1; done
           curl -fsS http://127.0.0.1:3000/health
           echo
-          curl -fsS http://127.0.0.1:3000/v1/catalog | head -c 300
+          curl -fsS -o /tmp/catalog.json http://127.0.0.1:3000/v1/catalog
+          head -c 300 /tmp/catalog.json
           echo
           kill %1 || true
           cat /tmp/server.log | tail -n 20
