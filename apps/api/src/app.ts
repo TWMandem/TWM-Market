@@ -66,7 +66,7 @@ export async function buildApp({ config, sql, mailer }: BuildOptions): Promise<F
   await app.register(cors, {
     origin: config.CORS_ORIGINS,
     credentials: false,
-    methods: ["GET", "POST", "PATCH", "DELETE"],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
   });
 
   if (config.RATE_LIMIT) {

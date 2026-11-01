@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router";
 import { useAuth } from "../lib/auth-context";
+import { useUpdates } from "../lib/updates-context";
 import { Icon } from "./Icon";
+import { Badge, NotificationsMenu } from "./NotificationsMenu";
 import { ServerSwitcher } from "./ServerSwitcher";
 
 const NAV = [
@@ -12,6 +14,7 @@ const NAV = [
 
 export function AppHeader() {
   const { status, user } = useAuth();
+  const { unreadMessages } = useUpdates();
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
 
@@ -81,6 +84,19 @@ export function AppHeader() {
             Админ-панель
           </NavLink>
         )}
+
+        {status === "authed" && (
+          <Link
+            to="/chats"
+            aria-label={unreadMessages > 0 ? `Сообщения: ${unreadMessages} непрочитанных` : "Сообщения"}
+            className="relative flex size-11 items-center justify-center rounded-xl text-ink-2 hover:bg-surface-2 hover:text-ink"
+          >
+            <Icon name="chat" />
+            {unreadMessages > 0 && <Badge count={unreadMessages} />}
+          </Link>
+        )}
+
+        {status === "authed" && <NotificationsMenu />}
 
         {status === "authed" && (
           <Link

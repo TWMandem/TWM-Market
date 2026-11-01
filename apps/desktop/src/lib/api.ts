@@ -9,6 +9,20 @@ import type {
   CatalogItemDto,
   CatalogItemOptionDto,
   CategoryDto,
+  ConversationDto,
+  FlaggedMessageDto,
+  MessageDto,
+  MessagesPageDto,
+  ModerationListingDto,
+  ModerationSummaryDto,
+  ModeratorConversationDto,
+  NotificationDto,
+  PublicUserDto,
+  ReportDto,
+  ReportReason,
+  ReportTarget,
+  StopWordDto,
+  UpdatesDto,
   GameProfileDto,
   ListingCardDto,
   ListingDetailDto,
@@ -225,7 +239,15 @@ export const api = {
   listing: (id: string) => request<ListingDetailDto>(`/v1/listings/${encodeURIComponent(id)}`),
   myListings: (status?: string) =>
     request<{
-      items: Array<ListingCardDto & { status: MyListingDto["status"]; expiresAt: string | null; rejectionReason: string | null; favorites: number }>;
+      items: Array<
+        ListingCardDto & {
+          status: MyListingDto["status"];
+          expiresAt: string | null;
+          rejectionReason: string | null;
+          moderationReason: string | null;
+          favorites: number;
+        }
+      >;
       counts: Record<string, number>;
     }>(`/v1/me/listings${qs({ status })}`),
   myListing: (id: string) => request<MyListingDto>(`/v1/me/listings/${encodeURIComponent(id)}`),
@@ -251,6 +273,38 @@ export const api = {
     request<{ sections: SectionDto[]; listingTypes: ListingTypeDto[]; categories: CategoryDto[] }>("/v1/catalog", {
       auth: false,
     }),
+
+  // ── Переписка, сделки, отзывы ───────────────────────────────────────────
+  startConversation: (listingId: string) =>
+    request<ConversationDto>(`/v1/listings/${encodeURIComponent(listingId)}/conversations`, { method: "POST" }),
+  conversations: () => request<{ items: ConversationDto[] }>("/v1/me/conversations"),
+  conversation: (id: string) => request<ConversationDto>(`/v1/conversations/${encodeURIComponent(id)}`),
+  messages: (id: string, params: { before?: string; after?: string } = {}) =>
+    request<MessagesPageDto>(`/v1/conversations/${encodeURIComponent(id)}/messages${qs(params)}`),
+  sendMessage: (id: string, body: string) =>
+    request<MessageDto>(`/v1/conversations/${encodeURIComponent(id)}/messages`, { method: "POST", body: { body } }),
+  sendImage: (id: string, file: Blob, name = "screenshot.png") => {
+    const form = new FormData();
+    form.append("file", file, name);
+    return request<MessageDto>(`/v1/conversations/${encodeURIComponent(id)}/images`, { method: "POST", body: form });
+  },
+  markConversationRead: (id: string) => request<void>(`/v1/conversations/${encodeURIComponent(id)}/read`, { method: "POST" }),
+  dealAction: (id: string, action: "propose" | "confirm" | "cancel") =>
+    request<ConversationDto>(
+      `/v1/conversations/${encodeURIComponent(id)}/deal${action === "propose" ? "" : `/${action}`}`,
+      { method: "POST" },
+    ),
+  review: (id: string, body: { positive: boolean; comment: string }) =>
+    request<ConversationDto>(`/v1/conversations/${encodeURIComponent(id)}/review`, { method: "POST", body }),
+  publicUser: (login: string) => request<PublicUserDto>(`/v1/users/${encodeURIComponent(login)}`, { auth: false }),
+
+  // ── Уведомления и жалобы ────────────────────────────────────────────────
+  updates: (after?: number) => request<UpdatesDto>(`/v1/me/updates${qs({ after })}`),
+  notifications: () => request<{ items: NotificationDto[] }>("/v1/me/notifications"),
+  readNotifications: (ids?: number[]) =>
+    request<void>("/v1/me/notifications/read", { method: "POST", body: ids ? { ids } : {} }),
+  report: (body: { targetType: ReportTarget; targetId: string; reason: ReportReason; comment: string }) =>
+    request<{ id: string }>("/v1/reports", { method: "POST", body }),
 };
 
 /** Полный адрес файла с сервера (фото, иконки). */
@@ -330,4 +384,24 @@ export const adminApi = {
   deleteAttribute: (id: number) => request<void>(`/v1/admin/attributes/${id}`, { method: "DELETE" }),
 
   audit: (params: { page?: number; action?: string }) => request<Paged<AuditEntryDto>>(`/v1/admin/audit${qs(params)}`),
+
+  // ── Модерация ───────────────────────────────────────────────────────────
+  moderationSummary: () => request<ModerationSummaryDto>("/v1/admin/moderation/summary"),
+  moderationListings: () => request<{ items: ModerationListingDto[] }>("/v1/admin/moderation/listings"),
+  approveListing: (id: string) =>
+    request<{ ok: true }>(`/v1/admin/moderation/listings/${encodeURIComponent(id)}/approve`, { method: "POST" }),
+  rejectListing: (id: string, reason: string) =>
+    request<{ ok: true }>(`/v1/admin/moderation/listings/${encodeURIComponent(id)}/reject`, { method: "POST", body: { reason } }),
+  reports: (status: "open" | "resolved" | "dismissed" = "open") => request<{ items: ReportDto[] }>(`/v1/admin/reports${qs({ status })}`),
+  resolveReport: (id: string, status: "resolved" | "dismissed", resolution: string) =>
+    request<{ ok: true }>(`/v1/admin/reports/${encodeURIComponent(id)}/resolve`, { method: "POST", body: { status, resolution } }),
+  flaggedMessages: () => request<{ items: FlaggedMessageDto[] }>("/v1/admin/messages/flagged"),
+  hideMessage: (id: string) => request<{ ok: true }>(`/v1/admin/messages/${encodeURIComponent(id)}/hide`, { method: "POST" }),
+  clearMessage: (id: string) => request<{ ok: true }>(`/v1/admin/messages/${encodeURIComponent(id)}/clear`, { method: "POST" }),
+  hideReview: (id: string) => request<{ ok: true }>(`/v1/admin/reviews/${encodeURIComponent(id)}/hide`, { method: "POST" }),
+  conversation: (id: string) => request<ModeratorConversationDto>(`/v1/admin/conversations/${encodeURIComponent(id)}`),
+  stopWords: () => request<{ items: StopWordDto[] }>("/v1/admin/stop-words"),
+  createStopWord: (body: { phrase: string; isRegex: boolean; note: string | null }) =>
+    request<StopWordDto>("/v1/admin/stop-words", { method: "POST", body }),
+  deleteStopWord: (id: number) => request<void>(`/v1/admin/stop-words/${id}`, { method: "DELETE" }),
 };

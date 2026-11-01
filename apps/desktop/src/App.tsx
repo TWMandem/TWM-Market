@@ -3,6 +3,11 @@ import { Layout } from "./components/Layout";
 import { RequireAuth } from "./components/RequireAuth";
 import { AuthProvider } from "./lib/auth-context";
 import { ServerProvider } from "./lib/server-context";
+import { UpdatesProvider } from "./lib/updates-context";
+import { ChatsPage } from "./pages/chat/ChatsPage";
+import { UserPage } from "./pages/user/UserPage";
+import { ModerationPage } from "./pages/admin/ModerationPage";
+import { StopWordsPage } from "./pages/admin/StopWordsPage";
 import { HomePage } from "./pages/HomePage";
 import { CatalogPage } from "./pages/catalog/CatalogPage";
 import { ListingPage } from "./pages/listing/ListingPage";
@@ -69,6 +74,23 @@ const router = createHashRouter([
           </RequireAuth>
         ),
       },
+      {
+        path: "chats",
+        element: (
+          <RequireAuth>
+            <ChatsPage />
+          </RequireAuth>
+        ),
+      },
+      {
+        path: "chats/:id",
+        element: (
+          <RequireAuth>
+            <ChatsPage />
+          </RequireAuth>
+        ),
+      },
+      { path: "user/:login", element: <UserPage /> },
       { path: "login", element: <LoginPage /> },
       { path: "register", element: <RegisterPage /> },
       { path: "forgot-password", element: <ForgotPasswordPage /> },
@@ -104,6 +126,8 @@ const router = createHashRouter([
           { path: "categories", element: <CategoriesPage /> },
           { path: "fields", element: <FieldsPage /> },
           { path: "audit", element: <AuditPage /> },
+          { path: "moderation", element: <ModerationPage /> },
+          { path: "stop-words", element: <StopWordsPage /> },
         ],
       },
       { path: "*", element: <NotFoundPage /> },
@@ -115,7 +139,9 @@ export function App() {
   return (
     <ServerProvider>
       <AuthProvider>
-        <RouterProvider router={router} />
+        <UpdatesProvider>
+          <RouterProvider router={router} />
+        </UpdatesProvider>
       </AuthProvider>
     </ServerProvider>
   );

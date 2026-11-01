@@ -90,6 +90,9 @@ export function MyListingsPage() {
                   </span>
                   {exp.text && <span className={exp.soon ? "font-bold text-accent-soft" : ""}>{exp.text}</span>}
                   {item.rejectionReason && <span className="text-[#ffb4b4]">Причина: {item.rejectionReason}</span>}
+                  {item.status === "moderation" && (
+                    <span className="text-[#e8d3a6]">На проверке{item.moderationReason ? `: ${item.moderationReason}` : ""}</span>
+                  )}
                 </span>
               </div>
               <div className="flex gap-5 text-[13px] text-muted">
@@ -114,7 +117,7 @@ export function MyListingsPage() {
                     </Button>
                   </>
                 )}
-                {["draft", "withdrawn", "archived"].includes(item.status) && (
+                {["draft", "withdrawn", "archived", "rejected"].includes(item.status) && (
                   <Button loading={busy === key("publish")} onClick={() => void run(key("publish"), () => api.listingAction(item.id, "publish"))}>
                     {item.status === "draft" ? "Опубликовать" : "Опубликовать снова"}
                   </Button>

@@ -305,7 +305,7 @@ export function ListingFormPage() {
       }
       setImages(images.map((i) => (i.kind === "local" && keyToId.has(i.key) ? { key: i.key, kind: "server", id: keyToId.get(i.key)!, url: i.url } : i)));
 
-      if (publish && ["draft", "withdrawn", "archived"].includes(saved.status)) {
+      if (publish && ["draft", "withdrawn", "archived", "rejected"].includes(saved.status)) {
         saved = await api.listingAction(saved.id, "publish");
       }
       navigate(publish || saved.status === "active" ? `/listing/${saved.id}` : "/my/listings", { replace: true });
@@ -339,7 +339,7 @@ export function ListingFormPage() {
 
   const isEdit = Boolean(loaded);
   const parsedPrice = priceText.trim() ? parsePrice(priceText) : null;
-  const canPublish = !loaded || ["draft", "withdrawn", "archived"].includes(loaded.status);
+  const canPublish = !loaded || ["draft", "withdrawn", "archived", "rejected"].includes(loaded.status);
 
   return (
     <div className="flex flex-col gap-5">

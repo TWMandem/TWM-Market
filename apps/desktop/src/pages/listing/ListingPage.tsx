@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "re
 import { Link, useNavigate, useParams } from "react-router";
 import {
   DEAL_PLACE_LABELS,
+  LISTING_STATUS_LABELS,
   SURCHARGE_DIRECTION_LABELS,
   TRANSFER_MODE_LABELS,
   formatAttributeValue,
@@ -13,8 +14,9 @@ import {
 } from "@twm/shared";
 import { Icon } from "../../components/Icon";
 import { Media, OperationBadge, ServerDot, priceText } from "../../components/listing";
+import { ReportDialog } from "../../components/ReportDialog";
 import { Alert, Button, Card } from "../../components/ui";
-import { api, mediaSrc } from "../../lib/api";
+import { ApiError, api, mediaSrc } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
 import { useLoad } from "../../lib/use-load";
 
@@ -64,8 +66,10 @@ export function ListingPage() {
 
       {listing.status !== "active" && (
         <Alert tone="warning">
-          Объявление не опубликовано (статус: {listing.status}). Его видите только вы
-          {listing.isOwner ? "" : " и модераторы"}.
+          {listing.status === "moderation"
+            ? "Объявление на проверке у модератора — пока его видите только вы."
+            : `Объявление не опубликовано (${LISTING_STATUS_LABELS[listing.status].toLowerCase()}). Его видите только вы${listing.isOwner ? "" : " и модераторы"}.`}
+          {listing.moderationReason ? ` Причина проверки: ${listing.moderationReason}.` : ""}
           {listing.rejectionReason ? ` Причина отклонения: ${listing.rejectionReason}` : ""}
         </Alert>
       )}
@@ -339,6 +343,26 @@ function PriceCard({ listing, onChange }: { listing: ListingDetailDto; onChange:
   const { status } = useAuth();
   const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
+  const [writing, setWriting] = useState(false);
+  const [writeError, setWriteError] = useState<string | null>(null);
+  const [reporting, setReporting] = useState(false);
+
+  const writeSeller = async () => {
+    if (status !== "authed") {
+      navigate("/login", { state: { from: `/listing/${listing.id}` } });
+      return;
+    }
+    setWriting(true);
+    setWriteError(null);
+    try {
+      const conversation = await api.startConversation(listing.id);
+      navigate(`/chats/${conversation.id}`);
+    } catch (e) {
+      setWriteError(e instanceof ApiError ? e.message : "Не удалось открыть переписку");
+    } finally {
+      setWriting(false);
+    }
+  };
 
   const toggleFavorite = async () => {
     if (status !== "authed") {
@@ -398,13 +422,21 @@ function PriceCard({ listing, onChange }: { listing: ListingDetailDto; onChange:
         </Link>
       ) : (
         <>
-          <Button size="lg" disabled title="Чат появится в следующем обновлении">
-            Написать продавцу — скоро
+          <Button size="lg" loading={writing} onClick={() => void writeSeller()}>
+            <Icon name="chat" size={18} />
+            {listing.operation === "buy" ? "Написать покупателю" : "Написать продавцу"}
           </Button>
+          {writeError && <span className="text-[13px] text-danger">{writeError}</span>}
           <Button variant="secondary" loading={busy} onClick={() => void toggleFavorite()}>
             <Icon name="heart" size={18} fill={listing.favorite ? "currentColor" : "none"} />
             {listing.favorite ? "В избранном" : "В избранное"}
           </Button>
+          {status === "authed" && (
+            <button type="button" onClick={() => setReporting(true)} className="self-center text-[13px] text-faint hover:text-danger">
+              Пожаловаться на объявление
+            </button>
+          )}
+          {reporting && <ReportDialog targetType="listing" targetId={listing.id} onClose={() => setReporting(false)} />}
         </>
       )}
     </Card>
@@ -429,12 +461,24 @@ function SellerCard({ listing }: { listing: ListingDetailDto }) {
           {seller.login.slice(0, 2)}
         </span>
         <div className="flex flex-col gap-0.5">
-          <span className="text-base font-extrabold">{seller.login}</span>
+          <Link to={`/user/${encodeURIComponent(seller.login)}`} className="text-base font-extrabold text-ink hover:text-accent">
+            {seller.login}
+          </Link>
           <span className="text-[13px] text-muted">
             На площадке {memberFor(seller.memberSince)} · активных объявлений: {seller.activeListings}
           </span>
         </div>
       </div>
+      <Link
+        to={`/user/${encodeURIComponent(seller.login)}`}
+        className="flex items-center gap-3 rounded-xl bg-surface-2 px-3.5 py-2.5 text-sm text-ink-2 no-underline hover:text-ink"
+      >
+        <span className="font-mono font-bold text-[#9eebc0]">👍 {seller.reviews.positive}</span>
+        <span className="font-mono font-bold text-[#ffc4c4]">👎 {seller.reviews.negative}</span>
+        <span className="ml-auto">
+          {seller.reviews.positive + seller.reviews.negative > 0 ? "Все отзывы →" : "Отзывов пока нет"}
+        </span>
+      </Link>
       <div className="flex flex-col gap-1 rounded-xl border border-dashed border-[#3a404c] px-3.5 py-3">
         <span className="text-xs text-muted">Ник в игре · {seller.nicknameVerified ? "подтверждён" : "указан продавцом"}</span>
         <span className="select-all font-mono font-bold">{seller.nickname}</span>
