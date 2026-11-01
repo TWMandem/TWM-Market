@@ -1,0 +1,110 @@
+# Сборка сервера для VPS: скомпилированный код, зависимости и Node.js
+# в одном архиве. Публикуется в релиз server-latest, откуда его берут
+# install.sh и команда «twm update» на сервере.
+name: Server bundle
+
+on:
+  push:
+    # На ветках server-* пакет только собирается и проверяется, публикуется — из main.
+    branches: [main, "server-*"]
+    paths:
+      - "apps/api/**"
+      - "packages/shared/**"
+      - "deploy/**"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/server.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: server-bundle
+  cancel-in-progress: false
+
+jobs:
+  bundle:
+    name: Сборка и проверка пакета сервера
+    # Ubuntu 22.04: сборка запускается на Ubuntu 22.04/24.04 и Debian 12.
+    runs-on: ubuntu-22.04
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: twm
+          POSTGRES_PASSWORD: twm
+          POSTGRES_DB: twm
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U twm"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Установка зависимостей
+        run: pnpm install --frozen-lockfile
+
+      - name: Сборка
+        run: |
+          pnpm --filter @twm/shared build
+          pnpm --filter @twm/api build
+
+      - name: Упаковка
+        run: |
+          set -euo pipefail
+          out=bundle/twm-server
+          pnpm --filter @twm/api deploy --prod --legacy "$out/app"
+          mkdir -p "$out/bin" "$out/deploy"
+          cp "$(command -v node)" "$out/bin/node"
+          cp deploy/install.sh deploy/twm.sh deploy/twm-api.service deploy/nginx.conf "$out/deploy/"
+          chmod 755 "$out/deploy/install.sh" "$out/deploy/twm.sh"
+          version="$(node -p "require('./apps/api/package.json').version")-$(git rev-parse --short HEAD)"
+          echo "$version" > "$out/VERSION"
+          test -f "$out/app/dist/index.js"
+          test -f "$out/app/migrations/0001_init.sql"
+          tar -czf twm-server-linux-x64.tar.gz -C bundle twm-server
+          sha256sum twm-server-linux-x64.tar.gz > twm-server-linux-x64.tar.gz.sha256
+          du -sh twm-server-linux-x64.tar.gz
+          echo "Версия: $version"
+
+      - name: Проверка запуска с настоящей базой
+        env:
+          NODE_ENV: production
+          HOST: 127.0.0.1
+          PORT: "3000"
+          DATABASE_URL: postgres://twm:twm@localhost:5432/twm
+          JWT_SECRET: ci-only-secret-0123456789abcdef0123456789abcdef
+          CODE_SECRET: ci-only-secret-fedcba9876543210fedcba9876543210
+          UPLOAD_DIR: /tmp/twm-uploads
+        run: |
+          set -euo pipefail
+          cd bundle/twm-server/app
+          ../bin/node dist/index.js > /tmp/server.log 2>&1 &
+          for _ in $(seq 1 30); do curl -fsS http://127.0.0.1:3000/health && break; sleep 1; done
+          curl -fsS http://127.0.0.1:3000/health
+          echo
+          curl -fsS http://127.0.0.1:3000/v1/catalog | head -c 300
+          echo
+          kill %1 || true
+          cat /tmp/server.log | tail -n 20
+
+      - name: Публикация в релиз server-latest
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! gh release view server-latest >/dev/null 2>&1; then
+            gh release create server-latest --prerelease --title "Сервер TWM Market (последняя сборка)" \
+              --notes "Сборка сервера для VPS. Установка и обновление описаны в deploy/README.md. Файлы обновляются автоматически при каждом изменении сервера в main."
+          fi
+          gh release upload server-latest twm-server-linux-x64.tar.gz twm-server-linux-x64.tar.gz.sha256 deploy/install.sh --clobber

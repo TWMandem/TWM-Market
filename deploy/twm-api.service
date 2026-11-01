@@ -1,0 +1,30 @@
+[Unit]
+Description=TWM Market API
+After=network-online.target postgresql.service
+Wants=network-online.target
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User=twm
+Group=twm
+EnvironmentFile=/etc/twm/twm.env
+WorkingDirectory=/opt/twm/current/app
+ExecStart=/opt/twm/current/bin/node dist/index.js
+Restart=always
+RestartSec=3
+# Ограничения: сервер может писать только в папку загрузок.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+ReadWritePaths=/var/lib/twm
+UMask=0022
+
+[Install]
+WantedBy=multi-user.target

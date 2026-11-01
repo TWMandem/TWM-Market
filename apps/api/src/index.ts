@@ -2,6 +2,7 @@ import { buildApp } from "./app.js";
 import { loadConfig } from "./config.js";
 import { createDatabase } from "./db/client.js";
 import { migrate } from "./db/migrate.js";
+import { SmtpMailer } from "./mail/mailer.js";
 import { archiveExpired } from "./modules/listings/service.js";
 
 const config = loadConfig();
@@ -14,7 +15,30 @@ const database = createDatabase(config.DATABASE_URL);
 // Новые миграции применяются при каждом запуске сервера.
 await migrate(database.sql, (message) => console.log(message));
 
-const app = await buildApp({ config, sql: database.sql });
+// Почта: SMTP на сервере, вывод в журнал при разработке.
+let mailer: SmtpMailer | undefined;
+if (config.MAIL_TRANSPORT === "smtp") {
+  mailer = new SmtpMailer(
+    {
+      host: config.SMTP_HOST!,
+      port: config.SMTP_PORT,
+      secure: config.SMTP_SECURE,
+      user: config.SMTP_USER!,
+      pass: config.SMTP_PASS!,
+      from: config.MAIL_FROM ?? `TWM Market <${config.SMTP_USER}>`,
+    },
+    console,
+  );
+  try {
+    await mailer.verify();
+    console.log(`Почта: подключение к ${config.SMTP_HOST} в порядке`);
+  } catch (error) {
+    // Сервер всё равно запускается: без почты работает всё, кроме писем с кодами.
+    console.error(`Почта: не удалось подключиться к ${config.SMTP_HOST}:`, error);
+  }
+}
+
+const app = await buildApp({ config, sql: database.sql, ...(mailer ? { mailer } : {}) });
 
 // Каждые 10 минут объявления с истёкшим сроком уходят в архив.
 const archiveTimer = setInterval(() => {

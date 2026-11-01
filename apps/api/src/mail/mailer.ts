@@ -1,4 +1,6 @@
 import type { FastifyBaseLogger } from "fastify";
+import nodemailer, { type Transporter } from "nodemailer";
+import { AppError } from "../lib/errors.js";
 
 export interface MailMessage {
   to: string;
@@ -19,6 +21,49 @@ export class ConsoleMailer implements Mailer {
 
   async send(message: MailMessage): Promise<void> {
     this.log.info({ mail: message }, `Письмо для ${message.to}: ${message.subject}`);
+  }
+}
+
+export interface SmtpOptions {
+  host: string;
+  port: number;
+  secure: boolean;
+  user: string;
+  pass: string;
+  from: string;
+}
+
+/** Настоящая отправка через SMTP (например, почту Яндекса с паролем приложения). */
+export class SmtpMailer implements Mailer {
+  private readonly transport: Transporter;
+
+  constructor(
+    private readonly options: SmtpOptions,
+    private readonly log: Pick<FastifyBaseLogger, "error">,
+  ) {
+    this.transport = nodemailer.createTransport({
+      host: options.host,
+      port: options.port,
+      secure: options.secure,
+      auth: { user: options.user, pass: options.pass },
+      connectionTimeout: 15_000,
+      greetingTimeout: 15_000,
+      socketTimeout: 30_000,
+    });
+  }
+
+  async send(message: MailMessage): Promise<void> {
+    try {
+      await this.transport.sendMail({ from: this.options.from, to: message.to, subject: message.subject, text: message.text });
+    } catch (error) {
+      this.log.error({ err: error, to: message.to }, "Не удалось отправить письмо");
+      throw new AppError(503, "mail_unavailable", "Не удалось отправить письмо. Попробуйте ещё раз через минуту.");
+    }
+  }
+
+  /** Проверка подключения при запуске сервера: ошибка в настройках видна сразу. */
+  async verify(): Promise<void> {
+    await this.transport.verify();
   }
 }
 

@@ -37,6 +37,8 @@ jobs:
         run: pnpm test
 
       - name: Сборка .exe
+        env:
+          VITE_API_URL: ${{ vars.API_URL }}
         run: pnpm --filter @twm/desktop tauri build
 
       - name: Контрольные суммы

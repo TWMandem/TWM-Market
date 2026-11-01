@@ -122,6 +122,10 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Сборка .exe
+        # Адрес сервера вшивается в приложение. Задаётся в настройках репозитория:
+        # Settings → Secrets and variables → Actions → Variables → API_URL.
+        env:
+          VITE_API_URL: ${{ vars.API_URL }}
         run: pnpm --filter @twm/desktop tauri build
 
       - name: Сохранить установщик

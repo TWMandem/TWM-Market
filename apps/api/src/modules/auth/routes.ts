@@ -67,7 +67,10 @@ export async function authRoutes(app: FastifyInstance, ctx: AppContext): Promise
     if (!user) throw new Error("Пользователь не создан");
 
     const code = await issueCode(ctx, user.id, "verify_email");
-    await ctx.mailer.send({ to: user.email, ...mailTemplates.verifyEmail(user.login, code) });
+    // Если почта временно не отправляется, аккаунт всё равно создан: код можно запросить повторно.
+    await ctx.mailer
+      .send({ to: user.email, ...mailTemplates.verifyEmail(user.login, code) })
+      .catch((error: unknown) => request.log.error(error, "Письмо с кодом подтверждения не отправлено"));
 
     reply.code(201);
     return createSession(ctx, user, request);
@@ -188,7 +191,10 @@ export async function authRoutes(app: FastifyInstance, ctx: AppContext): Promise
     const [user] = await ctx.sql<UserRow[]>`SELECT * FROM users WHERE lower(email) = lower(${email})`;
     if (user && user.status === "active" && (await secondsUntilResend(ctx, user.id, "reset_password")) === 0) {
       const code = await issueCode(ctx, user.id, "reset_password");
-      await ctx.mailer.send({ to: user.email, ...mailTemplates.resetPassword(user.login, code) });
+      // Ошибку отправки не показываем: ответ должен быть одинаковым для любого email.
+      await ctx.mailer
+        .send({ to: user.email, ...mailTemplates.resetPassword(user.login, code) })
+        .catch((error: unknown) => request.log.error(error, "Письмо для сброса пароля не отправлено"));
     }
     reply.code(202);
     return { message: "Если такой email зарегистрирован, мы отправили на него код." };
