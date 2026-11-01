@@ -74,7 +74,7 @@ export async function catalogRoutes(app: FastifyInstance, ctx: AppContext): Prom
       WHERE i.is_active AND c.is_active
         ${q.categoryId ? sql`AND (i.category_id = ${q.categoryId} OR c.parent_id = ${q.categoryId})` : sql``}
         ${q.section ? sql`AND s.code = ${q.section}` : sql``}
-        ${like ? sql`AND (lower(i.name) LIKE ${like} OR i.game_code = ${q.q} OR EXISTS (SELECT 1 FROM unnest(i.aliases) a WHERE lower(a) LIKE ${like}))` : sql``}
+        ${like ? sql`AND (lower(i.name) LIKE ${like} OR i.game_code = ${q.q ?? ""} OR EXISTS (SELECT 1 FROM unnest(i.aliases) a WHERE lower(a) LIKE ${like}))` : sql``}
       ORDER BY c.sort_order, i.sort_order, i.name
       LIMIT 1000`;
     return {
