@@ -34,6 +34,9 @@ describe("объявления", { skip: skipWithoutDb }, () => {
   let secondItemId: number;
   let clothesItemId: number;
   let carModelId: number;
+  let admin: AuthResponseDto;
+  let accessoriesId: number;
+  let carsCategoryId: number;
   let vehicleTypeId: number;
   let houseTypeId: number;
 
@@ -47,17 +50,19 @@ describe("объявления", { skip: skipWithoutDb }, () => {
 
   before(async () => {
     env = await setupTestEnv();
-    const admin = await createStaff(env, "admin");
+    admin = await createStaff(env, "admin");
     types = ((await call("GET", "/v1/admin/listing-types", admin.accessToken)).json() as { items: ListingTypeDto[] }).items;
     vehicleTypeId = types.find((t) => t.code === "vehicle")!.id;
     houseTypeId = types.find((t) => t.code === "house")!.id;
 
     const category = (await call("POST", "/v1/admin/categories", admin.accessToken, { sectionCode: "items", name: "Аксессуары" })).json() as { id: number };
+    accessoriesId = category.id;
     itemId = ((await call("POST", "/v1/admin/catalog-items", admin.accessToken, { categoryId: category.id, name: "Наручные часы", aliases: ["часики"] })).json() as { id: number }).id;
     secondItemId = ((await call("POST", "/v1/admin/catalog-items", admin.accessToken, { categoryId: category.id, name: "Наручные часы" })).json() as { id: number }).id;
     const clothes = (await call("POST", "/v1/admin/categories", admin.accessToken, { sectionCode: "items", name: "Одежда" })).json() as { id: number };
     clothesItemId = ((await call("POST", "/v1/admin/catalog-items", admin.accessToken, { categoryId: clothes.id, name: "Кожаная куртка" })).json() as { id: number }).id;
     const cars = (await call("POST", "/v1/admin/categories", admin.accessToken, { sectionCode: "cars", name: "Легковые" })).json() as { id: number };
+    carsCategoryId = cars.id;
     carModelId = ((await call("POST", "/v1/admin/catalog-items", admin.accessToken, { categoryId: cars.id, name: "BMW M5 F90", aliases: ["БМВ M5 F90"] })).json() as { id: number }).id;
 
     // Улучшение — у аксессуаров и одежды, целостность (шаг 5 для проверки) — только у одежды.
@@ -125,6 +130,10 @@ describe("объявления", { skip: skipWithoutDb }, () => {
     ...overrides,
   });
 
+  /** Новая позиция справочника: одинаковое активное объявление дважды не публикуется. */
+  const newCatalogItem = async (categoryId: number, name: string) =>
+    ((await call("POST", "/v1/admin/catalog-items", admin.accessToken, { categoryId, name })).json() as { id: number }).id;
+
   const createAndPublish = async (body: Record<string, unknown>, token = seller.accessToken) => {
     const created = await call("POST", "/v1/listings", token, body);
     assert.equal(created.statusCode, 201, created.body);
@@ -186,7 +195,7 @@ describe("объявления", { skip: skipWithoutDb }, () => {
       gameProfileId: sellerProfile.id,
       listingTypeId: vehicleTypeId,
       operation: "sell",
-      catalogItemId: carModelId,
+      catalogItemId: await newCatalogItem(carsCategoryId, "Lada Priora"),
       title: "Седан Тест",
       price: 18_200_000,
       dealPlaces: ["car_market", "notary", "car_market"],
@@ -204,7 +213,12 @@ describe("объявления", { skip: skipWithoutDb }, () => {
     assert.equal(fast.attributes[0]?.label, "Максимальная скорость");
     assert.equal(fast.attributes[0]?.unit, "км/ч");
 
-    await createAndPublish({ ...base, title: "Медленный седан", attributes: { max_speed: 120 } });
+    await createAndPublish({
+      ...base,
+      catalogItemId: await newCatalogItem(carsCategoryId, "Lada Granta"),
+      title: "Медленный седан",
+      attributes: { max_speed: 120 },
+    });
 
     const filtered = (await call("GET", `/v1/listings?type=${vehicleTypeId}&a.max_speed.min=200`)).json() as ListingSearchResultDto;
     assert.deepEqual(filtered.items.map((i) => i.title), ["Седан Тест"]);
@@ -230,11 +244,15 @@ describe("объявления", { skip: skipWithoutDb }, () => {
     assert.equal((created.json() as MyListingDto).title, "BMW M5 F90");
 
     const models = (await call("GET", "/v1/catalog/items?section=cars")).json() as { items: Array<{ name: string }> };
-    assert.deepEqual(models.items.map((i) => i.name), ["BMW M5 F90"]);
+    const names = models.items.map((i) => i.name);
+    assert.ok(names.includes("BMW M5 F90"));
+    assert.ok(!names.includes("Наручные часы"), "только модели авторынка");
   });
 
   test("поля по категориям и шаг значения", async () => {
-    const watch = await createAndPublish(itemListing({ attributes: { upgrade: 12, integrity: 50 } }));
+    const watch = await createAndPublish(
+      itemListing({ catalogItemId: await newCatalogItem(accessoriesId, "Белая борода"), attributes: { upgrade: 12, integrity: 50 } }),
+    );
     assert.deepEqual(watch.rawAttributes, { upgrade: 12 }, "у аксессуара нет целостности — поле отброшено");
     assert.equal(watch.attributes[0]?.unit, "X{}");
 
@@ -337,7 +355,7 @@ describe("объявления", { skip: skipWithoutDb }, () => {
       gameProfileId: sellerProfile.id,
       listingTypeId: vehicleTypeId,
       operation: "sell",
-      catalogItemId: carModelId,
+      catalogItemId: await newCatalogItem(carsCategoryId, "Купе с фото"),
       title: "Купе с фото",
       price: 21_000_000,
       attributes: { max_speed: 300 },
@@ -410,7 +428,7 @@ describe("объявления", { skip: skipWithoutDb }, () => {
       gameProfileId: sellerProfile.id,
       listingTypeId: vehicleTypeId,
       operation: "sell",
-      catalogItemId: carModelId,
+      catalogItemId: await newCatalogItem(carsCategoryId, "Машина для избранного"),
       title: "Машина для избранного",
       price: 5_000_000,
       attributes: { max_speed: 180 },
@@ -438,7 +456,7 @@ describe("объявления", { skip: skipWithoutDb }, () => {
       gameProfileId: sellerProfile.id,
       listingTypeId: vehicleTypeId,
       operation: "sell",
-      catalogItemId: carModelId,
+      catalogItemId: await newCatalogItem(carsCategoryId, "Скоро в архив"),
       title: "Скоро в архив",
       price: 7_000_000,
       attributes: { max_speed: 150 },
