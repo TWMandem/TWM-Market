@@ -1,0 +1,28 @@
+# Зависимости
+node_modules/
+
+# Сборки
+dist/
+build/
+*.tsbuildinfo
+
+# Tauri / Rust
+apps/desktop/src-tauri/target/
+apps/desktop/src-tauri/gen/schemas/
+
+# Переменные окружения: секреты никогда не попадают в репозиторий
+.env
+.env.*
+!.env.example
+
+# Редакторы и ОС
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+
+# Логи
+*.log
+npm-debug.log*
+pnpm-debug.log*

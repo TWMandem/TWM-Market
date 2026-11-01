@@ -1,0 +1,80 @@
+@import "tailwindcss";
+
+/*
+ * Дизайн-система TWM Market: «вечерняя биржа».
+ * Все цвета и шрифты задаются здесь токенами и используются через классы
+ * Tailwind (bg-surface, text-muted, font-display, …). Менять оформление
+ * нужно в этом файле, а не в компонентах.
+ */
+@theme {
+  --color-ground: #0e1014;
+  --color-ground-2: #12151b;
+  --color-surface: #161920;
+  --color-surface-2: #1d212a;
+  --color-line: #2a2f3a;
+  --color-line-soft: #232833;
+
+  --color-ink: #eceef2;
+  --color-ink-2: #c9ced8;
+  --color-muted: #a0a7b4;
+  --color-faint: #8b93a1;
+
+  --color-accent: #ffb224;
+  --color-accent-soft: #ffc75a;
+  --color-on-accent: #1a1200;
+
+  --color-buy: #8ec5ff;
+  --color-exchange: #c9b6ff;
+  --color-success: #7be3a8;
+  --color-danger: #ff9a9a;
+
+  --font-sans: "Manrope Variable", "Segoe UI", system-ui, sans-serif;
+  --font-display: "Unbounded Variable", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", "Cascadia Mono", Consolas, monospace;
+
+  --radius-card: 20px;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    background: var(--color-ground);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: rgb(255 178 36 / 0.35);
+  }
+
+  /* Цены и числа выравниваются по разрядам. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+/* Полоски-заглушки на месте фото и скриншотов. */
+@utility placeholder-stripes {
+  background: repeating-linear-gradient(135deg, #1b1f27 0 12px, #181b22 12px 24px);
+}
