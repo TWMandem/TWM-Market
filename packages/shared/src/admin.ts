@@ -114,7 +114,7 @@ const gameCodeSchema = z
  * в приложении показываются с иконкой.
  */
 const contentsSchema = z
-  .array(z.string().trim().min(1).max(120, "Строка — до 120 символов"))
+  .array(z.string().trim().max(120, "Строка — до 120 символов"))
   .max(200, "Не больше 200 строк")
   .transform((list) => list.map((l) => l.trim()).filter(Boolean));
 
