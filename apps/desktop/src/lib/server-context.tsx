@@ -12,7 +12,7 @@ interface ServerContextValue {
 
 const ServerContext = createContext<ServerContextValue | null>(null);
 
-const FALLBACK: GameServer[] = DEFAULT_SERVERS.map((s) => ({ ...s, isActive: true }));
+const FALLBACK: GameServer[] = DEFAULT_SERVERS.map((s) => ({ ...s, isActive: true, transferOpen: true }));
 const STORAGE_KEY = "server";
 
 /**

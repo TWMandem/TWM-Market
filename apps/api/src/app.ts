@@ -1,33 +1,63 @@
 import Fastify, { type FastifyInstance } from "fastify";
 import cors from "@fastify/cors";
-import { DEFAULT_SERVERS } from "@twm/shared";
+import rateLimit from "@fastify/rate-limit";
 import type { Config } from "./config.js";
+import type { AppContext } from "./context.js";
+import type { Sql } from "./db/client.js";
+import { registerErrorHandler } from "./lib/errors.js";
+import { ConsoleMailer, type Mailer } from "./mail/mailer.js";
+import { authRoutes } from "./modules/auth/routes.js";
+import { gameProfileRoutes } from "./modules/game-profiles/routes.js";
+import { meRoutes } from "./modules/me/routes.js";
+import { serverRoutes } from "./modules/servers/routes.js";
 
-export const API_VERSION = "0.1.0";
+export const API_VERSION = "0.2.0";
+
+export interface BuildOptions {
+  config: Config;
+  sql: Sql;
+  mailer?: Mailer;
+}
 
 /**
  * Собирает приложение Fastify без запуска сетевого порта.
  * Так его удобно проверять в тестах через app.inject().
  */
-export async function buildApp(config: Config): Promise<FastifyInstance> {
+export async function buildApp({ config, sql, mailer }: BuildOptions): Promise<FastifyInstance> {
   const app = Fastify({
     logger:
       config.NODE_ENV === "test"
         ? false
         : {
             level: config.NODE_ENV === "production" ? "info" : "debug",
-            // Заголовки авторизации и cookie никогда не пишутся в логи.
-            redact: ["req.headers.authorization", "req.headers.cookie"],
+            // Заголовки авторизации, пароли и токены никогда не пишутся в журнал.
+            redact: [
+              "req.headers.authorization",
+              "req.headers.cookie",
+              "req.body.password",
+              "req.body.refreshToken",
+            ],
           },
+    trustProxy: config.TRUST_PROXY,
     // Ограничение размера тела запроса. Скриншоты будут загружаться
-    // отдельным маршрутом со своим лимитом.
-    bodyLimit: 1024 * 1024,
+    // отдельным маршрутом со своим лимитом (шаг 4).
+    bodyLimit: 64 * 1024,
   });
+
+  const ctx: AppContext = { config, sql, mailer: mailer ?? new ConsoleMailer(app.log) };
+
+  registerErrorHandler(app);
 
   await app.register(cors, {
     origin: config.CORS_ORIGINS,
     credentials: false,
+    methods: ["GET", "POST", "PATCH", "DELETE"],
   });
+
+  if (config.RATE_LIMIT) {
+    // Лимиты задаются у отдельных маршрутов (вход, регистрация, коды).
+    await app.register(rateLimit, { global: false });
+  }
 
   app.get("/health", async () => ({
     status: "ok" as const,
@@ -35,15 +65,10 @@ export async function buildApp(config: Config): Promise<FastifyInstance> {
     time: new Date().toISOString(),
   }));
 
-  // Временный маршрут: пока справочник серверов не перенесён в базу данных
-  // (шаг 3), приложение получает список отсюда.
-  app.get("/v1/servers", async () => ({
-    items: DEFAULT_SERVERS.map((server) => ({ ...server, isActive: true })),
-  }));
-
-  app.setNotFoundHandler((request, reply) => {
-    reply.code(404).send({ error: "not_found", message: `Маршрут ${request.method} ${request.url} не найден` });
-  });
+  await authRoutes(app, ctx);
+  await meRoutes(app, ctx);
+  await gameProfileRoutes(app, ctx);
+  await serverRoutes(app, ctx);
 
   return app;
 }

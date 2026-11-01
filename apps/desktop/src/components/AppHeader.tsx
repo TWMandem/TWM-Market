@@ -1,4 +1,5 @@
-import { NavLink } from "react-router";
+import { Link, NavLink, useNavigate } from "react-router";
+import { useAuth } from "../lib/auth-context";
 import { Icon } from "./Icon";
 import { ServerSwitcher } from "./ServerSwitcher";
 
@@ -9,6 +10,9 @@ const NAV = [
 ];
 
 export function AppHeader() {
+  const { status, user } = useAuth();
+  const navigate = useNavigate();
+
   return (
     <header className="border-b border-line-soft bg-ground">
       <div className="mx-auto flex max-w-[1280px] flex-wrap items-center gap-4 px-6 py-3">
@@ -53,14 +57,32 @@ export function AppHeader() {
 
         <ServerSwitcher />
 
-        <div className="flex gap-1">
-          <HeaderIconButton icon="heart" label="Избранное" />
-          <HeaderIconButton icon="chat" label="Сообщения" />
-          <HeaderIconButton icon="bell" label="Уведомления" />
-        </div>
+        {status === "authed" && user ? (
+          <Link
+            to="/account"
+            aria-label={`Личный кабинет: ${user.login}`}
+            className="flex h-11 items-center gap-2.5 rounded-xl px-2 text-ink no-underline hover:bg-surface-2"
+          >
+            <span
+              aria-hidden="true"
+              className="flex size-8 items-center justify-center rounded-full bg-line text-xs font-extrabold uppercase"
+            >
+              {user.login.slice(0, 2)}
+            </span>
+            <span className="max-w-[140px] truncate text-[15px] font-bold">{user.login}</span>
+          </Link>
+        ) : (
+          <Link
+            to="/login"
+            className="flex h-11 items-center rounded-xl border border-line px-4 font-bold text-ink no-underline hover:border-faint"
+          >
+            Войти
+          </Link>
+        )}
 
         <button
           type="button"
+          onClick={() => navigate(status === "authed" ? "/account" : "/login")}
           className="flex h-11 items-center gap-2 rounded-xl bg-accent px-4.5 font-extrabold text-on-accent hover:bg-accent-soft"
         >
           <Icon name="plus" size={18} strokeWidth={2.6} />
@@ -68,17 +90,5 @@ export function AppHeader() {
         </button>
       </div>
     </header>
-  );
-}
-
-function HeaderIconButton({ icon, label }: { icon: "heart" | "chat" | "bell"; label: string }) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      className="flex size-11 items-center justify-center rounded-xl text-ink-2 hover:bg-surface-2 hover:text-ink"
-    >
-      <Icon name={icon} />
-    </button>
   );
 }

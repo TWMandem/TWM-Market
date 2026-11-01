@@ -1,10 +1,10 @@
 # Проверки на каждый push и pull request:
-# типы, тесты, сборка интерфейса и тестовая сборка установщика для Windows.
+# типы, тесты (с настоящей базой PostgreSQL), сборка интерфейса
+# и тестовая сборка установщика для Windows.
 name: CI
 
 on:
   push:
-    branches: [main]
   pull_request:
   workflow_dispatch:
 
@@ -16,9 +16,14 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  check:
-    name: Типы, тесты, сборка интерфейса
+  # На рабочих ветках обновляет pnpm-lock.yaml, если поменялись зависимости,
+  # и коммитит его в ту же ветку. В main lock-файл только проверяется.
+  lockfile:
+    name: Lock-файл зависимостей
+    if: github.event_name == 'push' && github.ref != 'refs/heads/main'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -28,8 +33,55 @@ jobs:
         with:
           node-version: 22
 
+      - name: Обновить pnpm-lock.yaml
+        run: pnpm install --lockfile-only --no-frozen-lockfile --ignore-scripts
+
+      - name: Закоммитить, если изменился
+        run: |
+          if [ -n "$(git status --porcelain pnpm-lock.yaml)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add pnpm-lock.yaml
+            git commit -m "Обновить pnpm-lock.yaml"
+            git push
+          fi
+
+  check:
+    name: Типы, тесты, сборка интерфейса
+    needs: lockfile
+    if: ${{ !failure() && !cancelled() }}
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: twm
+          POSTGRES_PASSWORD: twm
+          POSTGRES_DB: twm_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U twm"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://twm:twm@localhost:5432/twm_test
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # На рабочей ветке берём последний коммит, включая свежий lock-файл.
+          ref: ${{ github.event_name == 'push' && github.ref || '' }}
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
       - name: Установка зависимостей
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
 
       - name: Проверка типов
         run: pnpm typecheck
@@ -46,15 +98,19 @@ jobs:
   windows:
     name: Сборка установщика Windows
     needs: check
+    if: ${{ !failure() && !cancelled() }}
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'push' && github.ref || '' }}
 
       - uses: pnpm/action-setup@v4
 
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: pnpm
 
       - uses: dtolnay/rust-toolchain@stable
 
@@ -63,7 +119,7 @@ jobs:
           workspaces: apps/desktop/src-tauri -> target
 
       - name: Установка зависимостей
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
 
       - name: Сборка .exe
         run: pnpm --filter @twm/desktop tauri build
