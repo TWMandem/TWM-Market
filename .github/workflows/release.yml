@@ -31,7 +31,7 @@ jobs:
           workspaces: apps/desktop/src-tauri -> target
 
       - name: Установка зависимостей
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
 
       - name: Тесты
         run: pnpm test
