@@ -20,8 +20,11 @@ import { listingRoutes } from "./modules/listings/routes.js";
 import { meRoutes } from "./modules/me/routes.js";
 import { serverRoutes } from "./modules/servers/routes.js";
 import { twoFactorRoutes } from "./modules/two-factor/routes.js";
+import { chatRoutes } from "./modules/chat/routes.js";
+import { reportRoutes } from "./modules/reports/routes.js";
+import { adminModerationRoutes } from "./modules/admin/moderation.js";
 
-export const API_VERSION = "0.4.2";
+export const API_VERSION = "0.5.0";
 
 export interface BuildOptions {
   config: Config;
@@ -104,6 +107,9 @@ export async function buildApp({ config, sql, mailer }: BuildOptions): Promise<F
   await adminUserRoutes(app, ctx);
   await adminCatalogRoutes(app, ctx);
   await adminAuditRoutes(app, ctx);
+  await chatRoutes(app, ctx);
+  await reportRoutes(app, ctx);
+  await adminModerationRoutes(app, ctx);
 
   return app;
 }

@@ -205,3 +205,19 @@ export async function saveAudio(root: string, itemId: number, buffer: Buffer): P
   await save(root, path, buffer);
   return path;
 }
+
+/** Скриншот в переписке: WebP до 1600 точек по большей стороне. */
+export async function saveChatImage(
+  root: string,
+  conversationId: string,
+  buffer: Buffer,
+): Promise<{ path: string; width: number; height: number }> {
+  const image = await readImage(buffer);
+  const out = await image
+    .resize({ width: 1600, height: 1600, fit: "inside", withoutEnlargement: true })
+    .webp({ quality: 80 })
+    .toBuffer({ resolveWithObject: true });
+  const path = join("chats", conversationId, `${randomUUID()}.webp`);
+  await save(root, path, out.data);
+  return { path, width: out.info.width, height: out.info.height };
+}

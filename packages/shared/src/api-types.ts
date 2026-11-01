@@ -280,6 +280,8 @@ export interface ListingDetailDto extends ListingCardDto {
     /** Сколько других аккаунтов указали такой же ник на этом сервере. */
     sameNicknameCount: number;
     activeListings: number;
+    /** Отзывы по подтверждённым сделкам. */
+    reviews: { positive: number; negative: number };
   };
   expiresAt: string | null;
   createdAt: string;
@@ -287,6 +289,8 @@ export interface ListingDetailDto extends ListingCardDto {
   isOwner: boolean;
   priceStats: PriceStatsDto | null;
   rejectionReason: string | null;
+  /** Почему объявление на проверке (видит только автор). */
+  moderationReason: string | null;
 }
 
 /** Объявление в «Моих объявлениях» и в форме редактирования. */

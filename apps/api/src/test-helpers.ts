@@ -32,7 +32,8 @@ export async function setupTestEnv(env: Record<string, string> = {}): Promise<Te
   await database.sql`
     TRUNCATE users, sessions, email_codes, game_profiles, game_profile_history,
              audit_log, attribute_definitions, catalog_items, categories,
-             listings, listing_images, favorites, listing_price_history CASCADE`;
+             listings, listing_images, favorites, listing_price_history,
+             conversations, messages, deals, reviews, notifications, reports CASCADE`;
   // Убираем то, что тесты добавили к стартовым справочникам.
   await database.sql`DELETE FROM servers WHERE number > 13`;
   await database.sql`

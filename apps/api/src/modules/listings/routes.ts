@@ -15,6 +15,7 @@ import type { AppContext } from "../../context.js";
 import type { Fragment } from "../../db/client.js";
 import { AppError, errors, parseBody } from "../../lib/errors.js";
 import { removeMedia, removeMediaDir, saveListingImage } from "../../lib/media.js";
+import { stopWordReason } from "../../lib/stop-words.js";
 import { authOf, hasRole, optionalAuth, requireAuth } from "../auth/guard.js";
 import {
   listingSelect,
@@ -217,6 +218,7 @@ export async function listingRoutes(app: FastifyInstance, ctx: AppContext): Prom
         status: r.status,
         expiresAt: r.expiresAt?.toISOString() ?? null,
         rejectionReason: r.rejectionReason,
+        moderationReason: r.moderationReason,
         favorites: favMap.get(r.id) ?? 0,
       })),
       counts: Object.fromEntries(counts.map((c) => [c.status, c.count])),
@@ -281,6 +283,13 @@ export async function listingRoutes(app: FastifyInstance, ctx: AppContext): Prom
         await tx`INSERT INTO listing_price_history (listing_id, price) VALUES (${row.id}, ${input.price}::bigint)`;
       }
     });
+    // Правка опубликованного объявления проверяется так же, как публикация.
+    if (row.status === "active") {
+      const flag = await stopWordReason(sql, input.title, input.description, input.wantDescription);
+      if (flag) {
+        await sql`UPDATE listings SET status = 'moderation', moderation_reason = ${flag}, updated_at = now() WHERE id = ${row.id}`;
+      }
+    }
     return fresh(row.id, user.id);
   });
 
@@ -290,7 +299,7 @@ export async function listingRoutes(app: FastifyInstance, ctx: AppContext): Prom
     if (!user.emailVerifiedAt) {
       throw new AppError(403, "email_not_verified", "Подтвердите email, чтобы публиковать объявления");
     }
-    if (!["draft", "withdrawn", "archived"].includes(row.status)) {
+    if (!["draft", "withdrawn", "archived", "rejected"].includes(row.status)) {
       throw errors.conflict("cannot_publish", "Это объявление нельзя опубликовать");
     }
     const [profile] = await sql<{ archivedAt: Date | null }[]>`SELECT archived_at FROM game_profiles WHERE id = ${row.gameProfileId}`;
@@ -314,9 +323,18 @@ export async function listingRoutes(app: FastifyInstance, ctx: AppContext): Prom
       throw errors.conflict("duplicate_listing", "У вас уже есть такое активное объявление на этом сервере. Измените его или снимите с публикации.");
     }
 
+    // Стоп-слово (например, оплата вне игры) — объявление уходит на проверку модератору.
+    const flag = await stopWordReason(sql, row.title, row.description, row.wantDescription);
+    if (flag) {
+      await sql`
+        UPDATE listings SET status = 'moderation', moderation_reason = ${flag}, rejection_reason = NULL, updated_at = now()
+        WHERE id = ${row.id}`;
+      return fresh(row.id, user.id);
+    }
+
     await sql.begin(async (tx) => {
       await tx`
-        UPDATE listings SET status = 'active', published_at = now(),
+        UPDATE listings SET status = 'active', published_at = now(), rejection_reason = NULL,
           expires_at = now() + make_interval(days => ${LISTING_TTL_DAYS}::int), updated_at = now()
         WHERE id = ${row.id}`;
       if (row.price !== null) {

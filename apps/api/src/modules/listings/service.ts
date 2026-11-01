@@ -48,6 +48,7 @@ export interface ListingRow {
   surchargeDirection: "i_pay" | "they_pay" | null;
   status: ListingDetailDto["status"];
   rejectionReason: string | null;
+  moderationReason: string | null;
   views: number;
   publishedAt: Date | null;
   expiresAt: Date | null;
@@ -81,7 +82,7 @@ export function listingSelect(sql: Sql, viewerId: string | null): Fragment {
       l.id, l.user_id, l.game_profile_id, l.server_id, l.listing_type_id, l.category_id, l.catalog_item_id,
       l.operation, l.title, l.description, l.price, l.quantity, l.transfer_mode, l.deal_places, l.attributes,
       l.want_listing_type_id, l.want_attributes, l.want_description, l.surcharge, l.surcharge_direction,
-      l.status, l.rejection_reason, l.views, l.published_at, l.expires_at, l.created_at, l.updated_at,
+      l.status, l.rejection_reason, l.moderation_reason, l.views, l.published_at, l.expires_at, l.created_at, l.updated_at,
       s.code AS section_code, t.code AS type_code, t.name AS type_name,
       sv.number AS server_number, sv.name AS server_name, sv.color AS server_color,
       gp.nickname AS seller_nickname,
@@ -337,9 +338,19 @@ export async function toDetail(ctx: AppContext, row: ListingRow, viewerId: strin
   const sql = ctx.sql;
   const definitions = await loadDefinitions(sql, row.listingTypeId);
   const [seller] = await sql<
-    { login: string; createdAt: Date; verifiedAt: Date | null; sameNick: number; activeListings: number }[]
+    {
+      login: string;
+      createdAt: Date;
+      verifiedAt: Date | null;
+      sameNick: number;
+      activeListings: number;
+      positive: number;
+      negative: number;
+    }[]
   >`
     SELECT u.login, u.created_at, gp.verified_at,
+      (SELECT count(*)::int FROM reviews r WHERE r.target_id = u.id AND r.positive AND r.hidden_at IS NULL) AS positive,
+      (SELECT count(*)::int FROM reviews r WHERE r.target_id = u.id AND NOT r.positive AND r.hidden_at IS NULL) AS negative,
       (SELECT count(DISTINCT o.user_id)::int FROM game_profiles o
         WHERE o.server_id = gp.server_id AND lower(o.nickname) = lower(gp.nickname) AND o.user_id <> gp.user_id) AS same_nick,
       (SELECT count(*)::int FROM listings a
@@ -379,6 +390,7 @@ export async function toDetail(ctx: AppContext, row: ListingRow, viewerId: strin
       nicknameVerified: seller?.verifiedAt != null,
       sameNicknameCount: seller?.sameNick ?? 0,
       activeListings: seller?.activeListings ?? 0,
+      reviews: { positive: seller?.positive ?? 0, negative: seller?.negative ?? 0 },
     },
     expiresAt: row.expiresAt?.toISOString() ?? null,
     createdAt: row.createdAt.toISOString(),
@@ -386,6 +398,8 @@ export async function toDetail(ctx: AppContext, row: ListingRow, viewerId: strin
     isOwner: viewerId === row.userId,
     priceStats: await priceStats(sql, row),
     rejectionReason: row.rejectionReason,
+    // Причину проверки видит только автор (и модераторы в админке).
+    moderationReason: viewerId === row.userId ? row.moderationReason : null,
   };
 }
 
