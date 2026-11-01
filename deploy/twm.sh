@@ -47,6 +47,9 @@ install_bundle() {
   mv "$tmp/twm-server" "$target"
   rm -rf "$tmp"
   chown -R root:root "$target"
+  # Служба работает от пользователя twm: файлы сборки должны быть читаемы.
+  chmod -R u=rwX,go=rX "$target"
+  chmod 755 "$target/bin/node" "$target/deploy/twm.sh"
 
   install -m 755 "$target/deploy/twm.sh" /usr/local/bin/twm
   install -m 644 "$target/deploy/twm-api.service" "/etc/systemd/system/${SERVICE}.service"

@@ -79,7 +79,8 @@ SQL
   runuser -u postgres -- psql -tAc "SELECT 1 FROM pg_database WHERE datname = 'twm'" | grep -q 1 \
     || runuser -u postgres -- createdb -O twm twm
 
-  umask 027
+  # Файл с секретами создаётся сразу закрытым (umask только для этой команды).
+  ( umask 027
   cat >"$ENV_FILE" <<ENV
 # Настройки сервера TWM Market. После правки: sudo twm restart
 NODE_ENV=production
@@ -104,6 +105,7 @@ MAX_UPLOAD_MB=10
 #   MAIL_FROM="TWM Market <ваш_ящик@yandex.ru>"
 MAIL_TRANSPORT=console
 ENV
+  )
   chown root:twm "$ENV_FILE"
   chmod 640 "$ENV_FILE"
 fi
