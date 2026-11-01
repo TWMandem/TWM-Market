@@ -196,11 +196,14 @@ export async function adminCatalogRoutes(app: FastifyInstance, ctx: AppContext):
     const { id } = parseParams(numId, request, "Тип имущества");
     const input = definedOnly(parseBody(listingTypeUpdateSchema, request.body));
     if (Object.keys(input).length === 0) throw errors.validation({ _: "Нет изменений" });
-    const { operations, ...rest } = input;
+    const has = (key: keyof typeof input) => input[key] !== undefined;
     const updated = await sql`
       UPDATE listing_types SET
-        ${Object.keys(rest).length ? sql`${sql(rest)},` : sql``}
-        ${operations ? sql`operations = ${operations}::text[],` : sql``}
+        name       = CASE WHEN ${has("name")}::boolean THEN ${input.name ?? null} ELSE name END,
+        operations = CASE WHEN ${has("operations")}::boolean THEN ${input.operations ?? null}::text[] ELSE operations END,
+        max_images = CASE WHEN ${has("maxImages")}::boolean THEN ${input.maxImages ?? null}::smallint ELSE max_images END,
+        is_active  = CASE WHEN ${has("isActive")}::boolean THEN ${input.isActive ?? null}::boolean ELSE is_active END,
+        sort_order = CASE WHEN ${has("sortOrder")}::boolean THEN ${input.sortOrder ?? null}::int ELSE sort_order END,
         updated_at = now()
       WHERE id = ${id}::smallint`;
     if (updated.count === 0) throw errors.notFound("Тип имущества не найден");
@@ -339,12 +342,14 @@ export async function adminCatalogRoutes(app: FastifyInstance, ctx: AppContext):
       const [category] = await sql`SELECT 1 FROM categories WHERE id = ${input.categoryId}`;
       if (!category) throw errors.validation({ categoryId: "Категория не найдена" });
     }
-    const { aliases, ...rest } = input;
+    const has = (key: keyof typeof input) => input[key] !== undefined;
     try {
       const [row] = await sql<CatalogItemDto[]>`
         UPDATE catalog_items SET
-          ${Object.keys(rest).length ? sql`${sql(rest)},` : sql``}
-          ${aliases ? sql`aliases = ${aliases}::text[],` : sql``}
+          name        = CASE WHEN ${has("name")}::boolean THEN ${input.name ?? null} ELSE name END,
+          aliases     = CASE WHEN ${has("aliases")}::boolean THEN ${input.aliases ?? null}::text[] ELSE aliases END,
+          is_active   = CASE WHEN ${has("isActive")}::boolean THEN ${input.isActive ?? null}::boolean ELSE is_active END,
+          category_id = CASE WHEN ${has("categoryId")}::boolean THEN ${input.categoryId ?? null}::int ELSE category_id END,
           updated_at = now()
         WHERE id = ${id}
         RETURNING id, category_id, name, aliases, is_active`;
@@ -426,13 +431,22 @@ export async function adminCatalogRoutes(app: FastifyInstance, ctx: AppContext):
       throw errors.validation({ options: "Добавьте хотя бы один вариант" });
     }
 
-    const { options, minValue, maxValue, ...rest } = input;
+    // «Поле передано» и «поле пустое» — разные вещи: null очищает значение, отсутствие оставляет как есть.
+    const has = (key: keyof typeof input) => input[key] !== undefined;
+    const isNumber = current.dataType === "number";
     const [row] = await sql<AttributeRow[]>`
       UPDATE attribute_definitions SET
-        ${Object.keys(rest).length ? sql`${sql(rest)},` : sql``}
-        ${options !== undefined && isList ? sql`options = ${options}::text[],` : sql``}
-        ${minValue !== undefined ? sql`min_value = ${minValue}::numeric,` : sql``}
-        ${maxValue !== undefined ? sql`max_value = ${maxValue}::numeric,` : sql``}
+        label      = CASE WHEN ${has("label")}::boolean THEN ${input.label ?? null} ELSE label END,
+        unit       = CASE WHEN ${has("unit") && isNumber}::boolean THEN ${input.unit ?? null} ELSE unit END,
+        options    = CASE WHEN ${has("options") && isList}::boolean THEN ${input.options ?? null}::text[] ELSE options END,
+        min_value  = CASE WHEN ${has("minValue") && isNumber}::boolean THEN ${input.minValue ?? null}::numeric ELSE min_value END,
+        max_value  = CASE WHEN ${has("maxValue") && isNumber}::boolean THEN ${input.maxValue ?? null}::numeric ELSE max_value END,
+        required   = CASE WHEN ${has("required")}::boolean THEN ${input.required ?? null}::boolean ELSE required END,
+        filterable = CASE WHEN ${has("filterable")}::boolean THEN ${input.filterable ?? null}::boolean ELSE filterable END,
+        applies_to = CASE WHEN ${has("appliesTo")}::boolean THEN ${input.appliesTo ?? null} ELSE applies_to END,
+        help_text  = CASE WHEN ${has("helpText")}::boolean THEN ${input.helpText ?? null} ELSE help_text END,
+        is_active  = CASE WHEN ${has("isActive")}::boolean THEN ${input.isActive ?? null}::boolean ELSE is_active END,
+        sort_order = CASE WHEN ${has("sortOrder")}::boolean THEN ${input.sortOrder ?? null}::int ELSE sort_order END,
         updated_at = now()
       WHERE id = ${id}
       RETURNING ${attributeColumns()}`;
