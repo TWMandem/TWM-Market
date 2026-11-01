@@ -111,11 +111,21 @@ ENV
 fi
 
 # ── Сборка сервера ───────────────────────────────────────────────────────────
-say "Скачиваю сборку сервера с GitHub"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
-curl -fL --retry 3 -o "$TMP/bundle.tar.gz" "$BUNDLE_URL" || fail "не удалось скачать $BUNDLE_URL"
-curl -fsL --retry 3 -o "$TMP/bundle.sha256" "${BUNDLE_URL}.sha256" || fail "не удалось скачать контрольную сумму"
+# Если GitHub с сервера недоступен, положите оба файла сборки рядом с install.sh
+# (скачайте их на компьютере и загрузите через scp) — установщик возьмёт их.
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$HERE/twm-server-linux-x64.tar.gz" ] && [ -f "$HERE/twm-server-linux-x64.tar.gz.sha256" ]; then
+  say "Беру сборку сервера из папки $HERE"
+  cp "$HERE/twm-server-linux-x64.tar.gz" "$TMP/bundle.tar.gz"
+  cp "$HERE/twm-server-linux-x64.tar.gz.sha256" "$TMP/bundle.sha256"
+else
+  say "Скачиваю сборку сервера с GitHub"
+  curl -fL --retry 3 -o "$TMP/bundle.tar.gz" "$BUNDLE_URL" \
+    || fail "не удалось скачать $BUNDLE_URL. Скачайте файл на компьютере и положите рядом с install.sh (см. deploy/README.md)"
+  curl -fsL --retry 3 -o "$TMP/bundle.sha256" "${BUNDLE_URL}.sha256" || fail "не удалось скачать контрольную сумму"
+fi
 (cd "$TMP" && echo "$(cut -d' ' -f1 bundle.sha256)  bundle.tar.gz" | sha256sum -c --quiet) || fail "контрольная сумма не совпала"
 tar -xzf "$TMP/bundle.tar.gz" -C "$TMP"
 install -m 755 "$TMP/twm-server/deploy/twm.sh" /usr/local/bin/twm

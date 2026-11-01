@@ -31,6 +31,15 @@ curl -fsSL https://github.com/TWMandem/TWM-Market/releases/download/server-lates
 sudo bash install.sh
 ```
 
+Если сервер не может скачать файлы с GitHub, скачайте на компьютере три файла
+из релиза [server-latest](https://github.com/TWMandem/TWM-Market/releases/tag/server-latest)
+(`install.sh`, `twm-server-linux-x64.tar.gz` и `.sha256`), загрузите их на сервер
+и запустите установщик из той же папки:
+
+```powershell
+scp install.sh twm-server-linux-x64.tar.gz twm-server-linux-x64.tar.gz.sha256 root@IP_СЕРВЕРА:/root/
+```
+
 Установщик спросит домен и email для Let's Encrypt (можно оставить пустым),
 поставит PostgreSQL и nginx, получит HTTPS-сертификат и запустит сервер.
 В конце он покажет адрес — проверьте его в браузере: `https://ВАШ_АДРЕС/health`.
