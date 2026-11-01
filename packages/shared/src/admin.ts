@@ -147,6 +147,12 @@ const attributeBase = z.object({
     .default([]),
   minValue: z.number().nullable().default(null),
   maxValue: z.number().nullable().default(null),
+  stepValue: z.number().positive("Шаг больше нуля").nullable().default(null),
+  categoryIds: z
+    .array(z.number().int().positive())
+    .max(50, "Не больше 50 категорий")
+    .default([])
+    .transform((list) => Array.from(new Set(list))),
   required: z.boolean().default(false),
   filterable: z.boolean().default(false),
   appliesTo: z.enum(ATTRIBUTE_SIDES).default("offer"),
@@ -156,9 +162,18 @@ const attributeBase = z.object({
 });
 
 function checkAttribute(
-  value: { dataType?: AttributeType; options?: string[]; minValue?: number | null; maxValue?: number | null },
+  value: {
+    dataType?: AttributeType;
+    unit?: string | null;
+    options?: string[];
+    minValue?: number | null;
+    maxValue?: number | null;
+  },
   ctx: z.RefinementCtx,
 ) {
+  if (value.unit && value.unit.split("{}").length > 2) {
+    ctx.addIssue({ code: "custom", path: ["unit"], message: "Шаблон {} — не больше одного раза" });
+  }
   if ((value.dataType === "select" || value.dataType === "multiselect") && (value.options?.length ?? 0) === 0) {
     ctx.addIssue({ code: "custom", path: ["options"], message: "Добавьте хотя бы один вариант" });
   }

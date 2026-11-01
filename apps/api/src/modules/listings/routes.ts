@@ -88,7 +88,9 @@ export async function listingRoutes(app: FastifyInstance, ctx: AppContext): Prom
       const c: Fragment[] = [sql`l.status = 'active'`, sql`l.expires_at > now()`, sql`s.is_active`, sql`t.is_active`];
       if (q.section) c.push(sql`s.code = ${q.section}`);
       if (q.type) c.push(sql`l.listing_type_id = ${q.type}::smallint`);
-      if (q.category) c.push(sql`l.category_id = ${q.category}`);
+      if (q.category) {
+        c.push(sql`(l.category_id = ${q.category} OR l.category_id IN (SELECT id FROM categories WHERE parent_id = ${q.category}))`);
+      }
       if (q.item) c.push(sql`l.catalog_item_id = ${q.item}`);
       if (q.operation) c.push(sql`l.operation = ${q.operation}`);
       if (q.server) {

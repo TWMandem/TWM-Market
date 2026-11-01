@@ -1,5 +1,5 @@
 import { useId } from "react";
-import type { AttributeDefinition, AttributeValue } from "@twm/shared";
+import { unitParts, type AttributeDefinition, type AttributeValue } from "@twm/shared";
 
 /**
  * Поле характеристики, построенное по описанию из конструктора.
@@ -31,26 +31,31 @@ export function AttributeField({
   }`;
 
   switch (definition.dataType) {
-    case "number":
+    case "number": {
+      // «X{}» — значение внутри шаблона: X перед полем ввода.
+      const { prefix, suffix } = unitParts(definition.unit);
       return (
         <div className="flex flex-col gap-1.5">
           <label htmlFor={id}>{label}</label>
           <div className="flex items-center gap-2">
+            {prefix && <span className="shrink-0 font-mono text-sm font-bold text-muted">{prefix}</span>}
             <input
               id={id}
               type="number"
               inputMode="decimal"
               min={definition.minValue ?? undefined}
               max={definition.maxValue ?? undefined}
+              step={definition.stepValue ?? "any"}
               value={typeof value === "number" ? value : ""}
               onChange={(e) => onChange(e.target.value === "" ? undefined : Number(e.target.value))}
               className={inputClass}
             />
-            {definition.unit && <span className="shrink-0 text-sm text-muted">{definition.unit}</span>}
+            {suffix && <span className="shrink-0 text-sm text-muted">{suffix}</span>}
           </div>
           {help}
         </div>
       );
+    }
     case "text":
       return (
         <div className="flex flex-col gap-1.5">

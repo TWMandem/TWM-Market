@@ -1,7 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { attributeCreateSchema } from "./admin.js";
-import { buildAttributesSchema, type AttributeDefinition } from "./attributes.js";
+import {
+  buildAttributesSchema,
+  definitionsForCategory,
+  formatAttributeValue,
+  unitParts,
+  type AttributeDefinition,
+} from "./attributes.js";
 import { fieldErrors } from "./auth.js";
 
 const def = (overrides: Partial<AttributeDefinition>): AttributeDefinition => ({
@@ -12,6 +18,8 @@ const def = (overrides: Partial<AttributeDefinition>): AttributeDefinition => ({
   options: [],
   minValue: null,
   maxValue: null,
+  stepValue: null,
+  categoryIds: [],
   required: false,
   filterable: false,
   appliesTo: "offer",
@@ -74,4 +82,39 @@ test("конструктор: у списка должны быть вариан
   const badKey = attributeCreateSchema.safeParse({ listingTypeId: 1, key: "Цвет", label: "Цвет", dataType: "text" });
   assert.equal(badKey.success, false);
   if (!badKey.success) assert.ok(fieldErrors(badKey.error).key);
+});
+
+test("шаг числа: клиренс 5, 10, … 100", () => {
+  const schema = buildAttributesSchema([
+    def({ key: "clearance", label: "Клиренс", dataType: "number", minValue: 5, maxValue: 100, stepValue: 5 }),
+  ]);
+  assert.equal(schema.safeParse({ clearance: 55 }).success, true);
+  assert.equal(schema.safeParse({ clearance: 100 }).success, true);
+  const bad = schema.safeParse({ clearance: 52 });
+  assert.equal(bad.success, false);
+  if (!bad.success) assert.match(fieldErrors(bad.error).clearance ?? "", /кратно 5/);
+});
+
+test("поля по категориям: улучшение у аксессуаров и одежды, целостность только у одежды", () => {
+  const list = [
+    def({ key: "upgrade", categoryIds: [1, 4] }),
+    def({ key: "integrity", categoryIds: [4] }),
+    def({ key: "note" }),
+  ];
+  assert.deepEqual(definitionsForCategory(list, [1]).map((d) => d.key), ["upgrade", "note"]);
+  assert.deepEqual(definitionsForCategory(list, [4]).map((d) => d.key), ["upgrade", "integrity", "note"]);
+  assert.deepEqual(definitionsForCategory(list, [7, 4]).map((d) => d.key), ["upgrade", "integrity", "note"], "подкатегория одежды");
+  assert.deepEqual(definitionsForCategory(list, null).map((d) => d.key), ["note"]);
+});
+
+test("показ значения с единицей и шаблоном", () => {
+  assert.equal(formatAttributeValue(15, "X{}"), "X15");
+  assert.equal(formatAttributeValue(85, "%"), "85 %");
+  assert.equal(formatAttributeValue(129787, null), "129\u00a0787");
+  assert.equal(formatAttributeValue("STAGE 2", null), "STAGE 2");
+  assert.equal(formatAttributeValue(true, null), "Да");
+  assert.deepEqual(unitParts("X{}"), { prefix: "X", suffix: "" });
+  assert.deepEqual(unitParts("л"), { prefix: "", suffix: "л" });
+  const twice = attributeCreateSchema.safeParse({ listingTypeId: 1, key: "upgrade", label: "Улучшение", dataType: "number", unit: "{}X{}" });
+  assert.equal(twice.success, false);
 });

@@ -9,6 +9,7 @@ import {
   TRANSFER_MODE_LABELS,
   TRANSFER_MODES,
   buildAttributesSchema,
+  definitionsForCategory,
   fieldErrors,
   formatPrice,
   listingInputSchema,
@@ -144,10 +145,20 @@ export function ListingFormPage() {
   }, [type, operation]);
 
   const definitions = useAttributes(typeId);
-  const offerDefs = definitions.filter((d) => d.appliesTo !== "want");
-  const wantDefs = definitions.filter((d) => d.appliesTo !== "offer");
-
   const categories = catalog?.categories.filter((c) => c.sectionCode === section && c.parentId === null) ?? [];
+
+  // Часть полей относится только к некоторым категориям (улучшение — у аксессуаров
+  // и одежды, целостность — у одежды). Путь: категория предмета и её родитель.
+  const categoryPath = useMemo(() => {
+    if (categoryId === null) return null;
+    const parent = catalog?.categories.find((c) => c.id === categoryId)?.parentId ?? null;
+    return parent === null ? [categoryId] : [categoryId, parent];
+  }, [catalog, categoryId]);
+  const offerApplicable = useMemo(() => definitionsForCategory(definitions, categoryPath), [definitions, categoryPath]);
+  const wantApplicable = useMemo(() => definitionsForCategory(definitions, null), [definitions]);
+  const offerDefs = offerApplicable.filter((d) => d.appliesTo !== "want");
+  const wantDefs = wantApplicable.filter((d) => d.appliesTo !== "offer");
+  const usesCatalog = section !== "notary";
 
   // ── Изображения ───────────────────────────────────────────────────────────
 
@@ -236,8 +247,9 @@ export function ListingFormPage() {
       gameProfileId: profileId,
       listingTypeId: type.id,
       operation,
-      catalogItemId: itemId,
-      title: title.trim(),
+      catalogItemId: usesCatalog ? itemId : null,
+      // У предметов и транспорта название берётся из справочника.
+      title: usesCatalog ? "" : title.trim(),
       description: description.trim(),
       price,
       quantity: Number(quantity) || 1,
@@ -253,14 +265,16 @@ export function ListingFormPage() {
 
     const parsed = listingInputSchema.safeParse(body);
     const all: Record<string, string> = { ...local, ...(parsed.success ? {} : fieldErrors(parsed.error)) };
-    const offer = buildAttributesSchema(definitions, "offer").safeParse(attributes);
+    const offer = buildAttributesSchema(offerApplicable, "offer").safeParse(attributes);
     if (!offer.success) for (const [k, m] of Object.entries(fieldErrors(offer.error))) all[`attributes.${k}`] = m;
     if (operation === "exchange") {
-      const want = buildAttributesSchema(definitions, "want").safeParse(wantAttributes);
+      const want = buildAttributesSchema(wantApplicable, "want").safeParse(wantAttributes);
       if (!want.success) for (const [k, m] of Object.entries(fieldErrors(want.error))) all[`wantAttributes.${k}`] = m;
     }
-    if (section === "items" && !itemId) all.catalogItemId = "Выберите предмет из справочника";
-    if (section !== "items" && title.trim().length < 3) all.title = "Название — от 3 символов";
+    if (usesCatalog && !itemId) {
+      all.catalogItemId = section === "cars" ? "Выберите модель из справочника" : "Выберите предмет из справочника";
+    }
+    if (!usesCatalog && title.trim().length < 3) all.title = "Название — от 3 символов";
     if (Object.keys(all).length > 0) {
       setErrors(all);
       setFormError("Проверьте отмеченные поля");
@@ -403,8 +417,9 @@ export function ListingFormPage() {
               options={(profiles ?? []).map((p): [string, string] => [p.id, `${p.nickname} · ${p.server.name}`])}
             />
 
-            {section === "items" ? (
+            {usesCatalog ? (
               <ItemPicker
+                kind={section === "cars" ? "vehicle" : "item"}
                 categories={categories}
                 categoryId={categoryId}
                 itemId={itemId}
@@ -416,7 +431,7 @@ export function ListingFormPage() {
                 onItem={setItemId}
               />
             ) : (
-              <Field label="Название" value={title} maxLength={80} onChange={(e) => setTitle(e.target.value)} error={errors.title} hint="Например: «Седан, полный тюнинг» или «Дом у моря»" />
+              <Field label="Название" value={title} maxLength={80} onChange={(e) => setTitle(e.target.value)} error={errors.title} hint="Например: «Дом у моря» или «SIM 777-77-77»" />
             )}
           </Step>
 
@@ -666,8 +681,17 @@ function TextArea({
   );
 }
 
-/** Выбор предмета: категория, поиск по названию и синонимам, сетка с иконками. */
+const PICKER_TEXT = {
+  item: { category: "Категория", find: "Найти предмет", list: "Предметы", placeholder: "Название или другое имя" },
+  vehicle: { category: "Тип транспорта", find: "Найти модель", list: "Модели", placeholder: "Например: M5 F90 или бмв" },
+} as const;
+
+/**
+ * Выбор из справочника: категория, поиск по названию и синонимам.
+ * Предметы — сеткой с иконками, модели транспорта — компактным списком.
+ */
 function ItemPicker({
+  kind,
   categories,
   categoryId,
   itemId,
@@ -675,6 +699,7 @@ function ItemPicker({
   onCategory,
   onItem,
 }: {
+  kind: keyof typeof PICKER_TEXT;
   categories: Array<{ id: number; name: string }>;
   categoryId: number | null;
   itemId: number | null;
@@ -703,23 +728,45 @@ function ItemPicker({
   const q = query.trim().toLowerCase();
   const visible = (items ?? []).filter((i) => !q || i.name.toLowerCase().includes(q) || i.aliases.some((a) => a.toLowerCase().includes(q)));
   const selected = items?.find((i) => i.id === itemId);
+  const text = PICKER_TEXT[kind];
+  const compact = kind === "vehicle";
 
   return (
     <div className="flex flex-col gap-3">
       <SelectField
-        label="Категория"
+        label={text.category}
         value={categoryId ?? ""}
         onChange={(v) => onCategory(v ? Number(v) : null)}
-        options={[["", "Выберите категорию…"], ...categories.map((c): [string, string] => [String(c.id), c.name])]}
+        options={[["", "Выберите…"], ...categories.map((c): [string, string] => [String(c.id), c.name])]}
       />
       {categoryId && (
         <>
-          <Field label="Найти предмет" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Название или другое имя" error={error} />
+          <Field label={text.find} value={query} onChange={(e) => setQuery(e.target.value)} placeholder={text.placeholder} error={error} />
           {selected && <span className="text-sm text-ink-2">Выбрано: <strong className="text-ink">{selected.name}</strong></span>}
-          <div role="listbox" aria-label="Предметы" className="grid max-h-[360px] grid-cols-[repeat(auto-fill,minmax(104px,1fr))] gap-2 overflow-y-auto rounded-xl border border-line bg-ground p-2">
+          <div
+            role="listbox"
+            aria-label={text.list}
+            className={`grid max-h-[360px] gap-2 overflow-y-auto rounded-xl border border-line bg-ground p-2 ${
+              compact ? "grid-cols-[repeat(auto-fill,minmax(190px,1fr))]" : "grid-cols-[repeat(auto-fill,minmax(104px,1fr))]"
+            }`}
+          >
             {items === null && <span className="p-3 text-sm text-muted">Загружаю…</span>}
             {items !== null && visible.length === 0 && <span className="p-3 text-sm text-muted">Ничего не нашли</span>}
-            {visible.map((item) => (
+            {compact && visible.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                role="option"
+                aria-selected={item.id === itemId}
+                onClick={() => onItem(item.id)}
+                className={`min-h-10 rounded-lg border-2 px-3 py-2 text-left text-sm font-bold leading-tight ${
+                  item.id === itemId ? "border-accent bg-accent/10 text-ink" : "border-transparent bg-surface text-ink-2 hover:border-line"
+                }`}
+              >
+                {item.name}
+              </button>
+            ))}
+            {!compact && visible.map((item) => (
               <button
                 key={item.id}
                 type="button"

@@ -32,6 +32,8 @@ describe("объявления", { skip: skipWithoutDb }, () => {
   let types: ListingTypeDto[];
   let itemId: number;
   let secondItemId: number;
+  let clothesItemId: number;
+  let carModelId: number;
   let vehicleTypeId: number;
   let houseTypeId: number;
 
@@ -53,6 +55,37 @@ describe("объявления", { skip: skipWithoutDb }, () => {
     const category = (await call("POST", "/v1/admin/categories", admin.accessToken, { sectionCode: "items", name: "Аксессуары" })).json() as { id: number };
     itemId = ((await call("POST", "/v1/admin/catalog-items", admin.accessToken, { categoryId: category.id, name: "Наручные часы", aliases: ["часики"] })).json() as { id: number }).id;
     secondItemId = ((await call("POST", "/v1/admin/catalog-items", admin.accessToken, { categoryId: category.id, name: "Наручные часы" })).json() as { id: number }).id;
+    const clothes = (await call("POST", "/v1/admin/categories", admin.accessToken, { sectionCode: "items", name: "Одежда" })).json() as { id: number };
+    clothesItemId = ((await call("POST", "/v1/admin/catalog-items", admin.accessToken, { categoryId: clothes.id, name: "Кожаная куртка" })).json() as { id: number }).id;
+    const cars = (await call("POST", "/v1/admin/categories", admin.accessToken, { sectionCode: "cars", name: "Легковые" })).json() as { id: number };
+    carModelId = ((await call("POST", "/v1/admin/catalog-items", admin.accessToken, { categoryId: cars.id, name: "BMW M5 F90", aliases: ["БМВ M5 F90"] })).json() as { id: number }).id;
+
+    // Улучшение — у аксессуаров и одежды, целостность (шаг 5 для проверки) — только у одежды.
+    const upgrade = await call("POST", "/v1/admin/attributes", admin.accessToken, {
+      listingTypeId: types.find((t) => t.code === "item")!.id,
+      key: "upgrade",
+      label: "Улучшение",
+      dataType: "number",
+      unit: "X{}",
+      minValue: 1,
+      maxValue: 15,
+      stepValue: 1,
+      categoryIds: [category.id, clothes.id],
+      filterable: true,
+    });
+    assert.equal(upgrade.statusCode, 201, upgrade.body);
+    const wear = await call("POST", "/v1/admin/attributes", admin.accessToken, {
+      listingTypeId: types.find((t) => t.code === "item")!.id,
+      key: "integrity",
+      label: "Целостность",
+      dataType: "number",
+      unit: "%",
+      minValue: 0,
+      maxValue: 100,
+      stepValue: 5,
+      categoryIds: [clothes.id],
+    });
+    assert.equal(wear.statusCode, 201, wear.body);
 
     await call("POST", "/v1/admin/attributes", admin.accessToken, {
       listingTypeId: vehicleTypeId,
@@ -153,6 +186,7 @@ describe("объявления", { skip: skipWithoutDb }, () => {
       gameProfileId: sellerProfile.id,
       listingTypeId: vehicleTypeId,
       operation: "sell",
+      catalogItemId: carModelId,
       title: "Седан Тест",
       price: 18_200_000,
       dealPlaces: ["car_market", "notary", "car_market"],
@@ -174,6 +208,48 @@ describe("объявления", { skip: skipWithoutDb }, () => {
 
     const filtered = (await call("GET", `/v1/listings?type=${vehicleTypeId}&a.max_speed.min=200`)).json() as ListingSearchResultDto;
     assert.deepEqual(filtered.items.map((i) => i.title), ["Седан Тест"]);
+  });
+
+  test("транспорт: модель из справочника обязательна, название по умолчанию — модель", async () => {
+    const base = {
+      gameProfileId: sellerProfile.id,
+      listingTypeId: vehicleTypeId,
+      operation: "sell",
+      price: 12_000_000,
+      attributes: { max_speed: 250 },
+    };
+    const noModel = await call("POST", "/v1/listings", seller.accessToken, { ...base, title: "Какая-то машина" });
+    assert.equal(noModel.statusCode, 400);
+    assert.match(noModel.json().fields.catalogItemId, /модель/i);
+
+    const wrongSection = await call("POST", "/v1/listings", seller.accessToken, { ...base, catalogItemId: itemId });
+    assert.equal(wrongSection.statusCode, 400, "предмет рынка не подходит как модель авто");
+
+    const created = await call("POST", "/v1/listings", seller.accessToken, { ...base, catalogItemId: carModelId });
+    assert.equal(created.statusCode, 201, created.body);
+    assert.equal((created.json() as MyListingDto).title, "BMW M5 F90");
+
+    const models = (await call("GET", "/v1/catalog/items?section=cars")).json() as { items: Array<{ name: string }> };
+    assert.deepEqual(models.items.map((i) => i.name), ["BMW M5 F90"]);
+  });
+
+  test("поля по категориям и шаг значения", async () => {
+    const watch = await createAndPublish(itemListing({ attributes: { upgrade: 12, integrity: 50 } }));
+    assert.deepEqual(watch.rawAttributes, { upgrade: 12 }, "у аксессуара нет целостности — поле отброшено");
+    assert.equal(watch.attributes[0]?.unit, "X{}");
+
+    const badStep = await call("POST", "/v1/listings", seller.accessToken, itemListing({ catalogItemId: clothesItemId, attributes: { integrity: 52 } }));
+    assert.equal(badStep.statusCode, 400);
+    assert.ok(badStep.json().fields["attributes.integrity"]);
+
+    const tooHigh = await call("POST", "/v1/listings", seller.accessToken, itemListing({ catalogItemId: clothesItemId, attributes: { upgrade: 16 } }));
+    assert.equal(tooHigh.statusCode, 400, "улучшение не больше X15");
+
+    const jacket = await createAndPublish(itemListing({ catalogItemId: clothesItemId, attributes: { upgrade: 15, integrity: 55 } }));
+    assert.deepEqual(jacket.rawAttributes, { upgrade: 15, integrity: 55 });
+
+    const maxed = (await call("GET", `/v1/listings?type=${watch.listingType.id}&a.upgrade.min=15`)).json() as ListingSearchResultDto;
+    assert.deepEqual(maxed.items.map((i) => i.id), [jacket.id]);
   });
 
   test("обмен: что хочу получить, доплата; лишнее для продажи очищается", async () => {
@@ -261,6 +337,7 @@ describe("объявления", { skip: skipWithoutDb }, () => {
       gameProfileId: sellerProfile.id,
       listingTypeId: vehicleTypeId,
       operation: "sell",
+      catalogItemId: carModelId,
       title: "Купе с фото",
       price: 21_000_000,
       attributes: { max_speed: 300 },
@@ -333,6 +410,7 @@ describe("объявления", { skip: skipWithoutDb }, () => {
       gameProfileId: sellerProfile.id,
       listingTypeId: vehicleTypeId,
       operation: "sell",
+      catalogItemId: carModelId,
       title: "Машина для избранного",
       price: 5_000_000,
       attributes: { max_speed: 180 },
@@ -360,6 +438,7 @@ describe("объявления", { skip: skipWithoutDb }, () => {
       gameProfileId: sellerProfile.id,
       listingTypeId: vehicleTypeId,
       operation: "sell",
+      catalogItemId: carModelId,
       title: "Скоро в архив",
       price: 7_000_000,
       attributes: { max_speed: 150 },

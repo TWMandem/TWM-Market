@@ -1,7 +1,7 @@
 {
   "name": "twm-market",
   "private": true,
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "TWM Market — неофициальная торговая площадка игроков Amazing Online (настольное приложение для Windows)",
   "license": "MIT",
   "packageManager": "pnpm@10.28.0",

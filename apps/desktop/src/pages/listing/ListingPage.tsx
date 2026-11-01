@@ -4,6 +4,7 @@ import {
   DEAL_PLACE_LABELS,
   SURCHARGE_DIRECTION_LABELS,
   TRANSFER_MODE_LABELS,
+  formatAttributeValue,
   formatPrice,
   formatPriceShort,
   type ListingAttributeDto,
@@ -111,11 +112,7 @@ export function ListingPage() {
 }
 
 function AttributeList({ items }: { items: ListingAttributeDto[] }) {
-  const format = (a: ListingAttributeDto) => {
-    if (typeof a.value === "boolean") return a.value ? "Да" : "Нет";
-    if (Array.isArray(a.value)) return a.value.join(", ");
-    return `${typeof a.value === "number" ? a.value.toLocaleString("ru-RU") : a.value}${a.unit ? ` ${a.unit}` : ""}`;
-  };
+  const format = (a: ListingAttributeDto) => formatAttributeValue(a.value, a.unit);
   return (
     <dl className="m-0 grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-x-8">
       {items.map((a) => (

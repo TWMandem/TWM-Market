@@ -28,6 +28,7 @@ import { mediaUrl, removeMedia, removeMediaDir, saveIcon } from "../../lib/media
 import { errors, parseBody } from "../../lib/errors.js";
 import { requireStaff } from "../auth/guard.js";
 import { toServerDto } from "../servers/routes.js";
+import { attributeColumns, toAttributeDto, type AttributeRow } from "../catalog/attribute-row.js";
 
 type SectionCode = "items" | "cars" | "notary";
 
@@ -69,11 +70,6 @@ interface CategoryRow {
   itemsCount: number;
 }
 
-interface AttributeRow extends Omit<AttributeDefinitionDto, "minValue" | "maxValue"> {
-  minValue: string | null;
-  maxValue: string | null;
-}
-
 interface CatalogItemRow {
   id: number;
   categoryId: number;
@@ -96,12 +92,6 @@ const toItemDto = (row: CatalogItemRow): CatalogItemDto => ({
 });
 
 const ITEM_COLUMNS = "id, category_id, name, aliases, is_active, sort_order, icon_path, icon_kind";
-
-const toAttributeDto = (row: AttributeRow): AttributeDefinitionDto => ({
-  ...row,
-  minValue: row.minValue === null ? null : Number(row.minValue),
-  maxValue: row.maxValue === null ? null : Number(row.maxValue),
-});
 
 export async function adminCatalogRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
   const sql = ctx.sql;
@@ -429,14 +419,24 @@ export async function adminCatalogRoutes(app: FastifyInstance, ctx: AppContext):
 
   // ── Конструктор полей характеристик ───────────────────────────────────────
 
-  const attributeColumns = () => sql`
-    id, listing_type_id, key, label, data_type, unit, options, min_value, max_value,
-    required, filterable, applies_to, help_text, is_active, sort_order`;
+  const columns = () => attributeColumns(sql);
+
+  /** Категории поля должны быть из раздела этого типа имущества. */
+  const checkCategories = async (listingTypeId: number, ids: number[]) => {
+    if (ids.length === 0) return;
+    const [row] = await sql<{ count: number }[]>`
+      SELECT count(*)::int AS count
+      FROM categories c JOIN listing_types t ON t.section_id = c.section_id
+      WHERE t.id = ${listingTypeId}::smallint AND c.id = ANY(${ids}::int[])`;
+    if ((row?.count ?? 0) !== ids.length) {
+      throw errors.validation({ categoryIds: "Категории должны быть из раздела этого типа имущества" });
+    }
+  };
 
   app.get("/v1/admin/attributes", read, async (request): Promise<{ items: AttributeDefinitionDto[] }> => {
     const { listingTypeId } = z.object({ listingTypeId: z.coerce.number().int().positive() }).parse(request.query);
     const rows = await sql<AttributeRow[]>`
-      SELECT ${attributeColumns()} FROM attribute_definitions
+      SELECT ${columns()} FROM attribute_definitions
       WHERE listing_type_id = ${listingTypeId}::smallint
       ORDER BY sort_order, id`;
     return { items: rows.map(toAttributeDto) };
@@ -448,19 +448,21 @@ export async function adminCatalogRoutes(app: FastifyInstance, ctx: AppContext):
     if (!type) throw errors.validation({ listingTypeId: "Тип имущества не найден" });
     const options = input.dataType === "select" || input.dataType === "multiselect" ? input.options : [];
     const numeric = input.dataType === "number";
+    await checkCategories(input.listingTypeId, input.categoryIds);
     try {
       const [row] = await sql<AttributeRow[]>`
         INSERT INTO attribute_definitions (
-          listing_type_id, key, label, data_type, unit, options, min_value, max_value,
-          required, filterable, applies_to, help_text, is_active, sort_order
+          listing_type_id, key, label, data_type, unit, options, min_value, max_value, step_value,
+          category_ids, required, filterable, applies_to, help_text, is_active, sort_order
         ) VALUES (
           ${input.listingTypeId}::smallint, ${input.key}, ${input.label}, ${input.dataType},
           ${numeric ? input.unit : null}, ${options}::text[],
           ${numeric ? input.minValue : null}::numeric, ${numeric ? input.maxValue : null}::numeric,
+          ${numeric ? input.stepValue : null}::numeric, ${input.categoryIds}::int[],
           ${input.required}, ${input.filterable}, ${input.appliesTo}, ${input.helpText},
           ${input.isActive}, ${input.sortOrder}::int
         )
-        RETURNING ${attributeColumns()}`;
+        RETURNING ${columns()}`;
       await writeAudit(ctx, request, "attribute.created", { type: "attribute", id: row!.id }, input);
       reply.code(201);
       return toAttributeDto(row!);
@@ -477,9 +479,10 @@ export async function adminCatalogRoutes(app: FastifyInstance, ctx: AppContext):
     const input = definedOnly(parseBody(attributeUpdateSchema, request.body));
     if (Object.keys(input).length === 0) throw errors.validation({ _: "Нет изменений" });
 
-    const [current] = await sql<{ dataType: AttributeDefinitionDto["dataType"] }[]>`
-      SELECT data_type FROM attribute_definitions WHERE id = ${id}`;
+    const [current] = await sql<{ dataType: AttributeDefinitionDto["dataType"]; listingTypeId: number }[]>`
+      SELECT data_type, listing_type_id FROM attribute_definitions WHERE id = ${id}`;
     if (!current) throw errors.notFound("Поле не найдено");
+    if (input.categoryIds !== undefined) await checkCategories(current.listingTypeId, input.categoryIds);
     const isList = current.dataType === "select" || current.dataType === "multiselect";
     if (isList && input.options !== undefined && input.options.length === 0) {
       throw errors.validation({ options: "Добавьте хотя бы один вариант" });
@@ -495,6 +498,8 @@ export async function adminCatalogRoutes(app: FastifyInstance, ctx: AppContext):
         options    = CASE WHEN ${has("options") && isList}::boolean THEN ${input.options ?? null}::text[] ELSE options END,
         min_value  = CASE WHEN ${has("minValue") && isNumber}::boolean THEN ${input.minValue ?? null}::numeric ELSE min_value END,
         max_value  = CASE WHEN ${has("maxValue") && isNumber}::boolean THEN ${input.maxValue ?? null}::numeric ELSE max_value END,
+        step_value = CASE WHEN ${has("stepValue") && isNumber}::boolean THEN ${input.stepValue ?? null}::numeric ELSE step_value END,
+        category_ids = CASE WHEN ${has("categoryIds")}::boolean THEN ${input.categoryIds ?? []}::int[] ELSE category_ids END,
         required   = CASE WHEN ${has("required")}::boolean THEN ${input.required ?? null}::boolean ELSE required END,
         filterable = CASE WHEN ${has("filterable")}::boolean THEN ${input.filterable ?? null}::boolean ELSE filterable END,
         applies_to = CASE WHEN ${has("appliesTo")}::boolean THEN ${input.appliesTo ?? null} ELSE applies_to END,
@@ -503,7 +508,7 @@ export async function adminCatalogRoutes(app: FastifyInstance, ctx: AppContext):
         sort_order = CASE WHEN ${has("sortOrder")}::boolean THEN ${input.sortOrder ?? null}::int ELSE sort_order END,
         updated_at = now()
       WHERE id = ${id}
-      RETURNING ${attributeColumns()}`;
+      RETURNING ${columns()}`;
     await writeAudit(ctx, request, "attribute.updated", { type: "attribute", id }, input);
     return toAttributeDto(row!);
   });

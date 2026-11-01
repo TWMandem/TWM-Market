@@ -4,9 +4,12 @@ import {
   LISTING_SORT_LABELS,
   LISTING_SORTS,
   OPERATION_LABELS,
+  definitionsForCategory,
   formatPrice,
   parsePrice,
+  unitParts,
   type AttributeDefinitionDto,
+  type CatalogItemOptionDto,
   type ListingSearchResultDto,
   type Operation,
   type SectionCode,
@@ -70,7 +73,14 @@ export function CatalogPage({ section }: { section: SectionCode | "search" }) {
   );
   const typeId = section === "cars" || section === "items" ? sectionTypes[0]?.id ?? null : Number(get("type")) || null;
   const attributes = useAttributes(typeId);
-  const filterable = attributes.filter((a) => a.filterable && a.dataType !== "text");
+  const categoryFilter = Number(get("category")) || null;
+  const categoryPath = useMemo(() => {
+    if (!categoryFilter) return null;
+    const parent = catalog?.categories.find((c) => c.id === categoryFilter)?.parentId ?? null;
+    return parent === null ? [categoryFilter] : [categoryFilter, parent];
+  }, [catalog, categoryFilter]);
+  // Поля конкретных категорий (улучшение, целостность одежды) — только когда категория выбрана.
+  const filterable = definitionsForCategory(attributes, categoryPath).filter((a) => a.filterable && a.dataType !== "text");
 
   const query = useMemo(() => {
     const q: Record<string, string | number | undefined> = {};
@@ -107,7 +117,8 @@ export function CatalogPage({ section }: { section: SectionCode | "search" }) {
     }, []),
   );
 
-  const categories = catalog?.categories.filter((c) => c.sectionCode === "items" && c.parentId === null) ?? [];
+  const categorySection = section === "items" || section === "cars" ? section : null;
+  const categories = catalog?.categories.filter((c) => c.sectionCode === categorySection && c.parentId === null) ?? [];
   const pages = result ? Math.max(1, Math.ceil(result.total / result.pageSize)) : 1;
   const page = Number(get("page")) || 1;
   const activeFilters = [...params.keys()].filter((k) => !["sort", "page", "q"].includes(k)).length;
@@ -175,9 +186,13 @@ export function CatalogPage({ section }: { section: SectionCode | "search" }) {
 
       <div className="flex flex-wrap items-start gap-6">
         <aside aria-label="Фильтры" className="flex min-w-0 flex-[1_1_250px] flex-col gap-5 rounded-[var(--radius-card)] border border-line bg-surface p-5 lg:max-w-[290px]">
-          {section === "items" && (
-            <FilterGroup title="КАТЕГОРИИ">
-              <CategoryButton active={!get("category")} label="Все категории" onClick={() => set({ category: null, item: null })} />
+          {categorySection && categories.length > 0 && (
+            <FilterGroup title={section === "cars" ? "ТИП ТРАНСПОРТА" : "КАТЕГОРИИ"}>
+              <CategoryButton
+                active={!get("category")}
+                label={section === "cars" ? "Весь транспорт" : "Все категории"}
+                onClick={() => set({ category: null, item: null })}
+              />
               {categories.map((c) => (
                 <CategoryButton
                   key={c.id}
@@ -213,6 +228,12 @@ export function CatalogPage({ section }: { section: SectionCode | "search" }) {
               />
             )}
           </FilterGroup>
+
+          {section === "cars" && (
+            <FilterGroup title="МОДЕЛЬ">
+              <ModelFilter categoryId={categoryFilter} value={get("item")} onChange={(item) => set({ item })} />
+            </FilterGroup>
+          )}
 
           {section === "cars" && (
             <FilterGroup title="СПОСОБ СДЕЛКИ">
@@ -478,7 +499,7 @@ function AttributeFilter({
       <div className="flex flex-col gap-1.5">
         <span className="text-sm text-ink-2">
           {def.label}
-          {def.unit ? `, ${def.unit}` : ""}
+          {unitLabel(def.unit)}
         </span>
         <div className="grid grid-cols-2 gap-2">
           <NumberInput label={`${def.label} от`} value={get(`${key}.min`)} onCommit={(v) => set({ [`${key}.min`]: v })} />
@@ -505,6 +526,43 @@ function AttributeFilter({
         ))}
       </select>
     </label>
+  );
+}
+
+/** Подпись единицы в фильтре: «, %» или «(X…)» для шаблона вроде «X{}». */
+function unitLabel(unit: string | null): string {
+  if (!unit) return "";
+  const { prefix, suffix } = unitParts(unit);
+  return unit.includes("{}") ? ` (${prefix}…${suffix})` : `, ${unit}`;
+}
+
+/** Выбор модели транспорта из справочника (с учётом выбранного типа транспорта). */
+function ModelFilter({ categoryId, value, onChange }: { categoryId: number | null; value: string; onChange: (v: string) => void }) {
+  const [items, setItems] = useState<CatalogItemOptionDto[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .catalogItems(categoryId ? { categoryId } : { section: "cars" })
+      .then((r) => !cancelled && setItems(r.items))
+      .catch(() => !cancelled && setItems([]));
+    return () => {
+      cancelled = true;
+    };
+  }, [categoryId]);
+  return (
+    <select
+      aria-label="Модель"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="h-11 w-full rounded-xl border border-line bg-ground px-3 text-ink"
+    >
+      <option value="">Любая</option>
+      {items.map((item) => (
+        <option key={item.id} value={item.id}>
+          {item.name}
+        </option>
+      ))}
+    </select>
   );
 }
 

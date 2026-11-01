@@ -21,7 +21,7 @@ import { meRoutes } from "./modules/me/routes.js";
 import { serverRoutes } from "./modules/servers/routes.js";
 import { twoFactorRoutes } from "./modules/two-factor/routes.js";
 
-export const API_VERSION = "0.4.0";
+export const API_VERSION = "0.4.1";
 
 export interface BuildOptions {
   config: Config;

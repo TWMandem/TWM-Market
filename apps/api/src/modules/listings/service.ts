@@ -1,5 +1,6 @@
 import {
   buildAttributesSchema,
+  definitionsForCategory,
   fieldErrors,
   type AttributeDefinitionDto,
   type ListingAttributeDto,
@@ -16,6 +17,7 @@ import type { AppContext } from "../../context.js";
 import type { Fragment, Sql } from "../../db/client.js";
 import { AppError, errors } from "../../lib/errors.js";
 import { mediaUrl } from "../../lib/media.js";
+import { attributeColumns, toAttributeDto, type AttributeRow } from "../catalog/attribute-row.js";
 
 type AttrValue = string | number | boolean | string[];
 
@@ -138,18 +140,12 @@ export function toCard(row: ListingRow): ListingCardDto {
 
 // ── Описания полей ─────────────────────────────────────────────────────────
 
-interface AttributeRow extends Omit<AttributeDefinitionDto, "minValue" | "maxValue"> {
-  minValue: string | null;
-  maxValue: string | null;
-}
-
 export async function loadDefinitions(sql: Sql, listingTypeId: number): Promise<AttributeDefinitionDto[]> {
   const rows = await sql<AttributeRow[]>`
-    SELECT id, listing_type_id, key, label, data_type, unit, options, min_value, max_value,
-           required, filterable, applies_to, help_text, is_active, sort_order
+    SELECT ${attributeColumns(sql)}
     FROM attribute_definitions WHERE listing_type_id = ${listingTypeId}::smallint
     ORDER BY sort_order, id`;
-  return rows.map((r) => ({ ...r, minValue: num(r.minValue), maxValue: num(r.maxValue) }));
+  return rows.map(toAttributeDto);
 }
 
 /** Значения характеристик с подписями — в порядке полей из конструктора. */
@@ -199,22 +195,26 @@ export async function validateListing(ctx: AppContext, userId: string, input: Li
   }
 
   let categoryId: number | null = null;
+  // Категория предмета и её родитель — по ним выбираются поля, привязанные к категориям.
+  let categoryPath: number[] | null = null;
   const fields: Record<string, string> = {};
   const data: ListingInput = { ...input };
+  const itemWord = type.sectionCode === "cars" ? "Модель" : "Предмет";
 
   if (input.catalogItemId !== null) {
-    const [item] = await sql<{ name: string; categoryId: number; sectionCode: SectionCode }[]>`
-      SELECT i.name, i.category_id, s.code AS section_code
+    const [item] = await sql<{ name: string; categoryId: number; parentId: number | null; sectionCode: SectionCode }[]>`
+      SELECT i.name, i.category_id, c.parent_id, s.code AS section_code
       FROM catalog_items i JOIN categories c ON c.id = i.category_id JOIN sections s ON s.id = c.section_id
       WHERE i.id = ${input.catalogItemId} AND i.is_active AND c.is_active`;
     if (!item || item.sectionCode !== type.sectionCode) {
-      fields.catalogItemId = "Предмет не найден в справочнике";
+      fields.catalogItemId = `${itemWord} не найден${type.sectionCode === "cars" ? "а" : ""} в справочнике`;
     } else {
       categoryId = item.categoryId;
+      categoryPath = item.parentId === null ? [item.categoryId] : [item.categoryId, item.parentId];
       if (!data.title) data.title = item.name;
     }
-  } else if (type.sectionCode === "items") {
-    fields.catalogItemId = "Выберите предмет из справочника";
+  } else if (type.sectionCode !== "notary") {
+    fields.catalogItemId = type.sectionCode === "cars" ? "Выберите модель из справочника" : "Выберите предмет из справочника";
   }
 
   if (data.title.length < 3) fields.title = "Название — от 3 символов";
@@ -222,7 +222,7 @@ export async function validateListing(ctx: AppContext, userId: string, input: Li
   if (type.sectionCode !== "cars") data.dealPlaces = [];
 
   const definitions = await loadDefinitions(sql, input.listingTypeId);
-  const offer = buildAttributesSchema(definitions, "offer").safeParse(input.attributes);
+  const offer = buildAttributesSchema(definitionsForCategory(definitions, categoryPath), "offer").safeParse(input.attributes);
   if (offer.success) data.attributes = offer.data;
   else for (const [key, message] of Object.entries(fieldErrors(offer.error))) fields[`attributes.${key}`] = message;
 
@@ -231,7 +231,8 @@ export async function validateListing(ctx: AppContext, userId: string, input: Li
       const [wantType] = await sql`SELECT 1 FROM listing_types WHERE id = ${input.wantListingTypeId}::smallint AND is_active`;
       if (!wantType) fields.wantListingTypeId = "Тип имущества не найден";
     }
-    const want = buildAttributesSchema(definitions, "want").safeParse(input.wantAttributes);
+    // Что хотят получить взамен — без предмета из справочника, поэтому только общие поля.
+    const want = buildAttributesSchema(definitionsForCategory(definitions, null), "want").safeParse(input.wantAttributes);
     if (want.success) data.wantAttributes = want.data;
     else for (const [key, message] of Object.entries(fieldErrors(want.error))) fields[`wantAttributes.${key}`] = message;
   } else {

@@ -356,6 +356,34 @@ describe("справочники", { skip: skipWithoutDb }, () => {
     const publicList = await env.app.inject({ method: "GET", url: `/v1/catalog/attributes?listingTypeId=${vehicle.id}` });
     const keys = (publicList.json() as { items: AttributeDefinitionDto[] }).items.map((a) => a.key);
     assert.deepEqual(keys, ["max_speed"], "скрытое поле не попадает в приложение");
+
+    // Шаг и привязка к категориям: категории только из раздела этого типа.
+    const itemsCategory = (await call("POST", "/v1/admin/categories", { sectionCode: "items", name: "Одежда" })).json() as CategoryDto;
+    const carsCategory = (await call("POST", "/v1/admin/categories", { sectionCode: "cars", name: "Легковые" })).json() as CategoryDto;
+    const clearance = await call("POST", "/v1/admin/attributes", {
+      listingTypeId: vehicle.id,
+      key: "clearance",
+      label: "Клиренс",
+      dataType: "number",
+      unit: "%",
+      minValue: 5,
+      maxValue: 100,
+      stepValue: 5,
+      categoryIds: [carsCategory.id],
+    });
+    assert.equal(clearance.statusCode, 201, clearance.body);
+    const clearanceDto = clearance.json() as AttributeDefinitionDto;
+    assert.equal(clearanceDto.stepValue, 5);
+    assert.deepEqual(clearanceDto.categoryIds, [carsCategory.id]);
+
+    const foreignCategory = await call("PATCH", `/v1/admin/attributes/${clearanceDto.id}`, { categoryIds: [itemsCategory.id] });
+    assert.equal(foreignCategory.statusCode, 400);
+    assert.ok(foreignCategory.json().fields.categoryIds);
+
+    const cleared = await call("PATCH", `/v1/admin/attributes/${clearanceDto.id}`, { categoryIds: [], stepValue: null });
+    assert.equal(cleared.statusCode, 200);
+    assert.deepEqual((cleared.json() as AttributeDefinitionDto).categoryIds, []);
+    assert.equal((cleared.json() as AttributeDefinitionDto).stepValue, null);
   });
 
   test("новый тип имущества и правка операций", async () => {

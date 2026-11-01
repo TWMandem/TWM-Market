@@ -166,6 +166,9 @@ export interface AttributeDefinitionDto {
   options: string[];
   minValue: number | null;
   maxValue: number | null;
+  stepValue: number | null;
+  /** Пусто — поле у всех объявлений типа; иначе только у предметов из этих категорий. */
+  categoryIds: number[];
   required: boolean;
   filterable: boolean;
   appliesTo: "offer" | "want" | "both";

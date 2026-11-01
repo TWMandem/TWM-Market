@@ -18,6 +18,7 @@ import type {
   MeDto,
   MyListingDto,
   Paged,
+  SectionCode,
   SectionDto,
   ServerDto,
   SessionDto,
@@ -214,7 +215,7 @@ export const api = {
   twoFactorEnable: (code: string) => request<TwoFactorStatusDto>("/v1/me/2fa/enable", { method: "POST", body: { code } }),
   twoFactorVerify: (code: string) => request<TwoFactorStatusDto>("/v1/me/2fa/verify", { method: "POST", body: { code } }),
 
-  catalogItems: (params: { categoryId?: number; q?: string }) =>
+  catalogItems: (params: { categoryId?: number; section?: SectionCode; q?: string }) =>
     request<{ items: CatalogItemOptionDto[] }>(`/v1/catalog/items${qs(params)}`, { auth: false }),
   attributes: (listingTypeId: number) =>
     request<{ items: AttributeDefinitionDto[] }>(`/v1/catalog/attributes${qs({ listingTypeId })}`, { auth: false }),

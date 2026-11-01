@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { AttributeDefinitionDto, CatalogItemOptionDto, CategoryDto, ListingTypeDto, SectionDto } from "@twm/shared";
 import type { AppContext } from "../../context.js";
 import { mediaUrl } from "../../lib/media.js";
+import { attributeColumns, toAttributeDto, type AttributeRow } from "./attribute-row.js";
 
 /**
  * Публичная структура площадки для приложения: активные разделы, типы
@@ -37,37 +38,37 @@ export async function catalogRoutes(app: FastifyInstance, ctx: AppContext): Prom
 
   app.get("/v1/catalog/attributes", async (request): Promise<{ items: AttributeDefinitionDto[] }> => {
     const { listingTypeId } = z.object({ listingTypeId: z.coerce.number().int().positive() }).parse(request.query);
-    const rows = await sql<(Omit<AttributeDefinitionDto, "minValue" | "maxValue"> & { minValue: string | null; maxValue: string | null })[]>`
-      SELECT id, listing_type_id, key, label, data_type, unit, options, min_value, max_value,
-             required, filterable, applies_to, help_text, is_active, sort_order
+    const rows = await sql<AttributeRow[]>`
+      SELECT ${attributeColumns(sql)}
       FROM attribute_definitions
       WHERE listing_type_id = ${listingTypeId}::smallint AND is_active
       ORDER BY sort_order, id`;
-    return {
-      items: rows.map((r) => ({
-        ...r,
-        minValue: r.minValue === null ? null : Number(r.minValue),
-        maxValue: r.maxValue === null ? null : Number(r.maxValue),
-      })),
-    };
+    return { items: rows.map(toAttributeDto) };
   });
 
   // Предметы справочника для выбора в форме объявления и фильтра каталога.
   app.get("/v1/catalog/items", async (request): Promise<{ items: CatalogItemOptionDto[] }> => {
     const q = z
-      .object({ categoryId: z.coerce.number().int().positive().optional(), q: z.string().trim().max(80).optional() })
+      .object({
+        categoryId: z.coerce.number().int().positive().optional(),
+        section: z.enum(["items", "cars", "notary"]).optional(),
+        q: z.string().trim().max(80).optional(),
+      })
       .parse(request.query);
     const like = q.q ? `%${q.q.toLowerCase().replace(/[\\%_]/g, (c) => `\\${c}`)}%` : null;
     const rows = await sql<
       { id: number; categoryId: number; name: string; aliases: string[]; iconPath: string | null; iconKind: "image" | "video" | null }[]
     >`
       SELECT i.id, i.category_id, i.name, i.aliases, i.icon_path, i.icon_kind
-      FROM catalog_items i JOIN categories c ON c.id = i.category_id
+      FROM catalog_items i
+      JOIN categories c ON c.id = i.category_id
+      JOIN sections s ON s.id = c.section_id
       WHERE i.is_active AND c.is_active
-        ${q.categoryId ? sql`AND i.category_id = ${q.categoryId}` : sql``}
+        ${q.categoryId ? sql`AND (i.category_id = ${q.categoryId} OR c.parent_id = ${q.categoryId})` : sql``}
+        ${q.section ? sql`AND s.code = ${q.section}` : sql``}
         ${like ? sql`AND (lower(i.name) LIKE ${like} OR EXISTS (SELECT 1 FROM unnest(i.aliases) a WHERE lower(a) LIKE ${like}))` : sql``}
-      ORDER BY i.sort_order, i.name
-      LIMIT 500`;
+      ORDER BY c.sort_order, i.sort_order, i.name
+      LIMIT 1000`;
     return {
       items: rows.map((r) => ({
         id: r.id,
