@@ -1,10 +1,22 @@
 import type {
+  AdminStatsDto,
+  AdminUserDetailDto,
+  AdminUserListItemDto,
   ApiErrorBody,
+  AttributeDefinitionDto,
+  AuditEntryDto,
   AuthResponseDto,
+  CatalogItemDto,
+  CategoryDto,
   GameProfileDto,
+  ListingTypeDto,
   MeDto,
+  Paged,
+  SectionDto,
   ServerDto,
   SessionDto,
+  TwoFactorSetupDto,
+  TwoFactorStatusDto,
 } from "@twm/shared";
 import { API_URL } from "./config";
 import { tokenStore } from "./token-store";
@@ -187,4 +199,74 @@ export const api = {
     }),
   deleteGameProfile: (id: string) =>
     request<void>(`/v1/me/game-profiles/${encodeURIComponent(id)}`, { method: "DELETE" }),
+
+  twoFactorStatus: () => request<TwoFactorStatusDto>("/v1/me/2fa"),
+  twoFactorSetup: () => request<TwoFactorSetupDto>("/v1/me/2fa/setup", { method: "POST" }),
+  twoFactorEnable: (code: string) => request<TwoFactorStatusDto>("/v1/me/2fa/enable", { method: "POST", body: { code } }),
+  twoFactorVerify: (code: string) => request<TwoFactorStatusDto>("/v1/me/2fa/verify", { method: "POST", body: { code } }),
+
+  catalog: () =>
+    request<{ sections: SectionDto[]; listingTypes: ListingTypeDto[]; categories: CategoryDto[] }>("/v1/catalog", {
+      auth: false,
+    }),
+};
+
+const qs = (params: Record<string, string | number | undefined>) => {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== "") search.set(key, String(value));
+  }
+  const text = search.toString();
+  return text ? `?${text}` : "";
+};
+
+/** Методы админ-панели. Сервер проверяет роль и двухфакторный вход на каждом запросе. */
+export const adminApi = {
+  stats: () => request<AdminStatsDto>("/v1/admin/stats"),
+
+  users: (params: { query?: string; role?: string; status?: string; page?: number }) =>
+    request<Paged<AdminUserListItemDto>>(`/v1/admin/users${qs(params)}`),
+  user: (id: string) => request<AdminUserDetailDto>(`/v1/admin/users/${encodeURIComponent(id)}`),
+  blockUser: (id: string, reason: string) =>
+    request<AdminUserDetailDto>(`/v1/admin/users/${encodeURIComponent(id)}/block`, { method: "POST", body: { reason } }),
+  unblockUser: (id: string) =>
+    request<AdminUserDetailDto>(`/v1/admin/users/${encodeURIComponent(id)}/unblock`, { method: "POST" }),
+  changeRole: (id: string, role: string) =>
+    request<AdminUserDetailDto>(`/v1/admin/users/${encodeURIComponent(id)}/role`, { method: "POST", body: { role } }),
+
+  servers: () => request<{ items: ServerDto[] }>("/v1/admin/servers"),
+  createServer: (body: unknown) => request<ServerDto>("/v1/admin/servers", { method: "POST", body }),
+  updateServer: (number: number, body: unknown) =>
+    request<ServerDto>(`/v1/admin/servers/${number}`, { method: "PATCH", body }),
+
+  sections: () => request<{ items: SectionDto[] }>("/v1/admin/sections"),
+  updateSection: (code: string, body: unknown) =>
+    request<SectionDto>(`/v1/admin/sections/${code}`, { method: "PATCH", body }),
+
+  listingTypes: () => request<{ items: ListingTypeDto[] }>("/v1/admin/listing-types"),
+  createListingType: (body: unknown) => request<ListingTypeDto>("/v1/admin/listing-types", { method: "POST", body }),
+  updateListingType: (id: number, body: unknown) =>
+    request<ListingTypeDto>(`/v1/admin/listing-types/${id}`, { method: "PATCH", body }),
+
+  categories: (section?: string) => request<{ items: CategoryDto[] }>(`/v1/admin/categories${qs({ section })}`),
+  createCategory: (body: unknown) => request<CategoryDto>("/v1/admin/categories", { method: "POST", body }),
+  updateCategory: (id: number, body: unknown) =>
+    request<CategoryDto>(`/v1/admin/categories/${id}`, { method: "PATCH", body }),
+  deleteCategory: (id: number) => request<void>(`/v1/admin/categories/${id}`, { method: "DELETE" }),
+
+  catalogItems: (params: { categoryId?: number; query?: string }) =>
+    request<{ items: CatalogItemDto[] }>(`/v1/admin/catalog-items${qs(params)}`),
+  createCatalogItem: (body: unknown) => request<CatalogItemDto>("/v1/admin/catalog-items", { method: "POST", body }),
+  updateCatalogItem: (id: number, body: unknown) =>
+    request<CatalogItemDto>(`/v1/admin/catalog-items/${id}`, { method: "PATCH", body }),
+  deleteCatalogItem: (id: number) => request<void>(`/v1/admin/catalog-items/${id}`, { method: "DELETE" }),
+
+  attributes: (listingTypeId: number) =>
+    request<{ items: AttributeDefinitionDto[] }>(`/v1/admin/attributes${qs({ listingTypeId })}`),
+  createAttribute: (body: unknown) => request<AttributeDefinitionDto>("/v1/admin/attributes", { method: "POST", body }),
+  updateAttribute: (id: number, body: unknown) =>
+    request<AttributeDefinitionDto>(`/v1/admin/attributes/${id}`, { method: "PATCH", body }),
+  deleteAttribute: (id: number) => request<void>(`/v1/admin/attributes/${id}`, { method: "DELETE" }),
+
+  audit: (params: { page?: number; action?: string }) => request<Paged<AuditEntryDto>>(`/v1/admin/audit${qs(params)}`),
 };

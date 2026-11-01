@@ -11,6 +11,15 @@ import { RegisterPage } from "./pages/auth/RegisterPage";
 import { VerifyEmailPage } from "./pages/auth/VerifyEmailPage";
 import { ForgotPasswordPage } from "./pages/auth/ForgotPasswordPage";
 import { AccountPage } from "./pages/account/AccountPage";
+import { AdminLayout } from "./pages/admin/AdminLayout";
+import { AuditPage } from "./pages/admin/AuditPage";
+import { CategoriesPage } from "./pages/admin/CategoriesPage";
+import { DashboardPage } from "./pages/admin/DashboardPage";
+import { FieldsPage } from "./pages/admin/FieldsPage";
+import { ServersPage } from "./pages/admin/ServersPage";
+import { StructurePage } from "./pages/admin/StructurePage";
+import { UserDetailPage } from "./pages/admin/UserDetailPage";
+import { UsersPage } from "./pages/admin/UsersPage";
 
 // Hash-маршруты (#/items) надёжно работают внутри Tauri:
 // приложение всегда загружает один index.html.
@@ -40,6 +49,24 @@ const router = createHashRouter([
             <AccountPage />
           </RequireAuth>
         ),
+      },
+      {
+        path: "admin",
+        element: (
+          <RequireAuth>
+            <AdminLayout />
+          </RequireAuth>
+        ),
+        children: [
+          { index: true, element: <DashboardPage /> },
+          { path: "users", element: <UsersPage /> },
+          { path: "users/:id", element: <UserDetailPage /> },
+          { path: "servers", element: <ServersPage /> },
+          { path: "structure", element: <StructurePage /> },
+          { path: "categories", element: <CategoriesPage /> },
+          { path: "fields", element: <FieldsPage /> },
+          { path: "audit", element: <AuditPage /> },
+        ],
       },
       { path: "*", element: <NotFoundPage /> },
     ],

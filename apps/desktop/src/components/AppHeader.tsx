@@ -57,6 +57,19 @@ export function AppHeader() {
 
         <ServerSwitcher />
 
+        {user && user.role !== "user" && (
+          <NavLink
+            to="/admin"
+            className={({ isActive }) =>
+              `flex h-11 items-center rounded-xl px-3 text-sm font-bold no-underline ${
+                isActive ? "bg-surface-2 text-ink" : "text-exchange hover:bg-surface-2"
+              }`
+            }
+          >
+            Админ-панель
+          </NavLink>
+        )}
+
         {status === "authed" && user ? (
           <Link
             to="/account"
