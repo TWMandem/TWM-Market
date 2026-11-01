@@ -6,6 +6,8 @@ import {
   ATTRIBUTE_TYPES,
   buildAttributesSchema,
   definitionsForCategory,
+  hasOptions,
+  hasRange,
   fieldErrors,
   type AttributeDefinitionDto,
   type AttributeSide,
@@ -282,7 +284,9 @@ function AttributeForm({
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) => setState((s) => ({ ...s, [key]: value }));
 
   const isNumber = state.dataType === "number";
-  const isList = state.dataType === "select" || state.dataType === "multiselect";
+  const isGenes = state.dataType === "genes";
+  const isList = hasOptions(state.dataType);
+  const isRanged = hasRange(state.dataType);
   const num = (text: string) => (text.trim() === "" ? null : Number(text.replace(",", ".")));
 
   const submit = async () => {
@@ -298,8 +302,8 @@ function AttributeForm({
             .map((o) => o.trim())
             .filter(Boolean)
         : [],
-      minValue: isNumber ? num(state.minValue) : null,
-      maxValue: isNumber ? num(state.maxValue) : null,
+      minValue: isRanged ? num(state.minValue) : null,
+      maxValue: isRanged ? num(state.maxValue) : null,
       stepValue: isNumber ? num(state.stepValue) : null,
       categoryIds: state.categoryIds,
       required: state.required,
@@ -384,6 +388,13 @@ function AttributeForm({
           </div>
         )}
 
+        {isGenes && (
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-3">
+            <Field label="Генов не меньше" inputMode="numeric" value={state.minValue} onChange={(e) => set("minValue", e.target.value)} error={errors.minValue} />
+            <Field label="Генов не больше" inputMode="numeric" value={state.maxValue} onChange={(e) => set("maxValue", e.target.value)} error={errors.maxValue} />
+          </div>
+        )}
+
         {categories.length > 0 && (
           <fieldset className="m-0 flex flex-col gap-1.5 border-0 p-0">
             <legend className="mb-1.5 text-sm text-muted">Только для категорий (ничего не отмечено — для всех)</legend>
@@ -419,7 +430,7 @@ function AttributeForm({
         {isList && (
           <div className="flex flex-col gap-1.5">
             <label htmlFor="attr-options" className="text-sm text-muted">
-              Варианты — каждый с новой строки
+              {isGenes ? "Буквы генов — каждая с новой строки" : "Варианты — каждый с новой строки"}
             </label>
             <textarea
               id="attr-options"

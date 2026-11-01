@@ -55,6 +55,22 @@ function fieldSchema(def: AttributeDefinition): z.ZodTypeAny {
       return z.enum(def.options as [string, ...string[]], {
         errorMap: () => ({ message: `${def.label}: выберите вариант из списка` }),
       });
+    case "genes": {
+      // Геном растения: строка из букв-генов, например YYGGHW. Регистр и пробелы не важны.
+      const letters = new Set(def.options.map((o) => o.toUpperCase()));
+      const min = def.minValue ?? (def.required ? 1 : 0);
+      const max = def.maxValue ?? 20;
+      const lengthText = min === max ? `${max}` : `от ${min} до ${max}`;
+      return z
+        .string({ required_error: `Заполните «${def.label}»` })
+        .transform((v) => v.toUpperCase().replace(/[\s,.-]+/g, ""))
+        .refine((v) => [...v].every((ch) => letters.has(ch)), {
+          message: `${def.label}: только буквы ${def.options.join(", ")}`,
+        })
+        .refine((v) => (v.length === 0 && !def.required) || (v.length >= min && v.length <= max), {
+          message: `${def.label}: ${lengthText} букв`,
+        });
+    }
     case "multiselect":
       return z
         .array(
@@ -105,6 +121,19 @@ export function formatAttributeValue(value: AttributeValue, unit: string | null)
   if (!unit) return text;
   if (unit.includes("{}")) return unit.replace("{}", text);
   return `${text} ${unit}`;
+}
+
+/**
+ * Фильтр по генам: «YYG» — в геноме хотя бы две Y и одна G.
+ * Возвращает число каждой буквы; посторонние символы игнорируются.
+ */
+export function geneCounts(query: string, letters: readonly string[]): Record<string, number> {
+  const allowed = new Set(letters.map((l) => l.toUpperCase()));
+  const counts: Record<string, number> = {};
+  for (const ch of query.toUpperCase()) {
+    if (allowed.has(ch)) counts[ch] = (counts[ch] ?? 0) + 1;
+  }
+  return counts;
 }
 
 /**

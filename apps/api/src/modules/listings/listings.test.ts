@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import sharp from "sharp";
 import type {
   AuthResponseDto,
+  CatalogItemDto,
   GameProfileDto,
   ListingDetailDto,
   ListingSearchResultDto,
@@ -222,6 +223,97 @@ describe("объявления", { skip: skipWithoutDb }, () => {
 
     const filtered = (await call("GET", `/v1/listings?type=${vehicleTypeId}&a.max_speed.min=200`)).json() as ListingSearchResultDto;
     assert.deepEqual(filtered.items.map((i) => i.title), ["Седан Тест"]);
+  });
+
+  test("справочник: ID в игре, предпросмотр со звуком, содержимое кейса", async () => {
+    const cases = (await call("POST", "/v1/admin/categories", admin.accessToken, { sectionCode: "items", name: "Кейсы" })).json() as { id: number };
+    const created = await call("POST", "/v1/admin/catalog-items", admin.accessToken, {
+      categoryId: cases.id,
+      name: "Кейс «STALKER»",
+      gameCode: " ",
+      contents: ["Наручные часы — 10%", "Что-то редкое", "  "],
+    });
+    assert.equal(created.statusCode, 201, created.body);
+    const caseItem = created.json() as CatalogItemDto;
+    assert.equal(caseItem.gameCode, null, "пустой ID не сохраняется");
+    assert.deepEqual(caseItem.contents, ["Наручные часы — 10%", "Что-то редкое"]);
+
+    const upload = (media: "preview" | "audio", data: Buffer, type: string, name: string) => {
+      const body = multipart("file", name, data, type);
+      return env.app.inject({
+        method: "POST",
+        url: `/v1/admin/catalog-items/${caseItem.id}/${media}`,
+        headers: { ...bearer(admin.accessToken), ...body.headers },
+        payload: body.payload,
+      });
+    };
+    const gif = await sharp({ create: { width: 64, height: 64, channels: 3, background: "#ff0000" } }).gif().toBuffer();
+    const preview = await upload("preview", gif, "image/gif", "dance.gif");
+    assert.equal(preview.statusCode, 200, preview.body);
+    assert.equal((preview.json() as CatalogItemDto).preview?.kind, "image");
+
+    const wav = Buffer.concat([Buffer.from("RIFF"), Buffer.alloc(4), Buffer.from("WAVE"), Buffer.alloc(64)]);
+    const audio = await upload("audio", wav, "audio/wav", "music.wav");
+    assert.equal(audio.statusCode, 200, audio.body);
+    assert.match((audio.json() as CatalogItemDto).audioUrl ?? "", /\.wav$/);
+    assert.equal((await upload("audio", Buffer.from("это не звук, а просто текст"), "audio/mpeg", "x.mp3")).statusCode, 400);
+
+    const listing = await createAndPublish(itemListing({ catalogItemId: caseItem.id }));
+    const detail = (await call("GET", `/v1/listings/${listing.id}`)).json() as ListingDetailDto;
+    assert.equal(detail.catalogItem?.preview?.kind, "image");
+    assert.ok(detail.catalogItem?.audioUrl);
+    assert.deepEqual(
+      detail.catalogItem?.contents.map((c) => [c.name, c.note, c.item?.id ?? null]),
+      [
+        ["Наручные часы", "10%", itemId],
+        ["Что-то редкое", null, null],
+      ],
+    );
+
+    const removed = await call("DELETE", `/v1/admin/catalog-items/${caseItem.id}/preview`, admin.accessToken);
+    assert.equal(removed.statusCode, 200, removed.body);
+    assert.equal((removed.json() as CatalogItemDto).preview, null);
+
+    // ID одежды ищется и в справочнике, и в каталоге.
+    const clothes = await call("POST", "/v1/admin/catalog-items", admin.accessToken, { categoryId: cases.id, name: "Одежда мужчина", gameCode: "2764" });
+    assert.equal(clothes.statusCode, 201, clothes.body);
+    const byCode = (await call("GET", "/v1/catalog/items?q=2764")).json() as { items: Array<{ name: string; gameCode: string | null }> };
+    assert.deepEqual(byCode.items.map((i) => [i.name, i.gameCode]), [["Одежда мужчина", "2764"]]);
+  });
+
+  test("гены: геном из 6 букв, фильтр «не меньше генов»", async () => {
+    const itemTypeId = types.find((t) => t.code === "item")!.id;
+    const food = (await call("POST", "/v1/admin/categories", admin.accessToken, { sectionCode: "items", name: "Продовольствие" })).json() as { id: number };
+    const field = await call("POST", "/v1/admin/attributes", admin.accessToken, {
+      listingTypeId: itemTypeId,
+      key: "genome",
+      label: "Геном",
+      dataType: "genes",
+      options: ["Y", "G", "H", "W", "X"],
+      minValue: 6,
+      maxValue: 6,
+      categoryIds: [food.id],
+      filterable: true,
+    });
+    assert.equal(field.statusCode, 201, field.body);
+    const badLetters = await call("POST", "/v1/admin/attributes", admin.accessToken, {
+      listingTypeId: itemTypeId,
+      key: "bad_genes",
+      label: "Плохие гены",
+      dataType: "genes",
+      options: ["YY"],
+    });
+    assert.equal(badLetters.statusCode, 400);
+
+    const tomato = await newCatalogItem(food.id, "Помидоры");
+    const strong = await createAndPublish(itemListing({ catalogItemId: tomato, attributes: { genome: "yyy ggh" } }));
+    assert.deepEqual(strong.rawAttributes, { genome: "YYYGGH" });
+    await createAndPublish(itemListing({ catalogItemId: await newCatalogItem(food.id, "Огурцы"), attributes: { genome: "WWXXYG" } }));
+    const short = await call("POST", "/v1/listings", seller.accessToken, itemListing({ catalogItemId: tomato, attributes: { genome: "YYY" } }));
+    assert.equal(short.statusCode, 400);
+
+    const found = (await call("GET", `/v1/listings?type=${itemTypeId}&category=${food.id}&a.genome=yyg`)).json() as ListingSearchResultDto;
+    assert.deepEqual(found.items.map((i) => i.id), [strong.id]);
   });
 
   test("транспорт: модель из справочника обязательна, название по умолчанию — модель", async () => {

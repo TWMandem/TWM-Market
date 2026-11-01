@@ -57,16 +57,24 @@ export async function catalogRoutes(app: FastifyInstance, ctx: AppContext): Prom
       .parse(request.query);
     const like = q.q ? `%${q.q.toLowerCase().replace(/[\\%_]/g, (c) => `\\${c}`)}%` : null;
     const rows = await sql<
-      { id: number; categoryId: number; name: string; aliases: string[]; iconPath: string | null; iconKind: "image" | "video" | null }[]
+      {
+        id: number;
+        categoryId: number;
+        name: string;
+        aliases: string[];
+        iconPath: string | null;
+        iconKind: "image" | "video" | null;
+        gameCode: string | null;
+      }[]
     >`
-      SELECT i.id, i.category_id, i.name, i.aliases, i.icon_path, i.icon_kind
+      SELECT i.id, i.category_id, i.name, i.aliases, i.icon_path, i.icon_kind, i.game_code
       FROM catalog_items i
       JOIN categories c ON c.id = i.category_id
       JOIN sections s ON s.id = c.section_id
       WHERE i.is_active AND c.is_active
         ${q.categoryId ? sql`AND (i.category_id = ${q.categoryId} OR c.parent_id = ${q.categoryId})` : sql``}
         ${q.section ? sql`AND s.code = ${q.section}` : sql``}
-        ${like ? sql`AND (lower(i.name) LIKE ${like} OR EXISTS (SELECT 1 FROM unnest(i.aliases) a WHERE lower(a) LIKE ${like}))` : sql``}
+        ${like ? sql`AND (lower(i.name) LIKE ${like} OR i.game_code = ${q.q} OR EXISTS (SELECT 1 FROM unnest(i.aliases) a WHERE lower(a) LIKE ${like}))` : sql``}
       ORDER BY c.sort_order, i.sort_order, i.name
       LIMIT 1000`;
     return {
@@ -76,6 +84,7 @@ export async function catalogRoutes(app: FastifyInstance, ctx: AppContext): Prom
         name: r.name,
         aliases: r.aliases,
         icon: r.iconPath && r.iconKind ? { url: mediaUrl(r.iconPath), kind: r.iconKind } : null,
+        gameCode: r.gameCode,
       })),
     };
   });

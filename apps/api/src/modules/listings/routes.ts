@@ -5,6 +5,7 @@ import {
   LISTING_SORTS,
   LISTING_TTL_DAYS,
   MAX_ACTIVE_LISTINGS,
+  geneCounts,
   imageOrderSchema,
   listingInputSchema,
   type ListingCardDto,
@@ -111,6 +112,7 @@ export async function listingRoutes(app: FastifyInstance, ctx: AppContext): Prom
           l.search_vector @@ websearch_to_tsquery('russian', ${q.q})
           OR lower(l.title) LIKE ${like}
           OR lower(gp.nickname) = lower(${q.q})
+          OR ci.game_code = ${q.q}
           OR EXISTS (SELECT 1 FROM unnest(ci.aliases) a WHERE lower(a) LIKE ${like})
         )`);
       }
@@ -125,7 +127,13 @@ export async function listingRoutes(app: FastifyInstance, ctx: AppContext): Prom
         } else {
           const value = raw[`a.${key}`];
           if (!value) continue;
-          if (def.dataType === "multiselect") c.push(sql`jsonb_exists(l.attributes -> ${key}, ${value})`);
+          if (def.dataType === "genes") {
+            // «YYG» — в геноме не меньше двух Y и одной G.
+            const genes = () => sql`coalesce(l.attributes ->> ${key}, '')`;
+            for (const [letter, count] of Object.entries(geneCounts(value, def.options))) {
+              c.push(sql`(length(${genes()}) - length(replace(${genes()}, ${letter}, ''))) >= ${count}::int`);
+            }
+          } else if (def.dataType === "multiselect") c.push(sql`jsonb_exists(l.attributes -> ${key}, ${value})`);
           else if (def.dataType === "boolean") c.push(sql`(l.attributes ->> ${key}) = ${value === "true" ? "true" : "false"}`);
           else c.push(sql`(l.attributes ->> ${key}) = ${value}`);
         }

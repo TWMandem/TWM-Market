@@ -682,7 +682,7 @@ function TextArea({
 }
 
 const PICKER_TEXT = {
-  item: { category: "Категория", find: "Найти предмет", list: "Предметы", placeholder: "Название или другое имя" },
+  item: { category: "Категория", find: "Найти предмет", list: "Предметы", placeholder: "Название, другое имя или ID" },
   vehicle: { category: "Тип транспорта", find: "Найти модель", list: "Модели", placeholder: "Например: M5 F90 или бмв" },
 } as const;
 
@@ -726,7 +726,9 @@ function ItemPicker({
   }, [categoryId]);
 
   const q = query.trim().toLowerCase();
-  const visible = (items ?? []).filter((i) => !q || i.name.toLowerCase().includes(q) || i.aliases.some((a) => a.toLowerCase().includes(q)));
+  const visible = (items ?? []).filter(
+    (i) => !q || i.name.toLowerCase().includes(q) || i.gameCode === q || i.aliases.some((a) => a.toLowerCase().includes(q)),
+  );
   const selected = items?.find((i) => i.id === itemId);
   const text = PICKER_TEXT[kind];
   const compact = kind === "vehicle";
@@ -742,7 +744,12 @@ function ItemPicker({
       {categoryId && (
         <>
           <Field label={text.find} value={query} onChange={(e) => setQuery(e.target.value)} placeholder={text.placeholder} error={error} />
-          {selected && <span className="text-sm text-ink-2">Выбрано: <strong className="text-ink">{selected.name}</strong></span>}
+          {selected && (
+            <span className="text-sm text-ink-2">
+              Выбрано: <strong className="text-ink">{selected.name}</strong>
+              {selected.gameCode && <span className="font-mono text-muted"> · ID {selected.gameCode}</span>}
+            </span>
+          )}
           <div
             role="listbox"
             aria-label={text.list}
@@ -779,6 +786,7 @@ function ItemPicker({
               >
                 <Media media={item.icon} alt="" fit="contain" className="size-14" />
                 <span className="line-clamp-2">{item.name}</span>
+                {item.gameCode && <span className="font-mono text-[11px] font-normal text-faint">ID {item.gameCode}</span>}
               </button>
             ))}
           </div>

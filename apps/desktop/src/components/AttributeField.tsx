@@ -56,6 +56,27 @@ export function AttributeField({
         </div>
       );
     }
+    case "genes": {
+      // Геном: буквы генов подряд, например YYGGHW.
+      const length = definition.maxValue ?? undefined;
+      return (
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor={id}>{label}</label>
+          <input
+            id={id}
+            maxLength={length !== undefined ? length + 5 : 40}
+            placeholder={`Буквы ${definition.options.join(", ")}`}
+            value={typeof value === "string" ? value : ""}
+            onChange={(e) => {
+              const next = e.target.value.toUpperCase().replace(/\s+/g, "");
+              onChange(next === "" ? undefined : next);
+            }}
+            className={`${inputClass} font-mono tracking-[0.3em]`}
+          />
+          {help}
+        </div>
+      );
+    }
     case "text":
       return (
         <div className="flex flex-col gap-1.5">

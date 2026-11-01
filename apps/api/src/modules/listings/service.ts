@@ -2,6 +2,8 @@ import {
   buildAttributesSchema,
   definitionsForCategory,
   fieldErrors,
+  splitContentLine,
+  type CatalogItemInfoDto,
   type AttributeDefinitionDto,
   type ListingAttributeDto,
   type ListingCardDto,
@@ -270,6 +272,48 @@ export async function loadImages(sql: Sql, listingId: string): Promise<ListingIm
   }));
 }
 
+/** Предмет справочника для карточки: ID в игре, предпросмотр, содержимое кейса. */
+async function catalogItemInfo(sql: Sql, row: ListingRow): Promise<CatalogItemInfoDto | null> {
+  if (row.catalogItemId === null || !row.itemName) return null;
+  const [item] = await sql<
+    {
+      gameCode: string | null;
+      previewPath: string | null;
+      previewKind: "image" | "video" | null;
+      audioPath: string | null;
+      contents: string[];
+    }[]
+  >`SELECT game_code, preview_path, preview_kind, audio_path, contents FROM catalog_items WHERE id = ${row.catalogItemId}`;
+  const lines = (item?.contents ?? []).map(splitContentLine);
+  // Позиции содержимого, которые есть в справочнике, показываем с иконкой.
+  const names = Array.from(new Set(lines.map((l) => l.name.toLowerCase())));
+  const known = names.length
+    ? await sql<{ id: number; lname: string; iconPath: string | null; iconKind: "image" | "video" | null }[]>`
+        SELECT DISTINCT ON (lower(name)) id, lower(name) AS lname, icon_path, icon_kind
+        FROM catalog_items WHERE is_active AND lower(name) = ANY(${names}::text[])
+        ORDER BY lower(name), id`
+    : [];
+  const byName = new Map(known.map((k) => [k.lname, k]));
+  return {
+    id: row.catalogItemId,
+    name: row.itemName,
+    icon: icon(row),
+    gameCode: item?.gameCode ?? null,
+    preview: item?.previewPath && item.previewKind ? { url: mediaUrl(item.previewPath), kind: item.previewKind } : null,
+    audioUrl: item?.audioPath ? mediaUrl(item.audioPath) : null,
+    contents: lines.map((line) => {
+      const match = byName.get(line.name.toLowerCase());
+      return {
+        name: line.name,
+        note: line.note,
+        item: match
+          ? { id: match.id, icon: match.iconPath && match.iconKind ? { url: mediaUrl(match.iconPath), kind: match.iconKind } : null }
+          : null,
+      };
+    }),
+  };
+}
+
 async function priceStats(sql: Sql, row: ListingRow): Promise<PriceStatsDto | null> {
   if (row.catalogItemId === null) return null;
   const [stats] = await sql<{ count: number; average: string; median: string; min: string; max: string }[]>`
@@ -314,8 +358,7 @@ export async function toDetail(ctx: AppContext, row: ListingRow, viewerId: strin
     status: row.status,
     description: row.description,
     category: row.categoryId !== null && row.categoryName ? { id: row.categoryId, name: row.categoryName } : null,
-    catalogItem:
-      row.catalogItemId !== null && row.itemName ? { id: row.catalogItemId, name: row.itemName, icon: icon(row) } : null,
+    catalogItem: await catalogItemInfo(sql, row),
     images: await loadImages(sql, row.id),
     attributes: renderAttributes(row.attributes, definitions, "offer"),
     dealPlaces: row.dealPlaces,

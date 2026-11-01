@@ -313,6 +313,14 @@ export const adminApi = {
     return request<CatalogItemDto>(`/v1/admin/catalog-items/${id}/icon`, { method: "POST", body: form });
   },
   deleteCatalogIcon: (id: number) => request<CatalogItemDto>(`/v1/admin/catalog-items/${id}/icon`, { method: "DELETE" }),
+  /** Предпросмотр (WebM, GIF, картинка) или звук (MP3, OGG, WAV) к предмету справочника. */
+  uploadCatalogMedia: (id: number, media: "preview" | "audio", file: File) => {
+    const form = new FormData();
+    form.append("file", file, file.name);
+    return request<CatalogItemDto>(`/v1/admin/catalog-items/${id}/${media}`, { method: "POST", body: form });
+  },
+  deleteCatalogMedia: (id: number, media: "preview" | "audio") =>
+    request<CatalogItemDto>(`/v1/admin/catalog-items/${id}/${media}`, { method: "DELETE" }),
 
   attributes: (listingTypeId: number) =>
     request<{ items: AttributeDefinitionDto[] }>(`/v1/admin/attributes${qs({ listingTypeId })}`),

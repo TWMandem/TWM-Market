@@ -1,4 +1,4 @@
-import { useEffect, useState, type MouseEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import {
   DEAL_PLACE_LABELS,
@@ -7,6 +7,7 @@ import {
   formatAttributeValue,
   formatPrice,
   formatPriceShort,
+  type CatalogItemInfoDto,
   type ListingAttributeDto,
   type ListingDetailDto,
 } from "@twm/shared";
@@ -73,6 +74,8 @@ export function ListingPage() {
         <section aria-label="Изображения и описание" className="flex min-w-0 flex-[999_1_560px] flex-col gap-4">
           <Gallery listing={listing} />
 
+          {listing.catalogItem && <ItemPreviewCard item={listing.catalogItem} />}
+
           {listing.attributes.length > 0 && (
             <Card className="flex flex-col gap-4">
               <h2 className="m-0 font-display text-[19px] font-bold">Характеристики</h2>
@@ -108,6 +111,101 @@ export function ListingPage() {
         </aside>
       </div>
     </div>
+  );
+}
+
+/**
+ * Предмет из справочника: ID в игре, предпросмотр (анимация, одежда) со звуком
+ * и содержимое кейса. Всё это заполняет администратор.
+ */
+function ItemPreviewCard({ item }: { item: CatalogItemInfoDto }) {
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [playing, setPlaying] = useState(false);
+
+  if (!item.preview && !item.audioUrl && item.contents.length === 0 && !item.gameCode) return null;
+
+  const toggleSound = () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (playing) {
+      audio.pause();
+      setPlaying(false);
+      return;
+    }
+    // Звук и видео — с начала, чтобы совпали.
+    audio.currentTime = 0;
+    if (videoRef.current) videoRef.current.currentTime = 0;
+    audio
+      .play()
+      .then(() => setPlaying(true))
+      .catch(() => setPlaying(false));
+  };
+
+  return (
+    <Card className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <h2 className="m-0 font-display text-[19px] font-bold">{item.contents.length > 0 ? "Что внутри" : "Предпросмотр"}</h2>
+        {item.gameCode && <span className="font-mono text-sm text-muted">ID в игре: {item.gameCode}</span>}
+      </div>
+
+      {(item.preview || item.audioUrl) && (
+        <div className="flex flex-wrap items-end gap-4">
+          {item.preview && (
+            <div className="flex aspect-square w-full max-w-[320px] items-center justify-center overflow-hidden rounded-xl bg-ground">
+              {item.preview.kind === "video" ? (
+                <video
+                  ref={videoRef}
+                  src={mediaSrc(item.preview.url)}
+                  className="size-full object-contain"
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  aria-label={`Предпросмотр: ${item.name}`}
+                />
+              ) : (
+                <img src={mediaSrc(item.preview.url)} alt={`Предпросмотр: ${item.name}`} className="size-full object-contain" />
+              )}
+            </div>
+          )}
+          {item.audioUrl && (
+            <>
+              <audio ref={audioRef} src={mediaSrc(item.audioUrl)} loop={item.preview?.kind === "video"} onEnded={() => setPlaying(false)} preload="none" />
+              <Button variant="secondary" onClick={toggleSound} aria-pressed={playing}>
+                {playing ? "■ Выключить звук" : "♪ Включить звук"}
+              </Button>
+            </>
+          )}
+        </div>
+      )}
+
+      {item.contents.length > 0 && (
+        <ul className="m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-2 p-0">
+          {item.contents.map((entry, index) => (
+            <li key={`${entry.name}-${index}`} className="flex items-center gap-3 rounded-xl bg-surface-2 px-3 py-2">
+              {entry.item ? (
+                <Media media={entry.item.icon} alt="" fit="contain" className="size-10 shrink-0 rounded-lg" />
+              ) : (
+                <span aria-hidden="true" className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-ground text-faint">
+                  •
+                </span>
+              )}
+              <span className="flex min-w-0 flex-col">
+                {entry.item ? (
+                  <Link to={`/items?item=${entry.item.id}`} className="truncate font-semibold text-ink hover:text-accent">
+                    {entry.name}
+                  </Link>
+                ) : (
+                  <span className="truncate font-semibold">{entry.name}</span>
+                )}
+                {entry.note && <span className="text-[13px] text-muted">{entry.note}</span>}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
   );
 }
 

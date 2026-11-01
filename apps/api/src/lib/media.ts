@@ -141,3 +141,67 @@ export async function saveIcon(
   await save(root, path, data);
   return { path, kind: "image" };
 }
+
+export const PREVIEW_MAX_BYTES = 8 * 1024 * 1024;
+export const AUDIO_MAX_BYTES = 5 * 1024 * 1024;
+
+/**
+ * Предпросмотр предмета (анимации, одежды): видео WebM — как есть после
+ * проверки заголовка, картинка или гиф — перекодируется в WebP (гиф
+ * остаётся анимированным) не больше 640×640.
+ */
+export async function savePreview(
+  root: string,
+  itemId: number,
+  buffer: Buffer,
+): Promise<{ path: string; kind: "image" | "video" }> {
+  if (buffer.length > PREVIEW_MAX_BYTES) {
+    throw new AppError(400, "file_too_large", "Предпросмотр должен быть не больше 8 МБ.");
+  }
+  const name = randomUUID();
+  if (isWebm(buffer)) {
+    const path = join("icons", String(itemId), `preview-${name}.webm`);
+    await save(root, path, buffer);
+    return { path, kind: "video" };
+  }
+  const invalid = () => new AppError(400, "invalid_preview", "Подходят видео WebM, GIF, PNG, JPG или WebP.");
+  const image = sharp(buffer, { animated: true, limitInputPixels: 40_000_000, failOn: "error" });
+  let meta: sharp.Metadata;
+  try {
+    meta = await image.metadata();
+  } catch {
+    throw invalid();
+  }
+  if (!meta.format || !["jpeg", "png", "webp", "gif"].includes(meta.format)) throw invalid();
+  const data = await image
+    .resize({ width: 640, height: 640, fit: "inside", withoutEnlargement: true })
+    .webp({ quality: 82 })
+    .toBuffer();
+  const path = join("icons", String(itemId), `preview-${name}.webp`);
+  await save(root, path, data);
+  return { path, kind: "image" };
+}
+
+/** Формат звука по первым байтам: MP3, OGG или WAV. */
+function audioExtension(buffer: Buffer): "mp3" | "ogg" | "wav" | null {
+  if (buffer.length < 16) return null;
+  if (buffer.subarray(0, 3).toString("latin1") === "ID3") return "mp3";
+  if (buffer[0] === 0xff && (buffer[1]! & 0xe0) === 0xe0) return "mp3";
+  if (buffer.subarray(0, 4).toString("latin1") === "OggS") return "ogg";
+  if (buffer.subarray(0, 4).toString("latin1") === "RIFF" && buffer.subarray(8, 12).toString("latin1") === "WAVE") {
+    return "wav";
+  }
+  return null;
+}
+
+/** Звук к предпросмотру. Сохраняется как есть после проверки формата. */
+export async function saveAudio(root: string, itemId: number, buffer: Buffer): Promise<string> {
+  if (buffer.length > AUDIO_MAX_BYTES) {
+    throw new AppError(400, "file_too_large", "Звук должен быть не больше 5 МБ.");
+  }
+  const ext = audioExtension(buffer);
+  if (!ext) throw new AppError(400, "invalid_audio", "Подходят MP3, OGG или WAV.");
+  const path = join("icons", String(itemId), `audio-${randomUUID()}.${ext}`);
+  await save(root, path, buffer);
+  return path;
+}

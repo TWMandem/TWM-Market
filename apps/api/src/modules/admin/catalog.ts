@@ -7,6 +7,8 @@ import {
   catalogItemUpdateSchema,
   categoryCreateSchema,
   categoryUpdateSchema,
+  hasOptions,
+  hasRange,
   listingTypeCreateSchema,
   listingTypeUpdateSchema,
   sectionUpdateSchema,
@@ -24,7 +26,7 @@ import type { Fragment } from "../../db/client.js";
 import { uniqueViolation } from "../../db/client.js";
 import type { ServerRow } from "../../db/types.js";
 import { writeAudit } from "../../lib/audit.js";
-import { mediaUrl, removeMedia, removeMediaDir, saveIcon } from "../../lib/media.js";
+import { mediaUrl, removeMedia, removeMediaDir, saveAudio, saveIcon, savePreview } from "../../lib/media.js";
 import { errors, parseBody } from "../../lib/errors.js";
 import { requireStaff } from "../auth/guard.js";
 import { toServerDto } from "../servers/routes.js";
@@ -79,6 +81,11 @@ interface CatalogItemRow {
   sortOrder: number;
   iconPath: string | null;
   iconKind: "image" | "video" | null;
+  gameCode: string | null;
+  previewPath: string | null;
+  previewKind: "image" | "video" | null;
+  audioPath: string | null;
+  contents: string[];
 }
 
 const toItemDto = (row: CatalogItemRow): CatalogItemDto => ({
@@ -89,9 +96,14 @@ const toItemDto = (row: CatalogItemRow): CatalogItemDto => ({
   isActive: row.isActive,
   sortOrder: row.sortOrder,
   icon: row.iconPath && row.iconKind ? { url: mediaUrl(row.iconPath), kind: row.iconKind } : null,
+  gameCode: row.gameCode,
+  preview: row.previewPath && row.previewKind ? { url: mediaUrl(row.previewPath), kind: row.previewKind } : null,
+  audioUrl: row.audioPath ? mediaUrl(row.audioPath) : null,
+  contents: row.contents,
 });
 
-const ITEM_COLUMNS = "id, category_id, name, aliases, is_active, sort_order, icon_path, icon_kind";
+const ITEM_COLUMNS =
+  "id, category_id, name, aliases, is_active, sort_order, icon_path, icon_kind, game_code, preview_path, preview_kind, audio_path, contents";
 
 export async function adminCatalogRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
   const sql = ctx.sql;
@@ -320,7 +332,7 @@ export async function adminCatalogRoutes(app: FastifyInstance, ctx: AppContext):
     if (q.categoryId) conditions.push(sql`category_id = ${q.categoryId}`);
     if (q.query) {
       const like = `%${q.query.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
-      conditions.push(sql`(name ILIKE ${like} OR EXISTS (SELECT 1 FROM unnest(aliases) a WHERE a ILIKE ${like}))`);
+      conditions.push(sql`(name ILIKE ${like} OR game_code = ${q.query} OR EXISTS (SELECT 1 FROM unnest(aliases) a WHERE a ILIKE ${like}))`);
     }
     const where = conditions.reduce((acc, cond, i) => (i === 0 ? sql`WHERE ${cond}` : sql`${acc} AND ${cond}`), sql``);
     const rows = await sql<CatalogItemRow[]>`
@@ -334,8 +346,8 @@ export async function adminCatalogRoutes(app: FastifyInstance, ctx: AppContext):
     if (!category) throw errors.validation({ categoryId: "Категория не найдена" });
     try {
       const [row] = await sql<CatalogItemRow[]>`
-        INSERT INTO catalog_items (category_id, name, aliases, sort_order)
-        VALUES (${input.categoryId}, ${input.name}, ${input.aliases}::text[],
+        INSERT INTO catalog_items (category_id, name, aliases, game_code, contents, sort_order)
+        VALUES (${input.categoryId}, ${input.name}, ${input.aliases}::text[], ${input.gameCode}, ${input.contents}::text[],
                 (SELECT COALESCE(max(sort_order), 0) + 1 FROM catalog_items WHERE category_id = ${input.categoryId}))
         RETURNING ${sql.unsafe(ITEM_COLUMNS)}`;
       await writeAudit(ctx, request, "catalog_item.created", { type: "catalog_item", id: row!.id }, input);
@@ -362,6 +374,8 @@ export async function adminCatalogRoutes(app: FastifyInstance, ctx: AppContext):
           aliases     = CASE WHEN ${has("aliases")}::boolean THEN ${input.aliases ?? null}::text[] ELSE aliases END,
           is_active   = CASE WHEN ${has("isActive")}::boolean THEN ${input.isActive ?? null}::boolean ELSE is_active END,
           category_id = CASE WHEN ${has("categoryId")}::boolean THEN ${input.categoryId ?? null}::int ELSE category_id END,
+          game_code   = CASE WHEN ${"gameCode" in input}::boolean THEN ${input.gameCode ?? null} ELSE game_code END,
+          contents    = CASE WHEN ${has("contents")}::boolean THEN ${input.contents ?? []}::text[] ELSE contents END,
           updated_at = now()
         WHERE id = ${id}
         RETURNING ${sql.unsafe(ITEM_COLUMNS)}`;
@@ -405,15 +419,58 @@ export async function adminCatalogRoutes(app: FastifyInstance, ctx: AppContext):
     return toItemDto(row!);
   });
 
-  app.delete("/v1/admin/catalog-items/:id/icon", write, async (request) => {
+  // Предпросмотр: видео WebM, гиф или картинка. Показывается в карточке объявления.
+  app.post("/v1/admin/catalog-items/:id/preview", write, async (request) => {
     const { id } = parseParams(numId, request, "Предмет");
-    const [item] = await sql<{ iconPath: string | null }[]>`SELECT icon_path FROM catalog_items WHERE id = ${id}`;
+    const [item] = await sql<{ previewPath: string | null }[]>`SELECT preview_path FROM catalog_items WHERE id = ${id}`;
     if (!item) throw errors.notFound("Предмет не найден");
+    const file = await request.file();
+    if (!file) throw errors.validation({ preview: "Прикрепите файл" });
+    const saved = await savePreview(ctx.uploadDir, id, await file.toBuffer());
     const [row] = await sql<CatalogItemRow[]>`
-      UPDATE catalog_items SET icon_path = NULL, icon_kind = NULL, updated_at = now()
+      UPDATE catalog_items SET preview_path = ${saved.path}, preview_kind = ${saved.kind}, updated_at = now()
       WHERE id = ${id}
       RETURNING ${sql.unsafe(ITEM_COLUMNS)}`;
-    await removeMedia(ctx.uploadDir, [item.iconPath]);
+    await removeMedia(ctx.uploadDir, [item.previewPath]);
+    await writeAudit(ctx, request, "catalog_item.preview_updated", { type: "catalog_item", id }, { kind: saved.kind });
+    return toItemDto(row!);
+  });
+
+  // Звук к предпросмотру: MP3, OGG или WAV.
+  app.post("/v1/admin/catalog-items/:id/audio", write, async (request) => {
+    const { id } = parseParams(numId, request, "Предмет");
+    const [item] = await sql<{ audioPath: string | null }[]>`SELECT audio_path FROM catalog_items WHERE id = ${id}`;
+    if (!item) throw errors.notFound("Предмет не найден");
+    const file = await request.file();
+    if (!file) throw errors.validation({ audio: "Прикрепите файл" });
+    const path = await saveAudio(ctx.uploadDir, id, await file.toBuffer());
+    const [row] = await sql<CatalogItemRow[]>`
+      UPDATE catalog_items SET audio_path = ${path}, updated_at = now()
+      WHERE id = ${id}
+      RETURNING ${sql.unsafe(ITEM_COLUMNS)}`;
+    await removeMedia(ctx.uploadDir, [item.audioPath]);
+    await writeAudit(ctx, request, "catalog_item.audio_updated", { type: "catalog_item", id }, {});
+    return toItemDto(row!);
+  });
+
+  app.delete("/v1/admin/catalog-items/:id/:media", write, async (request) => {
+    const { id, media } = z
+      .object({ id: z.coerce.number().int().positive(), media: z.enum(["icon", "preview", "audio"]) })
+      .parse(request.params);
+    const [item] = await sql<{ iconPath: string | null; previewPath: string | null; audioPath: string | null }[]>`
+      SELECT icon_path, preview_path, audio_path FROM catalog_items WHERE id = ${id}`;
+    if (!item) throw errors.notFound("Предмет не найден");
+    const [row] = await sql<CatalogItemRow[]>`
+      UPDATE catalog_items SET
+        icon_path    = CASE WHEN ${media === "icon"}::boolean THEN NULL ELSE icon_path END,
+        icon_kind    = CASE WHEN ${media === "icon"}::boolean THEN NULL ELSE icon_kind END,
+        preview_path = CASE WHEN ${media === "preview"}::boolean THEN NULL ELSE preview_path END,
+        preview_kind = CASE WHEN ${media === "preview"}::boolean THEN NULL ELSE preview_kind END,
+        audio_path   = CASE WHEN ${media === "audio"}::boolean THEN NULL ELSE audio_path END,
+        updated_at = now()
+      WHERE id = ${id}
+      RETURNING ${sql.unsafe(ITEM_COLUMNS)}`;
+    await removeMedia(ctx.uploadDir, [media === "icon" ? item.iconPath : media === "preview" ? item.previewPath : item.audioPath]);
     return toItemDto(row!);
   });
 
@@ -446,8 +503,9 @@ export async function adminCatalogRoutes(app: FastifyInstance, ctx: AppContext):
     const input = parseBody(attributeCreateSchema, request.body);
     const [type] = await sql`SELECT 1 FROM listing_types WHERE id = ${input.listingTypeId}::smallint`;
     if (!type) throw errors.validation({ listingTypeId: "Тип имущества не найден" });
-    const options = input.dataType === "select" || input.dataType === "multiselect" ? input.options : [];
+    const options = hasOptions(input.dataType) ? input.options : [];
     const numeric = input.dataType === "number";
+    const ranged = hasRange(input.dataType);
     await checkCategories(input.listingTypeId, input.categoryIds);
     try {
       const [row] = await sql<AttributeRow[]>`
@@ -457,7 +515,7 @@ export async function adminCatalogRoutes(app: FastifyInstance, ctx: AppContext):
         ) VALUES (
           ${input.listingTypeId}::smallint, ${input.key}, ${input.label}, ${input.dataType},
           ${numeric ? input.unit : null}, ${options}::text[],
-          ${numeric ? input.minValue : null}::numeric, ${numeric ? input.maxValue : null}::numeric,
+          ${ranged ? input.minValue : null}::numeric, ${ranged ? input.maxValue : null}::numeric,
           ${numeric ? input.stepValue : null}::numeric, ${input.categoryIds}::int[],
           ${input.required}, ${input.filterable}, ${input.appliesTo}, ${input.helpText},
           ${input.isActive}, ${input.sortOrder}::int
@@ -483,7 +541,10 @@ export async function adminCatalogRoutes(app: FastifyInstance, ctx: AppContext):
       SELECT data_type, listing_type_id FROM attribute_definitions WHERE id = ${id}`;
     if (!current) throw errors.notFound("Поле не найдено");
     if (input.categoryIds !== undefined) await checkCategories(current.listingTypeId, input.categoryIds);
-    const isList = current.dataType === "select" || current.dataType === "multiselect";
+    const isList = hasOptions(current.dataType);
+    if (current.dataType === "genes" && input.options?.some((o) => [...o].length !== 1)) {
+      throw errors.validation({ options: "Ген — одна буква, каждая с новой строки" });
+    }
     if (isList && input.options !== undefined && input.options.length === 0) {
       throw errors.validation({ options: "Добавьте хотя бы один вариант" });
     }
@@ -491,13 +552,14 @@ export async function adminCatalogRoutes(app: FastifyInstance, ctx: AppContext):
     // «Поле передано» и «поле пустое» — разные вещи: null очищает значение, отсутствие оставляет как есть.
     const has = (key: keyof typeof input) => input[key] !== undefined;
     const isNumber = current.dataType === "number";
+    const isRanged = hasRange(current.dataType);
     const [row] = await sql<AttributeRow[]>`
       UPDATE attribute_definitions SET
         label      = CASE WHEN ${has("label")}::boolean THEN ${input.label ?? null} ELSE label END,
         unit       = CASE WHEN ${has("unit") && isNumber}::boolean THEN ${input.unit ?? null} ELSE unit END,
         options    = CASE WHEN ${has("options") && isList}::boolean THEN ${input.options ?? null}::text[] ELSE options END,
-        min_value  = CASE WHEN ${has("minValue") && isNumber}::boolean THEN ${input.minValue ?? null}::numeric ELSE min_value END,
-        max_value  = CASE WHEN ${has("maxValue") && isNumber}::boolean THEN ${input.maxValue ?? null}::numeric ELSE max_value END,
+        min_value  = CASE WHEN ${has("minValue") && isRanged}::boolean THEN ${input.minValue ?? null}::numeric ELSE min_value END,
+        max_value  = CASE WHEN ${has("maxValue") && isRanged}::boolean THEN ${input.maxValue ?? null}::numeric ELSE max_value END,
         step_value = CASE WHEN ${has("stepValue") && isNumber}::boolean THEN ${input.stepValue ?? null}::numeric ELSE step_value END,
         category_ids = CASE WHEN ${has("categoryIds")}::boolean THEN ${input.categoryIds ?? []}::int[] ELSE category_ids END,
         required   = CASE WHEN ${has("required")}::boolean THEN ${input.required ?? null}::boolean ELSE required END,

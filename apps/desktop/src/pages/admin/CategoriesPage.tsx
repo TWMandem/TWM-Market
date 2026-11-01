@@ -378,9 +378,13 @@ function ItemRow({
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(item.name);
   const [aliases, setAliases] = useState(item.aliases.join(", "));
+  const [gameCode, setGameCode] = useState(item.gameCode ?? "");
+  const [contents, setContents] = useState(item.contents.join("\n"));
   const [error, setError] = useState<string | null>(null);
 
-  const save = async (body: Partial<{ name: string; aliases: string[]; isActive: boolean }>) => {
+  const save = async (
+    body: Partial<{ name: string; aliases: string[]; isActive: boolean; gameCode: string | null; contents: string[] }>,
+  ) => {
     let saved: CatalogItemDto | null = null;
     setError(
       await attempt(async () => {
@@ -412,11 +416,33 @@ function ItemRow({
                 .split(",")
                 .map((a) => a.trim())
                 .filter(Boolean),
+              gameCode: gameCode.trim() || null,
+              contents: contents
+                .split("\n")
+                .map((l) => l.trim())
+                .filter(Boolean),
             });
           }}
         >
           <TextInput id={`item-${item.id}-name`} label="Название" value={name} onChange={setName} className="min-w-[180px] flex-1" />
           <TextInput id={`item-${item.id}-aliases`} label="Синонимы" value={aliases} onChange={setAliases} className="min-w-[180px] flex-1" />
+          <TextInput id={`item-${item.id}-code`} label="ID в игре" value={gameCode} onChange={setGameCode} className="w-32" />
+          <div className="flex basis-full flex-col gap-1.5">
+            <label htmlFor={`item-${item.id}-contents`} className="text-sm text-muted">
+              Содержимое кейса или набора — по строке; примечание после « — » (например: «Кейс STALKER — 5%»)
+            </label>
+            <textarea
+              id={`item-${item.id}-contents`}
+              rows={4}
+              value={contents}
+              onChange={(e) => setContents(e.target.value)}
+              className="resize-y rounded-xl border border-line bg-ground px-3 py-2 text-sm leading-relaxed text-ink outline-none focus:border-accent"
+            />
+          </div>
+          <div className="flex basis-full flex-wrap gap-x-5 gap-y-2">
+            <MediaSlot item={item} media="preview" onSaved={onSaved} onError={setError} />
+            <MediaSlot item={item} media="audio" onSaved={onSaved} onError={setError} />
+          </div>
           <Button type="submit" className="h-11">
             Сохранить
           </Button>
@@ -461,7 +487,11 @@ function ItemRow({
         )}
       </label>
       <span className={`font-semibold ${item.isActive ? "" : "text-faint line-through"}`}>{item.name}</span>
+      {item.gameCode && <span className="font-mono text-xs text-faint">ID {item.gameCode}</span>}
       {item.aliases.length > 0 && <span className="text-[13px] text-muted">{item.aliases.join(", ")}</span>}
+      {item.preview && <span className="text-xs text-ink-2" title="Есть предпросмотр">▶ превью</span>}
+      {item.audioUrl && <span className="text-xs text-ink-2" title="Есть звук">♪ звук</span>}
+      {item.contents.length > 0 && <span className="text-xs text-ink-2">содержимое: {item.contents.length}</span>}
       {canEdit && (
         <span className="ml-auto flex gap-0.5 opacity-60 group-hover:opacity-100">
           <IconButton label="Изменить" onClick={() => setEditing(true)}>
@@ -477,6 +507,57 @@ function ItemRow({
       )}
       {error && <span className="basis-full text-[13px] text-danger">{error}</span>}
     </li>
+  );
+}
+
+/** Загрузка и удаление предпросмотра или звука предмета. */
+function MediaSlot({
+  item,
+  media,
+  onSaved,
+  onError,
+}: {
+  item: CatalogItemDto;
+  media: "preview" | "audio";
+  onSaved: (i: CatalogItemDto) => void;
+  onError: (message: string | null) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const present = media === "preview" ? item.preview !== null : item.audioUrl !== null;
+  const label = media === "preview" ? "Предпросмотр (WebM, GIF, PNG, JPG)" : "Звук (MP3, OGG, WAV)";
+  const run = async (action: () => Promise<CatalogItemDto>) => {
+    setBusy(true);
+    let saved: CatalogItemDto | null = null;
+    onError(
+      await attempt(async () => {
+        saved = await action();
+      }),
+    );
+    setBusy(false);
+    if (saved) onSaved(saved);
+  };
+  return (
+    <div className="flex items-center gap-2 text-sm text-ink-2">
+      <span>{label}:</span>
+      <label className="cursor-pointer font-bold text-accent hover:text-accent-soft">
+        {busy ? "загружаю…" : present ? "заменить" : "загрузить"}
+        <input
+          type="file"
+          accept={media === "preview" ? "video/webm,image/gif,image/png,image/jpeg,image/webp" : "audio/mpeg,audio/ogg,audio/wav,.mp3,.ogg,.wav"}
+          className="sr-only"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            e.target.value = "";
+            if (file) void run(() => adminApi.uploadCatalogMedia(item.id, media, file));
+          }}
+        />
+      </label>
+      {present && (
+        <button type="button" className="text-muted hover:text-danger" onClick={() => void run(() => adminApi.deleteCatalogMedia(item.id, media))}>
+          убрать
+        </button>
+      )}
+    </div>
   );
 }
 

@@ -508,6 +508,14 @@ function AttributeFilter({
       </div>
     );
   }
+  if (def.dataType === "genes") {
+    return (
+      <label className="flex flex-col gap-1.5">
+        <span className="text-sm text-ink-2">{def.label}: не меньше генов</span>
+        <GenesInput value={get(key)} letters={def.options} onCommit={(v) => set({ [key]: v })} />
+      </label>
+    );
+  }
   const options: Array<[string, string]> =
     def.dataType === "boolean" ? [["true", "Да"], ["false", "Нет"]] : def.options.map((o) => [o, o]);
   return (
@@ -563,6 +571,24 @@ function ModelFilter({ categoryId, value, onChange }: { categoryId: number | nul
         </option>
       ))}
     </select>
+  );
+}
+
+/** Фильтр по генам: «YYYG» — хотя бы три Y и одна G. */
+function GenesInput({ value, letters, onCommit }: { value: string; letters: string[]; onCommit: (v: string) => void }) {
+  const [text, setText] = useState(value);
+  useEffect(() => setText(value), [value]);
+  const allowed = new Set(letters);
+  const commit = () => onCommit([...text.toUpperCase()].filter((ch) => allowed.has(ch)).join(""));
+  return (
+    <input
+      placeholder={`например ${letters[0] ?? ""}${letters[0] ?? ""}${letters[1] ?? ""}`}
+      value={text}
+      onChange={(e) => setText(e.target.value.toUpperCase())}
+      onBlur={commit}
+      onKeyDown={(e) => e.key === "Enter" && commit()}
+      className="h-11 min-w-0 rounded-[10px] border border-line bg-ground px-3 font-mono tracking-[0.2em] text-ink placeholder:font-sans placeholder:tracking-normal placeholder:text-faint"
+    />
   );
 }
 

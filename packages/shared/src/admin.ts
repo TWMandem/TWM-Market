@@ -100,10 +100,30 @@ const aliasesSchema = z
   .max(20, "Не больше 20 синонимов")
   .transform((list) => Array.from(new Set(list.map((a) => a.trim()).filter(Boolean))));
 
+/** ID предмета в игре (у одежды и анимаций он виден в павильоне). */
+const gameCodeSchema = z
+  .string()
+  .trim()
+  .max(40, "ID — до 40 символов")
+  .nullable()
+  .transform((v) => (v ? v : null));
+
+/**
+ * Содержимое кейса или набора: по строке на позицию, примечание после « — »
+ * («Кейс STALKER — шанс 5%»). Совпадающие с справочником названия
+ * в приложении показываются с иконкой.
+ */
+const contentsSchema = z
+  .array(z.string().trim().min(1).max(120, "Строка — до 120 символов"))
+  .max(200, "Не больше 200 строк")
+  .transform((list) => list.map((l) => l.trim()).filter(Boolean));
+
 export const catalogItemCreateSchema = z.object({
   categoryId: z.number({ required_error: "Выберите категорию" }).int().positive(),
   name: name(80),
   aliases: aliasesSchema.default([]),
+  gameCode: gameCodeSchema.default(null),
+  contents: contentsSchema.default([]),
 });
 export const catalogItemUpdateSchema = z
   .object({
@@ -111,12 +131,21 @@ export const catalogItemUpdateSchema = z
     aliases: aliasesSchema,
     isActive: z.boolean(),
     categoryId: z.number().int().positive(),
+    gameCode: gameCodeSchema,
+    contents: contentsSchema,
   })
   .partial();
 
+/** Строка содержимого: название и необязательное примечание после « — ». */
+export function splitContentLine(line: string): { name: string; note: string | null } {
+  const at = line.indexOf(" — ");
+  if (at === -1) return { name: line.trim(), note: null };
+  return { name: line.slice(0, at).trim(), note: line.slice(at + 3).trim() || null };
+}
+
 // ── Конструктор полей характеристик ────────────────────────────────────────
 
-export const ATTRIBUTE_TYPES = ["number", "text", "select", "multiselect", "boolean"] as const;
+export const ATTRIBUTE_TYPES = ["number", "text", "select", "multiselect", "boolean", "genes"] as const;
 export type AttributeType = (typeof ATTRIBUTE_TYPES)[number];
 
 export const ATTRIBUTE_TYPE_LABELS: Record<AttributeType, string> = {
@@ -125,7 +154,14 @@ export const ATTRIBUTE_TYPE_LABELS: Record<AttributeType, string> = {
   select: "Выбор одного варианта",
   multiselect: "Выбор нескольких вариантов",
   boolean: "Да / нет",
+  genes: "Гены (строка из букв)",
 };
+
+/** Типы полей со списком вариантов: у генов это буквы генов. */
+export const hasOptions = (type: AttributeType | undefined) =>
+  type === "select" || type === "multiselect" || type === "genes";
+/** Типы полей с минимумом и максимумом: у генов это длина строки. */
+export const hasRange = (type: AttributeType | undefined) => type === "number" || type === "genes";
 
 export const ATTRIBUTE_SIDES = ["offer", "want", "both"] as const;
 export type AttributeSide = (typeof ATTRIBUTE_SIDES)[number];
@@ -174,8 +210,11 @@ function checkAttribute(
   if (value.unit && value.unit.split("{}").length > 2) {
     ctx.addIssue({ code: "custom", path: ["unit"], message: "Шаблон {} — не больше одного раза" });
   }
-  if ((value.dataType === "select" || value.dataType === "multiselect") && (value.options?.length ?? 0) === 0) {
+  if (hasOptions(value.dataType) && (value.options?.length ?? 0) === 0) {
     ctx.addIssue({ code: "custom", path: ["options"], message: "Добавьте хотя бы один вариант" });
+  }
+  if (value.dataType === "genes" && value.options?.some((o) => [...o].length !== 1)) {
+    ctx.addIssue({ code: "custom", path: ["options"], message: "Ген — одна буква, каждая с новой строки" });
   }
   if (value.options && new Set(value.options.map((o) => o.toLowerCase())).size !== value.options.length) {
     ctx.addIssue({ code: "custom", path: ["options"], message: "Варианты повторяются" });

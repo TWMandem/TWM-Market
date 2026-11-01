@@ -5,6 +5,7 @@ import {
   buildAttributesSchema,
   definitionsForCategory,
   formatAttributeValue,
+  geneCounts,
   unitParts,
   type AttributeDefinition,
 } from "./attributes.js";
@@ -117,4 +118,19 @@ test("показ значения с единицей и шаблоном", () =
   assert.deepEqual(unitParts("л"), { prefix: "", suffix: "л" });
   const twice = attributeCreateSchema.safeParse({ listingTypeId: 1, key: "upgrade", label: "Улучшение", dataType: "number", unit: "{}X{}" });
   assert.equal(twice.success, false);
+});
+
+test("гены: геном из 6 букв Y, G, H, W, X", () => {
+  const schema = buildAttributesSchema([
+    def({ key: "genome", label: "Геном", dataType: "genes", options: ["Y", "G", "H", "W", "X"], minValue: 6, maxValue: 6 }),
+  ]);
+  const ok = schema.safeParse({ genome: "yy gg-hw" });
+  assert.equal(ok.success, true);
+  if (ok.success) assert.deepEqual(ok.data, { genome: "YYGGHW" });
+  assert.equal(schema.safeParse({ genome: "YYGGH" }).success, false, "пять генов");
+  const bad = schema.safeParse({ genome: "YYGGHZ" });
+  assert.equal(bad.success, false);
+  if (!bad.success) assert.match(fieldErrors(bad.error).genome ?? "", /только буквы/);
+  assert.equal(schema.safeParse({ genome: "" }).success, true, "необязательное поле можно оставить пустым");
+  assert.deepEqual(geneCounts("yyg z", ["Y", "G", "H", "W", "X"]), { Y: 2, G: 1 });
 });

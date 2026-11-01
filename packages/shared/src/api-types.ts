@@ -154,6 +154,14 @@ export interface CatalogItemDto {
   isActive: boolean;
   sortOrder: number;
   icon: { url: string; kind: "image" | "video" } | null;
+  /** ID в игре (одежда, анимации). */
+  gameCode: string | null;
+  /** Предпросмотр: картинка/гиф (WebP) или видео WebM. */
+  preview: MediaDto | null;
+  /** Звук к предпросмотру (у некоторых анимаций). */
+  audioUrl: string | null;
+  /** Содержимое кейса или набора — строки из админки. */
+  contents: string[];
 }
 
 export interface AttributeDefinitionDto {
@@ -161,7 +169,7 @@ export interface AttributeDefinitionDto {
   listingTypeId: number;
   key: string;
   label: string;
-  dataType: "number" | "text" | "select" | "multiselect" | "boolean";
+  dataType: "number" | "text" | "select" | "multiselect" | "boolean" | "genes";
   unit: string | null;
   options: string[];
   minValue: number | null;
@@ -253,7 +261,7 @@ export interface ListingDetailDto extends ListingCardDto {
   status: ListingStatusDto;
   description: string;
   category: { id: number; name: string } | null;
-  catalogItem: { id: number; name: string; icon: MediaDto | null } | null;
+  catalogItem: CatalogItemInfoDto | null;
   images: ListingImageDto[];
   attributes: ListingAttributeDto[];
   dealPlaces: Array<"car_market" | "notary">;
@@ -304,4 +312,23 @@ export interface CatalogItemOptionDto {
   name: string;
   aliases: string[];
   icon: MediaDto | null;
+  gameCode: string | null;
+}
+
+/** Позиция содержимого кейса; если нашлась в справочнике — с иконкой. */
+export interface ContentEntryDto {
+  name: string;
+  note: string | null;
+  item: { id: number; icon: MediaDto | null } | null;
+}
+
+/** Предмет справочника в карточке объявления, с предпросмотром. */
+export interface CatalogItemInfoDto {
+  id: number;
+  name: string;
+  icon: MediaDto | null;
+  gameCode: string | null;
+  preview: MediaDto | null;
+  audioUrl: string | null;
+  contents: ContentEntryDto[];
 }
