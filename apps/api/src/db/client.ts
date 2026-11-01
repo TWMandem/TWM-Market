@@ -18,7 +18,9 @@ export interface Database {
 export function createDatabase(url: string, options: { max?: number } = {}): Database {
   const sql: Sql = postgres(url, {
     max: options.max ?? 10,
-    transform: postgres.camel,
+    // Переводим в camelCase только имена колонок. Ключи внутри JSON
+    // (например, характеристики объявлений) остаются как есть.
+    transform: { column: { from: postgres.toCamel, to: postgres.fromCamel } },
     onnotice: () => {},
   });
   return { sql, close: () => sql.end({ timeout: 5 }) };

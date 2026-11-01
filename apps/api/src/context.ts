@@ -8,6 +8,8 @@ export interface AppContext {
   config: Config;
   sql: Sql;
   mailer: Mailer;
+  /** Абсолютный путь к хранилищу загруженных файлов. */
+  uploadDir: string;
 }
 
 export interface AuthState {

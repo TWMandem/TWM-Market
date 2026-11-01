@@ -60,7 +60,7 @@ export async function gameProfileRoutes(app: FastifyInstance, ctx: AppContext): 
           AND o.user_id <> p.user_id) AS same_nickname_count
     FROM game_profiles p
     JOIN servers s ON s.id = p.server_id
-    WHERE p.user_id = ${userId}
+    WHERE p.user_id = ${userId} AND p.archived_at IS NULL
       ${profileId ? ctx.sql`AND p.id = ${profileId}` : ctx.sql``}
     ORDER BY p.created_at`;
 
@@ -79,9 +79,21 @@ export async function gameProfileRoutes(app: FastifyInstance, ctx: AppContext): 
     if (!server) throw errors.validation({ serverNumber: "Такого сервера нет" });
 
     const counted = await ctx.sql<{ count: number }[]>`
-      SELECT count(*)::int AS count FROM game_profiles WHERE user_id = ${user.id}`;
+      SELECT count(*)::int AS count FROM game_profiles WHERE user_id = ${user.id} AND archived_at IS NULL`;
     if ((counted[0]?.count ?? 0) >= MAX_GAME_PROFILES) {
       throw errors.conflict("profile_limit", `Можно добавить не больше ${MAX_GAME_PROFILES} игровых профилей`);
+    }
+
+    // Профиль был удалён раньше (но остался в истории объявлений) — возвращаем его.
+    const [archived] = await ctx.sql<{ id: string }[]>`
+      UPDATE game_profiles SET archived_at = NULL, updated_at = now()
+      WHERE user_id = ${user.id} AND server_id = ${server.id} AND lower(nickname) = lower(${input.nickname})
+        AND archived_at IS NOT NULL
+      RETURNING id`;
+    if (archived) {
+      const [restored] = await loadProfiles(user.id, archived.id);
+      reply.code(201);
+      return toDto(restored!);
     }
 
     let id: string | undefined;
@@ -150,10 +162,22 @@ export async function gameProfileRoutes(app: FastifyInstance, ctx: AppContext): 
     const { user } = authOf(request);
     const params = idParam.safeParse(request.params);
     if (!params.success) throw errors.notFound("Профиль не найден");
-    // На шаге 4 профили с объявлениями будут не удаляться, а скрываться.
-    const result = await ctx.sql`
-      DELETE FROM game_profiles WHERE id = ${params.data.id} AND user_id = ${user.id}`;
-    if (result.count === 0) throw errors.notFound("Профиль не найден");
+    const [profile] = await ctx.sql<{ id: string }[]>`
+      SELECT id FROM game_profiles WHERE id = ${params.data.id} AND user_id = ${user.id} AND archived_at IS NULL`;
+    if (!profile) throw errors.notFound("Профиль не найден");
+
+    const [used] = await ctx.sql`SELECT 1 FROM listings WHERE game_profile_id = ${profile.id} LIMIT 1`;
+    if (used) {
+      // Профиль с объявлениями остаётся в истории, но скрывается; его активные объявления снимаются.
+      await ctx.sql.begin(async (tx) => {
+        await tx`UPDATE game_profiles SET archived_at = now(), updated_at = now() WHERE id = ${profile.id}`;
+        await tx`
+          UPDATE listings SET status = 'withdrawn', updated_at = now()
+          WHERE game_profile_id = ${profile.id} AND status IN ('active', 'moderation')`;
+      });
+    } else {
+      await ctx.sql`DELETE FROM game_profiles WHERE id = ${profile.id}`;
+    }
     return reply.code(204).send();
   });
 }

@@ -41,6 +41,11 @@ const baseSchema = z.object({
   /** console — письма выводятся в журнал сервера (для разработки). */
   MAIL_TRANSPORT: z.enum(["console"]).default("console"),
 
+  /** Папка для загруженных файлов (фото объявлений, иконки предметов). */
+  UPLOAD_DIR: z.string().min(1).default("./data/uploads"),
+  /** Максимальный размер одного загружаемого файла, МБ. */
+  MAX_UPLOAD_MB: z.coerce.number().int().min(1).max(50).default(10),
+
   /** Ограничение частоты запросов к входу и регистрации. */
   RATE_LIMIT: bool.default("true"),
 });

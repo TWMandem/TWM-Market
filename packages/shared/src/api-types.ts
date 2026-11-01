@@ -152,6 +152,8 @@ export interface CatalogItemDto {
   name: string;
   aliases: string[];
   isActive: boolean;
+  sortOrder: number;
+  icon: { url: string; kind: "image" | "video" } | null;
 }
 
 export interface AttributeDefinitionDto {
@@ -181,4 +183,122 @@ export interface AuditEntryDto {
   details: Record<string, unknown>;
   ip: string | null;
   createdAt: string;
+}
+
+// ── Объявления ─────────────────────────────────────────────────────────────
+
+export type SectionCode = "items" | "cars" | "notary";
+export type ListingStatusDto = "draft" | "moderation" | "active" | "rejected" | "sold" | "withdrawn" | "archived";
+
+export interface MediaDto {
+  /** Путь на сервере API, например /media/listings/…/full.webp. */
+  url: string;
+  kind: "image" | "video";
+}
+
+export interface ListingImageDto {
+  id: string;
+  fullUrl: string;
+  thumbUrl: string;
+  width: number;
+  height: number;
+  isMain: boolean;
+}
+
+export interface ServerRefDto {
+  number: number;
+  name: string;
+  color: string;
+}
+
+export interface ListingCardDto {
+  id: string;
+  sectionCode: SectionCode;
+  listingType: { id: number; code: string; name: string };
+  operation: "sell" | "buy" | "exchange";
+  title: string;
+  price: number | null;
+  quantity: number;
+  server: ServerRefDto;
+  transferMode: "none" | "seller_moves" | "buyer_moves";
+  sellerNickname: string;
+  /** Главное фото или иконка предмета из справочника. */
+  image: MediaDto | null;
+  publishedAt: string | null;
+  views: number;
+  favorite: boolean;
+  /** Цена ниже средней по этому предмету на сервере (если есть с чем сравнить). */
+  belowAverage: boolean;
+}
+
+export interface ListingAttributeDto {
+  key: string;
+  label: string;
+  value: string | number | boolean | string[];
+  unit: string | null;
+}
+
+export interface PriceStatsDto {
+  count: number;
+  average: number;
+  median: number;
+  min: number;
+  max: number;
+}
+
+export interface ListingDetailDto extends ListingCardDto {
+  status: ListingStatusDto;
+  description: string;
+  category: { id: number; name: string } | null;
+  catalogItem: { id: number; name: string; icon: MediaDto | null } | null;
+  images: ListingImageDto[];
+  attributes: ListingAttributeDto[];
+  dealPlaces: Array<"car_market" | "notary">;
+  want: {
+    listingType: { id: number; name: string } | null;
+    attributes: ListingAttributeDto[];
+    description: string;
+    surcharge: number | null;
+    surchargeDirection: "i_pay" | "they_pay" | null;
+  } | null;
+  seller: {
+    login: string;
+    memberSince: string;
+    nickname: string;
+    nicknameVerified: boolean;
+    /** Сколько других аккаунтов указали такой же ник на этом сервере. */
+    sameNicknameCount: number;
+    activeListings: number;
+  };
+  expiresAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  isOwner: boolean;
+  priceStats: PriceStatsDto | null;
+  rejectionReason: string | null;
+}
+
+/** Объявление в «Моих объявлениях» и в форме редактирования. */
+export interface MyListingDto extends ListingDetailDto {
+  gameProfileId: string;
+  categoryId: number | null;
+  rawAttributes: Record<string, string | number | boolean | string[]>;
+  rawWantAttributes: Record<string, string | number | boolean | string[]>;
+  wantListingTypeId: number | null;
+  favorites: number;
+}
+
+export interface ListingSearchResultDto {
+  items: ListingCardDto[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface CatalogItemOptionDto {
+  id: number;
+  categoryId: number;
+  name: string;
+  aliases: string[];
+  icon: MediaDto | null;
 }

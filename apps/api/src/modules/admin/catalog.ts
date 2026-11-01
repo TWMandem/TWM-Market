@@ -24,6 +24,7 @@ import type { Fragment } from "../../db/client.js";
 import { uniqueViolation } from "../../db/client.js";
 import type { ServerRow } from "../../db/types.js";
 import { writeAudit } from "../../lib/audit.js";
+import { mediaUrl, removeMedia, removeMediaDir, saveIcon } from "../../lib/media.js";
 import { errors, parseBody } from "../../lib/errors.js";
 import { requireStaff } from "../auth/guard.js";
 import { toServerDto } from "../servers/routes.js";
@@ -72,6 +73,29 @@ interface AttributeRow extends Omit<AttributeDefinitionDto, "minValue" | "maxVal
   minValue: string | null;
   maxValue: string | null;
 }
+
+interface CatalogItemRow {
+  id: number;
+  categoryId: number;
+  name: string;
+  aliases: string[];
+  isActive: boolean;
+  sortOrder: number;
+  iconPath: string | null;
+  iconKind: "image" | "video" | null;
+}
+
+const toItemDto = (row: CatalogItemRow): CatalogItemDto => ({
+  id: row.id,
+  categoryId: row.categoryId,
+  name: row.name,
+  aliases: row.aliases,
+  isActive: row.isActive,
+  sortOrder: row.sortOrder,
+  icon: row.iconPath && row.iconKind ? { url: mediaUrl(row.iconPath), kind: row.iconKind } : null,
+});
+
+const ITEM_COLUMNS = "id, category_id, name, aliases, is_active, sort_order, icon_path, icon_kind";
 
 const toAttributeDto = (row: AttributeRow): AttributeDefinitionDto => ({
   ...row,
@@ -309,9 +333,9 @@ export async function adminCatalogRoutes(app: FastifyInstance, ctx: AppContext):
       conditions.push(sql`(name ILIKE ${like} OR EXISTS (SELECT 1 FROM unnest(aliases) a WHERE a ILIKE ${like}))`);
     }
     const where = conditions.reduce((acc, cond, i) => (i === 0 ? sql`WHERE ${cond}` : sql`${acc} AND ${cond}`), sql``);
-    const rows = await sql<CatalogItemDto[]>`
-      SELECT id, category_id, name, aliases, is_active FROM catalog_items ${where} ORDER BY name LIMIT 500`;
-    return { items: [...rows] };
+    const rows = await sql<CatalogItemRow[]>`
+      SELECT ${sql.unsafe(ITEM_COLUMNS)} FROM catalog_items ${where} ORDER BY sort_order, name LIMIT 1000`;
+    return { items: rows.map(toItemDto) };
   });
 
   app.post("/v1/admin/catalog-items", write, async (request, reply): Promise<CatalogItemDto> => {
@@ -319,17 +343,15 @@ export async function adminCatalogRoutes(app: FastifyInstance, ctx: AppContext):
     const [category] = await sql`SELECT 1 FROM categories WHERE id = ${input.categoryId}`;
     if (!category) throw errors.validation({ categoryId: "Категория не найдена" });
     try {
-      const [row] = await sql<CatalogItemDto[]>`
-        INSERT INTO catalog_items (category_id, name, aliases)
-        VALUES (${input.categoryId}, ${input.name}, ${input.aliases}::text[])
-        RETURNING id, category_id, name, aliases, is_active`;
+      const [row] = await sql<CatalogItemRow[]>`
+        INSERT INTO catalog_items (category_id, name, aliases, sort_order)
+        VALUES (${input.categoryId}, ${input.name}, ${input.aliases}::text[],
+                (SELECT COALESCE(max(sort_order), 0) + 1 FROM catalog_items WHERE category_id = ${input.categoryId}))
+        RETURNING ${sql.unsafe(ITEM_COLUMNS)}`;
       await writeAudit(ctx, request, "catalog_item.created", { type: "catalog_item", id: row!.id }, input);
       reply.code(201);
-      return row!;
+      return toItemDto(row!);
     } catch (error) {
-      if (uniqueViolation(error) !== null) {
-        throw errors.conflict("duplicate_name", "Такой предмет уже есть в этой категории", { name: "Уже есть" });
-      }
       throw error;
     }
   });
@@ -344,7 +366,7 @@ export async function adminCatalogRoutes(app: FastifyInstance, ctx: AppContext):
     }
     const has = (key: keyof typeof input) => input[key] !== undefined;
     try {
-      const [row] = await sql<CatalogItemDto[]>`
+      const [row] = await sql<CatalogItemRow[]>`
         UPDATE catalog_items SET
           name        = CASE WHEN ${has("name")}::boolean THEN ${input.name ?? null} ELSE name END,
           aliases     = CASE WHEN ${has("aliases")}::boolean THEN ${input.aliases ?? null}::text[] ELSE aliases END,
@@ -352,14 +374,11 @@ export async function adminCatalogRoutes(app: FastifyInstance, ctx: AppContext):
           category_id = CASE WHEN ${has("categoryId")}::boolean THEN ${input.categoryId ?? null}::int ELSE category_id END,
           updated_at = now()
         WHERE id = ${id}
-        RETURNING id, category_id, name, aliases, is_active`;
+        RETURNING ${sql.unsafe(ITEM_COLUMNS)}`;
       if (!row) throw errors.notFound("Предмет не найден");
       await writeAudit(ctx, request, "catalog_item.updated", { type: "catalog_item", id }, input);
-      return row;
+      return toItemDto(row);
     } catch (error) {
-      if (uniqueViolation(error) !== null) {
-        throw errors.conflict("duplicate_name", "Такой предмет уже есть в этой категории", { name: "Уже есть" });
-      }
       throw error;
     }
   });
@@ -367,10 +386,45 @@ export async function adminCatalogRoutes(app: FastifyInstance, ctx: AppContext):
   // Пока объявлений нет, предмет можно удалить. На шаге 4 используемые предметы будут только скрываться.
   app.delete("/v1/admin/catalog-items/:id", write, async (request, reply) => {
     const { id } = parseParams(numId, request, "Предмет");
-    const [row] = await sql<{ name: string }[]>`DELETE FROM catalog_items WHERE id = ${id} RETURNING name`;
+    const [used] = await sql`SELECT 1 FROM listings WHERE catalog_item_id = ${id} LIMIT 1`;
+    if (used) {
+      throw errors.conflict("item_in_use", "На этот предмет есть объявления — его можно только скрыть");
+    }
+    const [row] = await sql<{ name: string; iconPath: string | null }[]>`
+      DELETE FROM catalog_items WHERE id = ${id} RETURNING name, icon_path`;
     if (!row) throw errors.notFound("Предмет не найден");
+    await removeMediaDir(ctx.uploadDir, `icons/${id}`);
     await writeAudit(ctx, request, "catalog_item.deleted", { type: "catalog_item", id }, { name: row.name });
     return reply.code(204).send();
+  });
+
+  // Иконка предмета: PNG/JPG/WebP (станет WebP 256×256) или короткое видео WebM.
+  app.post("/v1/admin/catalog-items/:id/icon", write, async (request) => {
+    const { id } = parseParams(numId, request, "Предмет");
+    const [item] = await sql<{ iconPath: string | null }[]>`SELECT icon_path FROM catalog_items WHERE id = ${id}`;
+    if (!item) throw errors.notFound("Предмет не найден");
+    const file = await request.file();
+    if (!file) throw errors.validation({ icon: "Прикрепите файл" });
+    const saved = await saveIcon(ctx.uploadDir, id, await file.toBuffer());
+    const [row] = await sql<CatalogItemRow[]>`
+      UPDATE catalog_items SET icon_path = ${saved.path}, icon_kind = ${saved.kind}, updated_at = now()
+      WHERE id = ${id}
+      RETURNING ${sql.unsafe(ITEM_COLUMNS)}`;
+    await removeMedia(ctx.uploadDir, [item.iconPath]);
+    await writeAudit(ctx, request, "catalog_item.icon_updated", { type: "catalog_item", id }, { kind: saved.kind });
+    return toItemDto(row!);
+  });
+
+  app.delete("/v1/admin/catalog-items/:id/icon", write, async (request) => {
+    const { id } = parseParams(numId, request, "Предмет");
+    const [item] = await sql<{ iconPath: string | null }[]>`SELECT icon_path FROM catalog_items WHERE id = ${id}`;
+    if (!item) throw errors.notFound("Предмет не найден");
+    const [row] = await sql<CatalogItemRow[]>`
+      UPDATE catalog_items SET icon_path = NULL, icon_kind = NULL, updated_at = now()
+      WHERE id = ${id}
+      RETURNING ${sql.unsafe(ITEM_COLUMNS)}`;
+    await removeMedia(ctx.uploadDir, [item.iconPath]);
+    return toItemDto(row!);
   });
 
   // ── Конструктор полей характеристик ───────────────────────────────────────

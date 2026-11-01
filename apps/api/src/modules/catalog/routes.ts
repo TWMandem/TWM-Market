@@ -1,7 +1,8 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import type { AttributeDefinitionDto, CategoryDto, ListingTypeDto, SectionDto } from "@twm/shared";
+import type { AttributeDefinitionDto, CatalogItemOptionDto, CategoryDto, ListingTypeDto, SectionDto } from "@twm/shared";
 import type { AppContext } from "../../context.js";
+import { mediaUrl } from "../../lib/media.js";
 
 /**
  * Публичная структура площадки для приложения: активные разделы, типы
@@ -47,6 +48,33 @@ export async function catalogRoutes(app: FastifyInstance, ctx: AppContext): Prom
         ...r,
         minValue: r.minValue === null ? null : Number(r.minValue),
         maxValue: r.maxValue === null ? null : Number(r.maxValue),
+      })),
+    };
+  });
+
+  // Предметы справочника для выбора в форме объявления и фильтра каталога.
+  app.get("/v1/catalog/items", async (request): Promise<{ items: CatalogItemOptionDto[] }> => {
+    const q = z
+      .object({ categoryId: z.coerce.number().int().positive().optional(), q: z.string().trim().max(80).optional() })
+      .parse(request.query);
+    const like = q.q ? `%${q.q.toLowerCase().replace(/[\\%_]/g, (c) => `\\${c}`)}%` : null;
+    const rows = await sql<
+      { id: number; categoryId: number; name: string; aliases: string[]; iconPath: string | null; iconKind: "image" | "video" | null }[]
+    >`
+      SELECT i.id, i.category_id, i.name, i.aliases, i.icon_path, i.icon_kind
+      FROM catalog_items i JOIN categories c ON c.id = i.category_id
+      WHERE i.is_active AND c.is_active
+        ${q.categoryId ? sql`AND i.category_id = ${q.categoryId}` : sql``}
+        ${like ? sql`AND (lower(i.name) LIKE ${like} OR EXISTS (SELECT 1 FROM unnest(i.aliases) a WHERE lower(a) LIKE ${like}))` : sql``}
+      ORDER BY i.sort_order, i.name
+      LIMIT 500`;
+    return {
+      items: rows.map((r) => ({
+        id: r.id,
+        categoryId: r.categoryId,
+        name: r.name,
+        aliases: r.aliases,
+        icon: r.iconPath && r.iconKind ? { url: mediaUrl(r.iconPath), kind: r.iconKind } : null,
       })),
     };
   });

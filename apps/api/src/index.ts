@@ -2,6 +2,7 @@ import { buildApp } from "./app.js";
 import { loadConfig } from "./config.js";
 import { createDatabase } from "./db/client.js";
 import { migrate } from "./db/migrate.js";
+import { archiveExpired } from "./modules/listings/service.js";
 
 const config = loadConfig();
 if (!config.DATABASE_URL) {
@@ -15,7 +16,15 @@ await migrate(database.sql, (message) => console.log(message));
 
 const app = await buildApp({ config, sql: database.sql });
 
+// Каждые 10 минут объявления с истёкшим сроком уходят в архив.
+const archiveTimer = setInterval(() => {
+  archiveExpired(database.sql)
+    .then((count) => count > 0 && app.log.info(`В архив ушло объявлений: ${count}`))
+    .catch((error: unknown) => app.log.error(error));
+}, 10 * 60 * 1000);
+
 const shutdown = async (signal: string) => {
+  clearInterval(archiveTimer);
   app.log.info(`Получен ${signal}, останавливаю сервер`);
   await app.close();
   await database.close();

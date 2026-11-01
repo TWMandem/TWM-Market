@@ -45,6 +45,12 @@ export function registerErrorHandler(app: FastifyInstance): void {
         .send({ error: "validation_error", message: "Неверные данные", fields: fieldErrors(error) });
     }
     const status = (error as FastifyError).statusCode ?? 500;
+    if (status === 413) {
+      return reply.code(413).send({ error: "file_too_large", message: "Файл слишком большой" });
+    }
+    if (status === 406 || (error as FastifyError).code === "FST_INVALID_MULTIPART_CONTENT_TYPE") {
+      return reply.code(400).send({ error: "file_required", message: "Прикрепите файл" });
+    }
     if (status === 429) {
       return reply.code(429).send({ error: "rate_limited", message: "Слишком много попыток. Подождите немного." });
     }

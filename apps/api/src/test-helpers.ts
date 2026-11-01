@@ -1,3 +1,6 @@
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { FastifyInstance } from "fastify";
 import type { AuthResponseDto } from "@twm/shared";
 import { buildApp } from "./app.js";
@@ -28,7 +31,8 @@ export async function setupTestEnv(env: Record<string, string> = {}): Promise<Te
   await migrate(database.sql);
   await database.sql`
     TRUNCATE users, sessions, email_codes, game_profiles, game_profile_history,
-             audit_log, attribute_definitions, catalog_items, categories CASCADE`;
+             audit_log, attribute_definitions, catalog_items, categories,
+             listings, listing_images, favorites, listing_price_history CASCADE`;
   // Убираем то, что тесты добавили к стартовым справочникам.
   await database.sql`DELETE FROM servers WHERE number > 13`;
   await database.sql`
@@ -36,7 +40,8 @@ export async function setupTestEnv(env: Record<string, string> = {}): Promise<Te
       'item', 'vehicle', 'sim_card', 'house', 'apartment', 'business',
       'family_mansion', 'transport_company', 'taxi_company', 'diner', 'dorm_room')`;
 
-  const config = loadConfig({ NODE_ENV: "test", RATE_LIMIT: "false", ...env });
+  const uploadDir = await mkdtemp(join(tmpdir(), "twm-uploads-"));
+  const config = loadConfig({ NODE_ENV: "test", RATE_LIMIT: "false", UPLOAD_DIR: uploadDir, ...env });
   const mailer = new MemoryMailer();
   const app = await buildApp({ config, sql: database.sql, mailer });
   return {
@@ -46,6 +51,7 @@ export async function setupTestEnv(env: Record<string, string> = {}): Promise<Te
     close: async () => {
       await app.close();
       await database.close();
+      await rm(uploadDir, { recursive: true, force: true });
     },
   };
 }

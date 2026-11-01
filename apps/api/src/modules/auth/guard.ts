@@ -34,6 +34,22 @@ export function requireAuth(ctx: AppContext) {
   };
 }
 
+/**
+ * Вход необязателен: если токен верный, данные пользователя доступны
+ * (например, чтобы отметить избранное), иначе запрос идёт как от гостя.
+ */
+export function optionalAuth(ctx: AppContext) {
+  const strict = requireAuth(ctx);
+  return async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+    if (!request.headers.authorization) return;
+    try {
+      await strict(request, reply);
+    } catch {
+      request.auth = undefined;
+    }
+  };
+}
+
 export const ROLE_LEVEL: Record<Role, number> = { user: 0, moderator: 1, admin: 2, superadmin: 3 };
 
 export function hasRole(role: Role, min: Role): boolean {
