@@ -5,6 +5,7 @@ import { loadConfig } from "./config.js";
 import { createDatabase, type Database } from "./db/client.js";
 import { migrate } from "./db/migrate.js";
 import { MemoryMailer } from "./mail/mailer.js";
+import { currentStep, totpAt } from "./lib/totp.js";
 
 /**
  * Интеграционные тесты работают с настоящей базой PostgreSQL.
@@ -25,7 +26,15 @@ export async function setupTestEnv(env: Record<string, string> = {}): Promise<Te
   if (!TEST_DATABASE_URL) throw new Error("TEST_DATABASE_URL не задан");
   const database = createDatabase(TEST_DATABASE_URL, { max: 5 });
   await migrate(database.sql);
-  await database.sql`TRUNCATE users, sessions, email_codes, game_profiles, game_profile_history CASCADE`;
+  await database.sql`
+    TRUNCATE users, sessions, email_codes, game_profiles, game_profile_history,
+             audit_log, attribute_definitions, catalog_items, categories CASCADE`;
+  // Убираем то, что тесты добавили к стартовым справочникам.
+  await database.sql`DELETE FROM servers WHERE number > 13`;
+  await database.sql`
+    DELETE FROM listing_types WHERE code NOT IN (
+      'item', 'vehicle', 'sim_card', 'house', 'apartment', 'business',
+      'family_mansion', 'transport_company', 'taxi_company', 'diner', 'dorm_room')`;
 
   const config = loadConfig({ NODE_ENV: "test", RATE_LIMIT: "false", ...env });
   const mailer = new MemoryMailer();
@@ -64,3 +73,28 @@ export async function registerUser(
 }
 
 export const bearer = (token: string) => ({ authorization: `Bearer ${token}` });
+
+/**
+ * Создаёт сотрудника с нужной ролью и включённым двухфакторным входом.
+ * Возвращает токен сессии, в которой код уже введён.
+ */
+export async function createStaff(
+  env: TestEnv,
+  role: "moderator" | "admin" | "superadmin",
+  options: { enable2fa?: boolean } = {},
+): Promise<AuthResponseDto & { password: string; totpSecret: string | null }> {
+  const user = await registerUser(env);
+  await env.database.sql`UPDATE users SET role = ${role}, email_verified_at = now() WHERE id = ${user.user.id}`;
+  if (options.enable2fa === false) return { ...user, totpSecret: null };
+
+  const setup = await env.app.inject({ method: "POST", url: "/v1/me/2fa/setup", headers: bearer(user.accessToken) });
+  const { secret } = setup.json() as { secret: string };
+  const enable = await env.app.inject({
+    method: "POST",
+    url: "/v1/me/2fa/enable",
+    headers: bearer(user.accessToken),
+    payload: { code: totpAt(secret, currentStep()) },
+  });
+  if (enable.statusCode !== 200) throw new Error(`2FA не включилась: ${enable.body}`);
+  return { ...user, totpSecret: secret };
+}

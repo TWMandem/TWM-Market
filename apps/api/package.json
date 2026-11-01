@@ -1,6 +1,6 @@
 {
   "name": "@twm/api",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "description": "Сервер TWM Market: API для настольного приложения",
   "type": "module",
@@ -12,7 +12,8 @@
     "db:migrate": "tsx --env-file-if-exists=.env src/db/migrate-cli.ts",
     "admin:create": "tsx --env-file-if-exists=.env src/cli/create-admin.ts",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test --test-concurrency=1 \"src/**/*.test.ts\""
+    "test": "node --import tsx --test --test-concurrency=1 \"src/**/*.test.ts\"",
+    "admin:reset-2fa": "tsx --env-file-if-exists=.env src/cli/reset-2fa.ts"
   },
   "dependencies": {
     "@fastify/cors": "^11.0.0",

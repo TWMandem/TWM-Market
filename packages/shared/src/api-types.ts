@@ -59,3 +59,126 @@ export interface SessionDto {
   createdAt: string;
   lastUsedAt: string;
 }
+
+// ── Админ-панель ───────────────────────────────────────────────────────────
+
+export interface TwoFactorStatusDto {
+  enabled: boolean;
+  /** Ввёл ли пользователь код в этой сессии. */
+  sessionVerified: boolean;
+}
+
+export interface TwoFactorSetupDto {
+  /** Секрет в base32 — для ручного ввода в приложение-аутентификатор. */
+  secret: string;
+  /** Ссылка otpauth:// для QR-кода. */
+  otpauthUrl: string;
+}
+
+export interface AdminStatsDto {
+  users: { total: number; new7d: number; new30d: number; verified: number; blocked: number; staff: number };
+  gameProfiles: number;
+  activeSessions: number;
+  /** Регистрации по дням за последние 30 дней (включая сегодня). */
+  registrationsByDay: Array<{ date: string; count: number }>;
+}
+
+export interface AdminUserListItemDto {
+  id: string;
+  login: string;
+  email: string;
+  role: Role;
+  status: "active" | "blocked";
+  emailVerified: boolean;
+  twoFactorEnabled: boolean;
+  createdAt: string;
+  lastLoginAt: string | null;
+  gameProfiles: number;
+}
+
+export interface AdminUserDetailDto extends AdminUserListItemDto {
+  blockedReason: string | null;
+  blockedAt: string | null;
+  activeSessions: number;
+  profiles: Array<{
+    id: string;
+    nickname: string;
+    server: { number: number; name: string; color: string };
+    createdAt: string;
+    history: Array<{ oldNickname: string; newNickname: string; changedAt: string }>;
+  }>;
+}
+
+export interface Paged<T> {
+  items: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface SectionDto {
+  id: number;
+  code: "items" | "cars" | "notary";
+  name: string;
+  description: string;
+  isActive: boolean;
+  sortOrder: number;
+}
+
+export interface ListingTypeDto {
+  id: number;
+  sectionCode: "items" | "cars" | "notary";
+  code: string;
+  name: string;
+  operations: Array<"sell" | "buy" | "exchange">;
+  maxImages: number;
+  isActive: boolean;
+  sortOrder: number;
+}
+
+export interface CategoryDto {
+  id: number;
+  sectionCode: "items" | "cars" | "notary";
+  parentId: number | null;
+  name: string;
+  isActive: boolean;
+  sortOrder: number;
+  itemsCount: number;
+}
+
+export interface CatalogItemDto {
+  id: number;
+  categoryId: number;
+  name: string;
+  aliases: string[];
+  isActive: boolean;
+}
+
+export interface AttributeDefinitionDto {
+  id: number;
+  listingTypeId: number;
+  key: string;
+  label: string;
+  dataType: "number" | "text" | "select" | "multiselect" | "boolean";
+  unit: string | null;
+  options: string[];
+  minValue: number | null;
+  maxValue: number | null;
+  required: boolean;
+  filterable: boolean;
+  appliesTo: "offer" | "want" | "both";
+  helpText: string | null;
+  isActive: boolean;
+  sortOrder: number;
+}
+
+export interface AuditEntryDto {
+  id: number;
+  actor: { id: string; login: string } | null;
+  action: string;
+  targetType: string | null;
+  targetId: string | null;
+  details: Record<string, unknown>;
+  ip: string | null;
+  createdAt: string;
+}

@@ -7,6 +7,8 @@ import postgres from "postgres";
  * Имена колонок в ответах автоматически переводятся в camelCase.
  */
 export type Sql = postgres.Sql;
+/** Часть SQL-запроса для сборки условий. */
+export type Fragment = postgres.PendingQuery<postgres.Row[]>;
 
 export interface Database {
   sql: Sql;

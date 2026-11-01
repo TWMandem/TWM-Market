@@ -1,0 +1,450 @@
+import type { FastifyInstance, FastifyRequest } from "fastify";
+import { z } from "zod";
+import {
+  attributeCreateSchema,
+  attributeUpdateSchema,
+  catalogItemCreateSchema,
+  catalogItemUpdateSchema,
+  categoryCreateSchema,
+  categoryUpdateSchema,
+  listingTypeCreateSchema,
+  listingTypeUpdateSchema,
+  sectionUpdateSchema,
+  serverCreateSchema,
+  serverUpdateSchema,
+  type AttributeDefinitionDto,
+  type CatalogItemDto,
+  type CategoryDto,
+  type ListingTypeDto,
+  type SectionDto,
+  type ServerDto,
+} from "@twm/shared";
+import type { AppContext } from "../../context.js";
+import type { Fragment } from "../../db/client.js";
+import { uniqueViolation } from "../../db/client.js";
+import type { ServerRow } from "../../db/types.js";
+import { writeAudit } from "../../lib/audit.js";
+import { errors, parseBody } from "../../lib/errors.js";
+import { requireStaff } from "../auth/guard.js";
+import { toServerDto } from "../servers/routes.js";
+
+type SectionCode = "items" | "cars" | "notary";
+
+const numId = z.object({ id: z.coerce.number().int().positive() });
+const sectionParam = z.object({ code: z.enum(["items", "cars", "notary"]) });
+const serverParam = z.object({ number: z.coerce.number().int().positive() });
+
+function parseParams<S extends z.ZodTypeAny>(schema: S, request: FastifyRequest, what: string): z.infer<S> {
+  const parsed = schema.safeParse(request.params);
+  if (!parsed.success) throw errors.notFound(`${what} не найден`);
+  return parsed.data;
+}
+
+/** Убирает ключи со значением undefined, чтобы обновлять только переданные поля. */
+function definedOnly<T extends Record<string, unknown>>(value: T): Partial<T> {
+  return Object.fromEntries(Object.entries(value).filter(([, v]) => v !== undefined)) as Partial<T>;
+}
+
+// ── Строки базы и их представление в API ───────────────────────────────────
+
+interface ListingTypeRow {
+  id: number;
+  sectionCode: SectionCode;
+  code: string;
+  name: string;
+  operations: ListingTypeDto["operations"];
+  maxImages: number;
+  isActive: boolean;
+  sortOrder: number;
+}
+
+interface CategoryRow {
+  id: number;
+  sectionCode: SectionCode;
+  parentId: number | null;
+  name: string;
+  isActive: boolean;
+  sortOrder: number;
+  itemsCount: number;
+}
+
+interface AttributeRow extends Omit<AttributeDefinitionDto, "minValue" | "maxValue"> {
+  minValue: string | null;
+  maxValue: string | null;
+}
+
+const toAttributeDto = (row: AttributeRow): AttributeDefinitionDto => ({
+  ...row,
+  minValue: row.minValue === null ? null : Number(row.minValue),
+  maxValue: row.maxValue === null ? null : Number(row.maxValue),
+});
+
+export async function adminCatalogRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
+  const sql = ctx.sql;
+  const read = { preHandler: requireStaff(ctx, "moderator") };
+  const write = { preHandler: requireStaff(ctx, "admin") };
+
+  const sectionId = async (code: SectionCode): Promise<number> => {
+    const [row] = await sql<{ id: number }[]>`SELECT id FROM sections WHERE code = ${code}`;
+    if (!row) throw errors.validation({ sectionCode: "Раздел не найден" });
+    return row.id;
+  };
+
+  // ── Серверы ───────────────────────────────────────────────────────────────
+
+  app.get("/v1/admin/servers", read, async (): Promise<{ items: ServerDto[] }> => {
+    const rows = await sql<ServerRow[]>`SELECT * FROM servers ORDER BY sort_order, number`;
+    return { items: rows.map(toServerDto) };
+  });
+
+  app.post("/v1/admin/servers", write, async (request, reply) => {
+    const input = parseBody(serverCreateSchema, request.body);
+    try {
+      const [row] = await sql<ServerRow[]>`
+        INSERT INTO servers (number, name, color, is_active, transfer_open, sort_order)
+        VALUES (${input.number}::smallint, ${input.name}, ${input.color}, ${input.isActive}, ${input.transferOpen}, ${input.sortOrder}::int)
+        RETURNING *`;
+      await writeAudit(ctx, request, "server.created", { type: "server", id: input.number }, input);
+      reply.code(201);
+      return toServerDto(row!);
+    } catch (error) {
+      if (uniqueViolation(error) !== null) {
+        throw errors.conflict("duplicate_server", "Сервер с таким номером или названием уже есть", {
+          number: "Номер или название заняты",
+        });
+      }
+      throw error;
+    }
+  });
+
+  app.patch("/v1/admin/servers/:number", write, async (request) => {
+    const { number } = parseParams(serverParam, request, "Сервер");
+    const patch = definedOnly(parseBody(serverUpdateSchema, request.body));
+    if (Object.keys(patch).length === 0) throw errors.validation({ _: "Нет изменений" });
+    try {
+      const [row] = await sql<ServerRow[]>`
+        UPDATE servers SET ${sql(patch)}, updated_at = now()
+        WHERE number = ${number}::smallint
+        RETURNING *`;
+      if (!row) throw errors.notFound("Сервер не найден");
+      await writeAudit(ctx, request, "server.updated", { type: "server", id: number }, patch);
+      return toServerDto(row);
+    } catch (error) {
+      if (uniqueViolation(error) !== null) {
+        throw errors.conflict("duplicate_server", "Сервер с таким названием уже есть", { name: "Название занято" });
+      }
+      throw error;
+    }
+  });
+
+  // ── Разделы ───────────────────────────────────────────────────────────────
+
+  app.get("/v1/admin/sections", read, async (): Promise<{ items: SectionDto[] }> => {
+    const rows = await sql<SectionDto[]>`
+      SELECT id, code, name, description, is_active, sort_order FROM sections ORDER BY sort_order, id`;
+    return { items: [...rows] };
+  });
+
+  app.patch("/v1/admin/sections/:code", write, async (request): Promise<SectionDto> => {
+    const { code } = parseParams(sectionParam, request, "Раздел");
+    const patch = definedOnly(parseBody(sectionUpdateSchema, request.body));
+    if (Object.keys(patch).length === 0) throw errors.validation({ _: "Нет изменений" });
+    const [row] = await sql<SectionDto[]>`
+      UPDATE sections SET ${sql(patch)}, updated_at = now()
+      WHERE code = ${code}
+      RETURNING id, code, name, description, is_active, sort_order`;
+    if (!row) throw errors.notFound("Раздел не найден");
+    await writeAudit(ctx, request, "section.updated", { type: "section", id: code }, patch);
+    return row;
+  });
+
+  // ── Типы имущества ────────────────────────────────────────────────────────
+
+  const listingTypeSelect = () => sql`
+    SELECT t.id, s.code AS section_code, t.code, t.name, t.operations, t.max_images, t.is_active, t.sort_order
+    FROM listing_types t JOIN sections s ON s.id = t.section_id`;
+
+  app.get("/v1/admin/listing-types", read, async (): Promise<{ items: ListingTypeDto[] }> => {
+    const rows = await sql<ListingTypeRow[]>`${listingTypeSelect()} ORDER BY s.sort_order, t.sort_order, t.id`;
+    return { items: [...rows] };
+  });
+
+  app.post("/v1/admin/listing-types", write, async (request, reply): Promise<ListingTypeDto> => {
+    const input = parseBody(listingTypeCreateSchema, request.body);
+    const section = await sectionId(input.sectionCode);
+    let id: number | undefined;
+    try {
+      const [row] = await sql<{ id: number }[]>`
+        INSERT INTO listing_types (section_id, code, name, operations, max_images, is_active, sort_order)
+        VALUES (${section}, ${input.code}, ${input.name}, ${input.operations}::text[], ${input.maxImages}::smallint,
+                ${input.isActive}, ${input.sortOrder}::int)
+        RETURNING id`;
+      id = row?.id;
+    } catch (error) {
+      if (uniqueViolation(error) !== null) {
+        throw errors.conflict("duplicate_code", "Тип с таким кодом уже есть", { code: "Код занят" });
+      }
+      throw error;
+    }
+    const [row] = await sql<ListingTypeRow[]>`${listingTypeSelect()} WHERE t.id = ${id!}`;
+    await writeAudit(ctx, request, "listing_type.created", { type: "listing_type", id: id! }, input);
+    reply.code(201);
+    return row!;
+  });
+
+  app.patch("/v1/admin/listing-types/:id", write, async (request): Promise<ListingTypeDto> => {
+    const { id } = parseParams(numId, request, "Тип имущества");
+    const input = definedOnly(parseBody(listingTypeUpdateSchema, request.body));
+    if (Object.keys(input).length === 0) throw errors.validation({ _: "Нет изменений" });
+    const { operations, ...rest } = input;
+    const updated = await sql`
+      UPDATE listing_types SET
+        ${Object.keys(rest).length ? sql`${sql(rest)},` : sql``}
+        ${operations ? sql`operations = ${operations}::text[],` : sql``}
+        updated_at = now()
+      WHERE id = ${id}::smallint`;
+    if (updated.count === 0) throw errors.notFound("Тип имущества не найден");
+    await writeAudit(ctx, request, "listing_type.updated", { type: "listing_type", id }, input);
+    const [row] = await sql<ListingTypeRow[]>`${listingTypeSelect()} WHERE t.id = ${id}::smallint`;
+    return row!;
+  });
+
+  // ── Категории ─────────────────────────────────────────────────────────────
+
+  const categorySelect = () => sql`
+    SELECT c.id, s.code AS section_code, c.parent_id, c.name, c.is_active, c.sort_order,
+           (SELECT count(*)::int FROM catalog_items i WHERE i.category_id = c.id) AS items_count
+    FROM categories c JOIN sections s ON s.id = c.section_id`;
+
+  app.get("/v1/admin/categories", read, async (request): Promise<{ items: CategoryDto[] }> => {
+    const { section } = z.object({ section: z.enum(["items", "cars", "notary"]).optional() }).parse(request.query);
+    const rows = await sql<CategoryRow[]>`
+      ${categorySelect()}
+      ${section ? sql`WHERE s.code = ${section}` : sql``}
+      ORDER BY s.sort_order, c.parent_id NULLS FIRST, c.sort_order, c.name`;
+    return { items: [...rows] };
+  });
+
+  app.post("/v1/admin/categories", write, async (request, reply): Promise<CategoryDto> => {
+    const input = parseBody(categoryCreateSchema, request.body);
+    const section = await sectionId(input.sectionCode);
+    if (input.parentId !== null) {
+      const [parent] = await sql<{ sectionId: number; parentId: number | null }[]>`
+        SELECT section_id, parent_id FROM categories WHERE id = ${input.parentId}`;
+      if (!parent || parent.sectionId !== section) throw errors.validation({ parentId: "Родительская категория не найдена" });
+      if (parent.parentId !== null) {
+        throw errors.validation({ parentId: "Допускается только два уровня: категория и подкатегория" });
+      }
+    }
+    let id: number | undefined;
+    try {
+      const [row] = await sql<{ id: number }[]>`
+        INSERT INTO categories (section_id, parent_id, name, sort_order)
+        VALUES (${section}, ${input.parentId}, ${input.name}, ${input.sortOrder}::int)
+        RETURNING id`;
+      id = row?.id;
+    } catch (error) {
+      if (uniqueViolation(error) !== null) {
+        throw errors.conflict("duplicate_name", "Такая категория уже есть на этом уровне", { name: "Название занято" });
+      }
+      throw error;
+    }
+    await writeAudit(ctx, request, "category.created", { type: "category", id: id! }, input);
+    const [row] = await sql<CategoryRow[]>`${categorySelect()} WHERE c.id = ${id!}`;
+    reply.code(201);
+    return row!;
+  });
+
+  app.patch("/v1/admin/categories/:id", write, async (request): Promise<CategoryDto> => {
+    const { id } = parseParams(numId, request, "Категория");
+    const patch = definedOnly(parseBody(categoryUpdateSchema, request.body));
+    if (Object.keys(patch).length === 0) throw errors.validation({ _: "Нет изменений" });
+    try {
+      const updated = await sql`UPDATE categories SET ${sql(patch)}, updated_at = now() WHERE id = ${id}`;
+      if (updated.count === 0) throw errors.notFound("Категория не найдена");
+    } catch (error) {
+      if (uniqueViolation(error) !== null) {
+        throw errors.conflict("duplicate_name", "Такая категория уже есть на этом уровне", { name: "Название занято" });
+      }
+      throw error;
+    }
+    await writeAudit(ctx, request, "category.updated", { type: "category", id }, patch);
+    const [row] = await sql<CategoryRow[]>`${categorySelect()} WHERE c.id = ${id}`;
+    return row!;
+  });
+
+  // Удалить можно только пустую категорию; заполненную — скрыть (isActive = false).
+  app.delete("/v1/admin/categories/:id", write, async (request, reply) => {
+    const { id } = parseParams(numId, request, "Категория");
+    const [usage] = await sql<{ children: number; items: number; name: string }[]>`
+      SELECT c.name,
+        (SELECT count(*)::int FROM categories ch WHERE ch.parent_id = c.id) AS children,
+        (SELECT count(*)::int FROM catalog_items i WHERE i.category_id = c.id) AS items
+      FROM categories c WHERE c.id = ${id}`;
+    if (!usage) throw errors.notFound("Категория не найдена");
+    if (usage.children > 0 || usage.items > 0) {
+      throw errors.conflict(
+        "category_not_empty",
+        "В категории есть подкатегории или предметы. Удалите их или скройте категорию.",
+      );
+    }
+    await sql`DELETE FROM categories WHERE id = ${id}`;
+    await writeAudit(ctx, request, "category.deleted", { type: "category", id }, { name: usage.name });
+    return reply.code(204).send();
+  });
+
+  // ── Справочник предметов и моделей ────────────────────────────────────────
+
+  app.get("/v1/admin/catalog-items", read, async (request): Promise<{ items: CatalogItemDto[] }> => {
+    const q = z
+      .object({ categoryId: z.coerce.number().int().positive().optional(), query: z.string().trim().max(80).optional() })
+      .parse(request.query);
+    const conditions: Fragment[] = [];
+    if (q.categoryId) conditions.push(sql`category_id = ${q.categoryId}`);
+    if (q.query) {
+      const like = `%${q.query.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+      conditions.push(sql`(name ILIKE ${like} OR EXISTS (SELECT 1 FROM unnest(aliases) a WHERE a ILIKE ${like}))`);
+    }
+    const where = conditions.reduce((acc, cond, i) => (i === 0 ? sql`WHERE ${cond}` : sql`${acc} AND ${cond}`), sql``);
+    const rows = await sql<CatalogItemDto[]>`
+      SELECT id, category_id, name, aliases, is_active FROM catalog_items ${where} ORDER BY name LIMIT 500`;
+    return { items: [...rows] };
+  });
+
+  app.post("/v1/admin/catalog-items", write, async (request, reply): Promise<CatalogItemDto> => {
+    const input = parseBody(catalogItemCreateSchema, request.body);
+    const [category] = await sql`SELECT 1 FROM categories WHERE id = ${input.categoryId}`;
+    if (!category) throw errors.validation({ categoryId: "Категория не найдена" });
+    try {
+      const [row] = await sql<CatalogItemDto[]>`
+        INSERT INTO catalog_items (category_id, name, aliases)
+        VALUES (${input.categoryId}, ${input.name}, ${input.aliases}::text[])
+        RETURNING id, category_id, name, aliases, is_active`;
+      await writeAudit(ctx, request, "catalog_item.created", { type: "catalog_item", id: row!.id }, input);
+      reply.code(201);
+      return row!;
+    } catch (error) {
+      if (uniqueViolation(error) !== null) {
+        throw errors.conflict("duplicate_name", "Такой предмет уже есть в этой категории", { name: "Уже есть" });
+      }
+      throw error;
+    }
+  });
+
+  app.patch("/v1/admin/catalog-items/:id", write, async (request): Promise<CatalogItemDto> => {
+    const { id } = parseParams(numId, request, "Предмет");
+    const input = definedOnly(parseBody(catalogItemUpdateSchema, request.body));
+    if (Object.keys(input).length === 0) throw errors.validation({ _: "Нет изменений" });
+    if (input.categoryId) {
+      const [category] = await sql`SELECT 1 FROM categories WHERE id = ${input.categoryId}`;
+      if (!category) throw errors.validation({ categoryId: "Категория не найдена" });
+    }
+    const { aliases, ...rest } = input;
+    try {
+      const [row] = await sql<CatalogItemDto[]>`
+        UPDATE catalog_items SET
+          ${Object.keys(rest).length ? sql`${sql(rest)},` : sql``}
+          ${aliases ? sql`aliases = ${aliases}::text[],` : sql``}
+          updated_at = now()
+        WHERE id = ${id}
+        RETURNING id, category_id, name, aliases, is_active`;
+      if (!row) throw errors.notFound("Предмет не найден");
+      await writeAudit(ctx, request, "catalog_item.updated", { type: "catalog_item", id }, input);
+      return row;
+    } catch (error) {
+      if (uniqueViolation(error) !== null) {
+        throw errors.conflict("duplicate_name", "Такой предмет уже есть в этой категории", { name: "Уже есть" });
+      }
+      throw error;
+    }
+  });
+
+  // Пока объявлений нет, предмет можно удалить. На шаге 4 используемые предметы будут только скрываться.
+  app.delete("/v1/admin/catalog-items/:id", write, async (request, reply) => {
+    const { id } = parseParams(numId, request, "Предмет");
+    const [row] = await sql<{ name: string }[]>`DELETE FROM catalog_items WHERE id = ${id} RETURNING name`;
+    if (!row) throw errors.notFound("Предмет не найден");
+    await writeAudit(ctx, request, "catalog_item.deleted", { type: "catalog_item", id }, { name: row.name });
+    return reply.code(204).send();
+  });
+
+  // ── Конструктор полей характеристик ───────────────────────────────────────
+
+  const attributeColumns = () => sql`
+    id, listing_type_id, key, label, data_type, unit, options, min_value, max_value,
+    required, filterable, applies_to, help_text, is_active, sort_order`;
+
+  app.get("/v1/admin/attributes", read, async (request): Promise<{ items: AttributeDefinitionDto[] }> => {
+    const { listingTypeId } = z.object({ listingTypeId: z.coerce.number().int().positive() }).parse(request.query);
+    const rows = await sql<AttributeRow[]>`
+      SELECT ${attributeColumns()} FROM attribute_definitions
+      WHERE listing_type_id = ${listingTypeId}::smallint
+      ORDER BY sort_order, id`;
+    return { items: rows.map(toAttributeDto) };
+  });
+
+  app.post("/v1/admin/attributes", write, async (request, reply): Promise<AttributeDefinitionDto> => {
+    const input = parseBody(attributeCreateSchema, request.body);
+    const [type] = await sql`SELECT 1 FROM listing_types WHERE id = ${input.listingTypeId}::smallint`;
+    if (!type) throw errors.validation({ listingTypeId: "Тип имущества не найден" });
+    const options = input.dataType === "select" || input.dataType === "multiselect" ? input.options : [];
+    const numeric = input.dataType === "number";
+    try {
+      const [row] = await sql<AttributeRow[]>`
+        INSERT INTO attribute_definitions (
+          listing_type_id, key, label, data_type, unit, options, min_value, max_value,
+          required, filterable, applies_to, help_text, is_active, sort_order
+        ) VALUES (
+          ${input.listingTypeId}::smallint, ${input.key}, ${input.label}, ${input.dataType},
+          ${numeric ? input.unit : null}, ${options}::text[],
+          ${numeric ? input.minValue : null}::numeric, ${numeric ? input.maxValue : null}::numeric,
+          ${input.required}, ${input.filterable}, ${input.appliesTo}, ${input.helpText},
+          ${input.isActive}, ${input.sortOrder}::int
+        )
+        RETURNING ${attributeColumns()}`;
+      await writeAudit(ctx, request, "attribute.created", { type: "attribute", id: row!.id }, input);
+      reply.code(201);
+      return toAttributeDto(row!);
+    } catch (error) {
+      if (uniqueViolation(error) !== null) {
+        throw errors.conflict("duplicate_key", "У этого типа уже есть поле с таким ключом", { key: "Ключ занят" });
+      }
+      throw error;
+    }
+  });
+
+  app.patch("/v1/admin/attributes/:id", write, async (request): Promise<AttributeDefinitionDto> => {
+    const { id } = parseParams(numId, request, "Поле");
+    const input = definedOnly(parseBody(attributeUpdateSchema, request.body));
+    if (Object.keys(input).length === 0) throw errors.validation({ _: "Нет изменений" });
+
+    const [current] = await sql<{ dataType: AttributeDefinitionDto["dataType"] }[]>`
+      SELECT data_type FROM attribute_definitions WHERE id = ${id}`;
+    if (!current) throw errors.notFound("Поле не найдено");
+    const isList = current.dataType === "select" || current.dataType === "multiselect";
+    if (isList && input.options !== undefined && input.options.length === 0) {
+      throw errors.validation({ options: "Добавьте хотя бы один вариант" });
+    }
+
+    const { options, minValue, maxValue, ...rest } = input;
+    const [row] = await sql<AttributeRow[]>`
+      UPDATE attribute_definitions SET
+        ${Object.keys(rest).length ? sql`${sql(rest)},` : sql``}
+        ${options !== undefined && isList ? sql`options = ${options}::text[],` : sql``}
+        ${minValue !== undefined ? sql`min_value = ${minValue}::numeric,` : sql``}
+        ${maxValue !== undefined ? sql`max_value = ${maxValue}::numeric,` : sql``}
+        updated_at = now()
+      WHERE id = ${id}
+      RETURNING ${attributeColumns()}`;
+    await writeAudit(ctx, request, "attribute.updated", { type: "attribute", id }, input);
+    return toAttributeDto(row!);
+  });
+
+  app.delete("/v1/admin/attributes/:id", write, async (request, reply) => {
+    const { id } = parseParams(numId, request, "Поле");
+    const [row] = await sql<{ key: string }[]>`DELETE FROM attribute_definitions WHERE id = ${id} RETURNING key`;
+    if (!row) throw errors.notFound("Поле не найдено");
+    await writeAudit(ctx, request, "attribute.deleted", { type: "attribute", id }, { key: row.key });
+    return reply.code(204).send();
+  });
+}

@@ -1,4 +1,4 @@
-import type { FastifyReply, FastifyRequest } from "fastify";
+import type { FastifyReply, FastifyRequest, preHandlerAsyncHookHandler } from "fastify";
 import type { Role } from "@twm/shared";
 import type { AppContext, AuthState } from "../../context.js";
 import type { UserRow } from "../../db/types.js";
@@ -20,26 +20,49 @@ export function requireAuth(ctx: AppContext) {
     const claims = await verifyAccessToken(token, ctx.config.JWT_SECRET);
     if (!claims) throw new AppError(401, "token_expired", "Сессия устарела, войдите снова");
 
-    const [user] = await ctx.sql<UserRow[]>`
-      SELECT u.* FROM users u
+    const [row] = await ctx.sql<(UserRow & { sessionMfaVerifiedAt: Date | null })[]>`
+      SELECT u.*, s.mfa_verified_at AS session_mfa_verified_at
+      FROM users u
       JOIN sessions s ON s.user_id = u.id
       WHERE u.id = ${claims.sub} AND s.id = ${claims.sid}
         AND s.revoked_at IS NULL AND s.expires_at > now()`;
-    if (!user) throw new AppError(401, "session_revoked", "Сессия завершена, войдите снова");
-    if (user.status === "blocked") throw accountBlocked();
+    if (!row) throw new AppError(401, "session_revoked", "Сессия завершена, войдите снова");
+    if (row.status === "blocked") throw accountBlocked();
 
-    request.auth = { user, sessionId: claims.sid };
+    const { sessionMfaVerifiedAt, ...user } = row;
+    request.auth = { user, sessionId: claims.sid, sessionMfaVerified: sessionMfaVerifiedAt !== null };
   };
 }
 
-const ROLE_LEVEL: Record<Role, number> = { user: 0, moderator: 1, admin: 2, superadmin: 3 };
+export const ROLE_LEVEL: Record<Role, number> = { user: 0, moderator: 1, admin: 2, superadmin: 3 };
+
+export function hasRole(role: Role, min: Role): boolean {
+  return ROLE_LEVEL[role] >= ROLE_LEVEL[min];
+}
 
 /** Пропускает только пользователей с ролью не ниже указанной. Вызывается после requireAuth. */
 export function requireRole(min: Role) {
   return async (request: FastifyRequest): Promise<void> => {
     const role = request.auth?.user.role;
-    if (!role || ROLE_LEVEL[role] < ROLE_LEVEL[min]) throw errors.forbidden();
+    if (!role || !hasRole(role, min)) throw errors.forbidden();
   };
+}
+
+/** Для администрации обязателен двухфакторный вход, подтверждённый в текущей сессии. */
+export async function requireMfa(request: FastifyRequest): Promise<void> {
+  const auth = request.auth;
+  if (!auth) throw errors.unauthorized();
+  if (!auth.user.totpEnabledAt) {
+    throw new AppError(403, "mfa_setup_required", "Для доступа к админ-панели включите двухфакторный вход");
+  }
+  if (!auth.sessionMfaVerified) {
+    throw new AppError(403, "mfa_required", "Введите код из приложения-аутентификатора");
+  }
+}
+
+/** Полная проверка для маршрутов админ-панели: вход, роль, двухфакторный код. */
+export function requireStaff(ctx: AppContext, min: Role = "moderator"): preHandlerAsyncHookHandler[] {
+  return [requireAuth(ctx), requireRole(min), requireMfa] as preHandlerAsyncHookHandler[];
 }
 
 export function accountBlocked(): AppError {

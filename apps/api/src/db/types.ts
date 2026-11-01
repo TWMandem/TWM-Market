@@ -13,6 +13,12 @@ export interface UserRow {
   failedLoginCount: number;
   lockedUntil: Date | null;
   lastLoginAt: Date | null;
+  totpSecretEnc: string | null;
+  totpEnabledAt: Date | null;
+  /** bigint из базы приходит строкой. */
+  totpLastStep: string | null;
+  blockedReason: string | null;
+  blockedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -28,6 +34,7 @@ export interface SessionRow {
   lastUsedAt: Date;
   expiresAt: Date;
   revokedAt: Date | null;
+  mfaVerifiedAt: Date | null;
 }
 
 export interface ServerRow {

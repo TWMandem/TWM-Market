@@ -6,12 +6,17 @@ import type { AppContext } from "./context.js";
 import type { Sql } from "./db/client.js";
 import { registerErrorHandler } from "./lib/errors.js";
 import { ConsoleMailer, type Mailer } from "./mail/mailer.js";
+import { adminAuditRoutes } from "./modules/admin/audit.js";
+import { adminCatalogRoutes } from "./modules/admin/catalog.js";
+import { adminUserRoutes } from "./modules/admin/users.js";
 import { authRoutes } from "./modules/auth/routes.js";
+import { catalogRoutes } from "./modules/catalog/routes.js";
 import { gameProfileRoutes } from "./modules/game-profiles/routes.js";
 import { meRoutes } from "./modules/me/routes.js";
 import { serverRoutes } from "./modules/servers/routes.js";
+import { twoFactorRoutes } from "./modules/two-factor/routes.js";
 
-export const API_VERSION = "0.2.0";
+export const API_VERSION = "0.3.0";
 
 export interface BuildOptions {
   config: Config;
@@ -69,6 +74,11 @@ export async function buildApp({ config, sql, mailer }: BuildOptions): Promise<F
   await meRoutes(app, ctx);
   await gameProfileRoutes(app, ctx);
   await serverRoutes(app, ctx);
+  await twoFactorRoutes(app, ctx);
+  await catalogRoutes(app, ctx);
+  await adminUserRoutes(app, ctx);
+  await adminCatalogRoutes(app, ctx);
+  await adminAuditRoutes(app, ctx);
 
   return app;
 }

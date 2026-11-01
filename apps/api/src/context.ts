@@ -13,6 +13,8 @@ export interface AppContext {
 export interface AuthState {
   user: UserRow;
   sessionId: string;
+  /** Ввёл ли пользователь код двухфакторного входа в этой сессии. */
+  sessionMfaVerified: boolean;
 }
 
 declare module "fastify" {
