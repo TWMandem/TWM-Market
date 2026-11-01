@@ -1,10 +1,33 @@
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router";
+import type { ListingCardDto } from "@twm/shared";
+import { ListingGrid } from "../components/listing";
+import { api } from "../lib/api";
+import { useFavoriteToggle } from "../lib/catalog";
 import { Icon } from "../components/Icon";
 import { useServers } from "../lib/server-context";
 import { SECTIONS } from "./sections";
 
 export function HomePage() {
   const { current } = useServers();
+  const [fresh, setFresh] = useState<ListingCardDto[] | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .searchListings({ server: current?.number, sort: "new" })
+      .then((r) => !cancelled && setFresh(r.items.slice(0, 8)))
+      .catch(() => !cancelled && setFresh([]));
+    return () => {
+      cancelled = true;
+    };
+  }, [current]);
+
+  const toggle = useFavoriteToggle(
+    useCallback((id: string, favorite: boolean) => {
+      setFresh((list) => list?.map((i) => (i.id === id ? { ...i, favorite } : i)) ?? list);
+    }, []),
+  );
 
   return (
     <div className="flex flex-col gap-14">
@@ -50,6 +73,20 @@ export function HomePage() {
           ))}
         </div>
       </section>
+
+      {fresh && fresh.length > 0 && (
+        <section aria-labelledby="fresh-title" className="flex flex-col gap-5">
+          <div className="flex flex-wrap items-baseline justify-between gap-3">
+            <h2 id="fresh-title" className="m-0 font-display text-[22px] font-bold">
+              Новое{current ? ` на ${current.name}` : ""}
+            </h2>
+            <Link to="/search?sort=new" className="font-bold text-accent hover:text-accent-soft">
+              Все объявления →
+            </Link>
+          </div>
+          <ListingGrid items={fresh} onToggleFavorite={(l) => void toggle(l)} />
+        </section>
+      )}
 
       <section
         aria-labelledby="safety-title"

@@ -7,10 +7,16 @@ import type {
   AuditEntryDto,
   AuthResponseDto,
   CatalogItemDto,
+  CatalogItemOptionDto,
   CategoryDto,
   GameProfileDto,
+  ListingCardDto,
+  ListingDetailDto,
+  ListingImageDto,
+  ListingSearchResultDto,
   ListingTypeDto,
   MeDto,
+  MyListingDto,
   Paged,
   SectionDto,
   ServerDto,
@@ -98,10 +104,12 @@ export function refreshSession(): Promise<AuthResponseDto | null> {
 
 async function rawFetch(path: string, init: RequestInit = {}): Promise<Response> {
   const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), 10_000);
+  // Загрузка файлов может идти дольше обычного запроса.
+  const timeout = window.setTimeout(() => controller.abort(), init.body instanceof FormData ? 120_000 : 10_000);
   const headers = new Headers(init.headers);
   headers.set("Accept", "application/json");
-  if (init.body !== undefined) headers.set("Content-Type", "application/json");
+  // Для FormData заголовок с границей частей браузер выставит сам.
+  if (init.body !== undefined && !(init.body instanceof FormData)) headers.set("Content-Type", "application/json");
   try {
     return await fetch(`${API_URL}${path}`, { ...init, headers, signal: controller.signal });
   } catch {
@@ -126,7 +134,7 @@ async function toApiError(response: Response): Promise<ApiError> {
 }
 
 interface RequestOptions {
-  method?: "GET" | "POST" | "PATCH" | "DELETE";
+  method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   body?: unknown;
   /** Нужен ли вход. По умолчанию — да, если токен есть. */
   auth?: boolean;
@@ -136,10 +144,11 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   const send = () => {
     const headers: Record<string, string> = {};
     if (options.auth !== false && accessToken) headers.Authorization = `Bearer ${accessToken}`;
+    const isForm = options.body instanceof FormData;
     return rawFetch(path, {
       method: options.method ?? "GET",
       headers,
-      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      body: options.body === undefined ? undefined : isForm ? (options.body as FormData) : JSON.stringify(options.body),
     });
   };
 
@@ -205,11 +214,48 @@ export const api = {
   twoFactorEnable: (code: string) => request<TwoFactorStatusDto>("/v1/me/2fa/enable", { method: "POST", body: { code } }),
   twoFactorVerify: (code: string) => request<TwoFactorStatusDto>("/v1/me/2fa/verify", { method: "POST", body: { code } }),
 
+  catalogItems: (params: { categoryId?: number; q?: string }) =>
+    request<{ items: CatalogItemOptionDto[] }>(`/v1/catalog/items${qs(params)}`, { auth: false }),
+  attributes: (listingTypeId: number) =>
+    request<{ items: AttributeDefinitionDto[] }>(`/v1/catalog/attributes${qs({ listingTypeId })}`, { auth: false }),
+
+  searchListings: (params: Record<string, string | number | undefined>) =>
+    request<ListingSearchResultDto>(`/v1/listings${qs(params)}`),
+  listing: (id: string) => request<ListingDetailDto>(`/v1/listings/${encodeURIComponent(id)}`),
+  myListings: (status?: string) =>
+    request<{
+      items: Array<ListingCardDto & { status: MyListingDto["status"]; expiresAt: string | null; rejectionReason: string | null; favorites: number }>;
+      counts: Record<string, number>;
+    }>(`/v1/me/listings${qs({ status })}`),
+  myListing: (id: string) => request<MyListingDto>(`/v1/me/listings/${encodeURIComponent(id)}`),
+  createListing: (body: unknown) => request<MyListingDto>("/v1/listings", { method: "POST", body }),
+  updateListing: (id: string, body: unknown) => request<MyListingDto>(`/v1/listings/${encodeURIComponent(id)}`, { method: "PUT", body }),
+  listingAction: (id: string, action: "publish" | "extend" | "withdraw" | "sold") =>
+    request<MyListingDto>(`/v1/listings/${encodeURIComponent(id)}/${action}`, { method: "POST" }),
+  deleteListing: (id: string) => request<void>(`/v1/listings/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  uploadListingImage: (id: string, file: Blob, name = "image.png") => {
+    const form = new FormData();
+    form.append("file", file, name);
+    return request<{ images: ListingImageDto[] }>(`/v1/listings/${encodeURIComponent(id)}/images`, { method: "POST", body: form });
+  },
+  orderListingImages: (id: string, order: string[], mainId: string | null) =>
+    request<{ images: ListingImageDto[] }>(`/v1/listings/${encodeURIComponent(id)}/images`, { method: "PUT", body: { order, mainId } }),
+  deleteListingImage: (id: string, imageId: string) =>
+    request<{ images: ListingImageDto[] }>(`/v1/listings/${encodeURIComponent(id)}/images/${encodeURIComponent(imageId)}`, { method: "DELETE" }),
+  favorite: (id: string, on: boolean) =>
+    request<void>(`/v1/listings/${encodeURIComponent(id)}/favorite`, { method: on ? "POST" : "DELETE" }),
+  favorites: () => request<{ items: Array<ListingCardDto & { status: string }> }>("/v1/me/favorites"),
+
   catalog: () =>
     request<{ sections: SectionDto[]; listingTypes: ListingTypeDto[]; categories: CategoryDto[] }>("/v1/catalog", {
       auth: false,
     }),
 };
+
+/** Полный адрес файла с сервера (фото, иконки). */
+export function mediaSrc(path: string): string {
+  return path.startsWith("http") || path.startsWith("blob:") ? path : `${API_URL}${path}`;
+}
 
 const qs = (params: Record<string, string | number | undefined>) => {
   const search = new URLSearchParams();
@@ -260,6 +306,12 @@ export const adminApi = {
   updateCatalogItem: (id: number, body: unknown) =>
     request<CatalogItemDto>(`/v1/admin/catalog-items/${id}`, { method: "PATCH", body }),
   deleteCatalogItem: (id: number) => request<void>(`/v1/admin/catalog-items/${id}`, { method: "DELETE" }),
+  uploadCatalogIcon: (id: number, file: File) => {
+    const form = new FormData();
+    form.append("file", file, file.name);
+    return request<CatalogItemDto>(`/v1/admin/catalog-items/${id}/icon`, { method: "POST", body: form });
+  },
+  deleteCatalogIcon: (id: number) => request<CatalogItemDto>(`/v1/admin/catalog-items/${id}/icon`, { method: "DELETE" }),
 
   attributes: (listingTypeId: number) =>
     request<{ items: AttributeDefinitionDto[] }>(`/v1/admin/attributes${qs({ listingTypeId })}`),

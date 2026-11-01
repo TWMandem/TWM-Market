@@ -4,7 +4,11 @@ import { RequireAuth } from "./components/RequireAuth";
 import { AuthProvider } from "./lib/auth-context";
 import { ServerProvider } from "./lib/server-context";
 import { HomePage } from "./pages/HomePage";
-import { SectionPage } from "./pages/SectionPage";
+import { CatalogPage } from "./pages/catalog/CatalogPage";
+import { ListingPage } from "./pages/listing/ListingPage";
+import { ListingFormPage } from "./pages/listing/ListingFormPage";
+import { MyListingsPage } from "./pages/account/MyListingsPage";
+import { FavoritesPage } from "./pages/account/FavoritesPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { LoginPage } from "./pages/auth/LoginPage";
 import { RegisterPage } from "./pages/auth/RegisterPage";
@@ -28,9 +32,43 @@ const router = createHashRouter([
     element: <Layout />,
     children: [
       { index: true, element: <HomePage /> },
-      { path: "items", element: <SectionPage section="items" /> },
-      { path: "cars", element: <SectionPage section="cars" /> },
-      { path: "notary", element: <SectionPage section="notary" /> },
+      { path: "items", element: <CatalogPage key="items" section="items" /> },
+      { path: "cars", element: <CatalogPage key="cars" section="cars" /> },
+      { path: "notary", element: <CatalogPage key="notary" section="notary" /> },
+      { path: "search", element: <CatalogPage key="search" section="search" /> },
+      { path: "listing/:id", element: <ListingPage /> },
+      {
+        path: "listings/new",
+        element: (
+          <RequireAuth>
+            <ListingFormPage key="new" />
+          </RequireAuth>
+        ),
+      },
+      {
+        path: "listings/:id/edit",
+        element: (
+          <RequireAuth>
+            <ListingFormPage />
+          </RequireAuth>
+        ),
+      },
+      {
+        path: "my/listings",
+        element: (
+          <RequireAuth>
+            <MyListingsPage />
+          </RequireAuth>
+        ),
+      },
+      {
+        path: "favorites",
+        element: (
+          <RequireAuth>
+            <FavoritesPage />
+          </RequireAuth>
+        ),
+      },
       { path: "login", element: <LoginPage /> },
       { path: "register", element: <RegisterPage /> },
       { path: "forgot-password", element: <ForgotPasswordPage /> },

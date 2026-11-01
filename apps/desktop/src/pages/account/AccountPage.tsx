@@ -30,9 +30,17 @@ export function AccountPage() {
             </span>
           </div>
         </div>
-        <Button variant="secondary" onClick={() => void signOut()}>
-          Выйти
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Link to="/my/listings" className="flex h-11 items-center rounded-xl bg-accent px-4 font-extrabold text-on-accent no-underline hover:bg-accent-soft">
+            Мои объявления
+          </Link>
+          <Link to="/favorites" className="flex h-11 items-center rounded-xl border border-line px-4 font-bold text-ink no-underline hover:border-faint">
+            Избранное
+          </Link>
+          <Button variant="secondary" onClick={() => void signOut()}>
+            Выйти
+          </Button>
+        </div>
       </div>
 
       {notice && <Alert tone="success">{notice}</Alert>}

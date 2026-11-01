@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router";
 import { useAuth } from "../lib/auth-context";
 import { Icon } from "./Icon";
@@ -12,6 +13,7 @@ const NAV = [
 export function AppHeader() {
   const { status, user } = useAuth();
   const navigate = useNavigate();
+  const [search, setSearch] = useState("");
 
   return (
     <header className="border-b border-line-soft bg-ground">
@@ -42,7 +44,15 @@ export function AppHeader() {
           ))}
         </nav>
 
-        <div className="flex h-11 min-w-[200px] flex-[1_1_220px] items-center gap-2 rounded-xl border border-line bg-surface px-3">
+        <form
+          role="search"
+          onSubmit={(e) => {
+            e.preventDefault();
+            const q = search.trim();
+            if (q) navigate(`/search?q=${encodeURIComponent(q)}`);
+          }}
+          className="flex h-11 min-w-[200px] flex-[1_1_220px] items-center gap-2 rounded-xl border border-line bg-surface px-3 focus-within:border-accent"
+        >
           <Icon name="search" size={18} className="text-muted" />
           <label htmlFor="global-search" className="sr-only">
             Поиск по площадке
@@ -50,10 +60,12 @@ export function AppHeader() {
           <input
             id="global-search"
             type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
             placeholder="Предмет, авто или ник продавца"
             className="min-w-0 flex-1 bg-transparent text-[15px] text-ink outline-none placeholder:text-faint"
           />
-        </div>
+        </form>
 
         <ServerSwitcher />
 
@@ -68,6 +80,16 @@ export function AppHeader() {
           >
             Админ-панель
           </NavLink>
+        )}
+
+        {status === "authed" && (
+          <Link
+            to="/favorites"
+            aria-label="Избранное"
+            className="flex size-11 items-center justify-center rounded-xl text-ink-2 hover:bg-surface-2 hover:text-ink"
+          >
+            <Icon name="heart" />
+          </Link>
         )}
 
         {status === "authed" && user ? (
@@ -95,7 +117,7 @@ export function AppHeader() {
 
         <button
           type="button"
-          onClick={() => navigate(status === "authed" ? "/account" : "/login")}
+          onClick={() => navigate(status === "authed" ? "/listings/new" : "/login", { state: { from: "/listings/new" } })}
           className="flex h-11 items-center gap-2 rounded-xl bg-accent px-4.5 font-extrabold text-on-accent hover:bg-accent-soft"
         >
           <Icon name="plus" size={18} strokeWidth={2.6} />

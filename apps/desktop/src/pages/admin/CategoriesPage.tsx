@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import type { CatalogItemDto, CategoryDto, SectionDto } from "@twm/shared";
+import { Media } from "../../components/listing";
 import { Alert, Button, Card } from "../../components/ui";
 import { adminApi } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
@@ -428,8 +429,37 @@ function ItemRow({
     );
   }
 
+  const uploadIcon = async (file: File | undefined) => {
+    if (!file) return;
+    let saved: CatalogItemDto | null = null;
+    setError(
+      await attempt(async () => {
+        saved = await adminApi.uploadCatalogIcon(item.id, file);
+      }),
+    );
+    if (saved) onSaved(saved);
+  };
+
   return (
     <li className="group flex flex-wrap items-center gap-3 rounded-xl bg-surface-2 px-3 py-2">
+      <label
+        className={`relative flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-ground ${canEdit ? "cursor-pointer hover:ring-2 hover:ring-accent" : ""}`}
+        title={canEdit ? "Загрузить иконку (PNG, JPG, WebP или WebM)" : undefined}
+      >
+        <Media media={item.icon} alt="" fit="contain" className="size-full" />
+        {canEdit && (
+          <input
+            type="file"
+            accept="image/png,image/jpeg,image/webp,video/webm"
+            className="sr-only"
+            aria-label={`Иконка для «${item.name}»`}
+            onChange={(e) => {
+              void uploadIcon(e.target.files?.[0]);
+              e.target.value = "";
+            }}
+          />
+        )}
+      </label>
       <span className={`font-semibold ${item.isActive ? "" : "text-faint line-through"}`}>{item.name}</span>
       {item.aliases.length > 0 && <span className="text-[13px] text-muted">{item.aliases.join(", ")}</span>}
       {canEdit && (
