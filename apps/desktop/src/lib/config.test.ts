@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { normalizeApiUrl } from "./config.js";
+import { PRODUCTION_API_URL, normalizeApiUrl } from "./config.js";
 
 test("адрес API приводится к единому виду", () => {
   assert.equal(normalizeApiUrl("https://api.example.com/"), "https://api.example.com");
@@ -13,4 +13,9 @@ test("неверный адрес заменяется адресом по ум�
   assert.equal(normalizeApiUrl(""), "http://localhost:3000");
   assert.equal(normalizeApiUrl("not a url"), "http://localhost:3000");
   assert.equal(normalizeApiUrl("file:///C:/evil"), "http://localhost:3000");
+});
+
+test("собранное приложение по умолчанию подключается к серверу площадки", () => {
+  assert.equal(normalizeApiUrl(undefined, PRODUCTION_API_URL), PRODUCTION_API_URL);
+  assert.ok(PRODUCTION_API_URL.startsWith("https://"));
 });
