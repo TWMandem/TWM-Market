@@ -38,8 +38,16 @@ const baseSchema = z.object({
   ACCESS_TOKEN_TTL_MIN: z.coerce.number().int().min(1).max(60).default(15),
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().min(1).max(365).default(30),
 
-  /** console — письма выводятся в журнал сервера (для разработки); smtp — настоящая отправка. */
-  MAIL_TRANSPORT: z.enum(["console", "smtp"]).default("console"),
+  /**
+   * console — письма выводятся в журнал сервера (для разработки);
+   * smtp — отправка через почтовый сервер;
+   * postbox — Yandex Cloud Postbox по HTTPS (не нужны почтовые порты на VPS).
+   */
+  MAIL_TRANSPORT: z.enum(["console", "smtp", "postbox"]).default("console"),
+  /** Статический ключ доступа сервисного аккаунта Yandex Cloud с ролью postbox.sender. */
+  POSTBOX_KEY_ID: z.string().optional(),
+  POSTBOX_SECRET: z.string().optional(),
+  POSTBOX_ENDPOINT: z.string().url().default("https://postbox.cloud.yandex.net"),
   /** Почтовый сервер, например smtp.yandex.ru (порт 465, SSL) с паролем приложения. */
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.coerce.number().int().min(1).max(65535).default(465),
@@ -79,6 +87,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   for (const key of ["JWT_SECRET", "CODE_SECRET"] as const) {
     if (data[key]?.startsWith("замените") && data.NODE_ENV === "production") {
       missing.push(`${key} (оставлено значение из примера)`);
+    }
+  }
+  if (data.MAIL_TRANSPORT === "postbox") {
+    for (const key of ["POSTBOX_KEY_ID", "POSTBOX_SECRET", "MAIL_FROM"] as const) {
+      if (!data[key]) missing.push(`${key} (нужен для MAIL_TRANSPORT=postbox)`);
     }
   }
   if (data.MAIL_TRANSPORT === "smtp") {

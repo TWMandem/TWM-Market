@@ -95,7 +95,12 @@ UPLOAD_DIR=/var/lib/twm/uploads
 MAX_UPLOAD_MB=10
 
 # Почта для кодов подтверждения. Пока console — коды пишутся в журнал (sudo twm logs).
-# Для Яндекса: включите пароли приложений в настройках почты и укажите:
+# Yandex Cloud Postbox (по HTTPS, работает даже при закрытых почтовых портах):
+#   MAIL_TRANSPORT=postbox
+#   POSTBOX_KEY_ID=идентификатор_статического_ключа
+#   POSTBOX_SECRET="секретный_ключ"
+#   MAIL_FROM="TWM Market <noreply@ваш-домен.ru>"
+# Или SMTP Яндекс Почты (если хостинг не закрывает порт 465):
 #   MAIL_TRANSPORT=smtp
 #   SMTP_HOST=smtp.yandex.ru
 #   SMTP_PORT=465

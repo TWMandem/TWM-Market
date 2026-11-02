@@ -9,6 +9,8 @@
 #   sudo twm backup         — копия базы и загруженных файлов в /var/backups/twm
 #   sudo twm admin-create --login ЛОГИН --email EMAIL
 #   sudo twm reset-2fa --login ЛОГИН
+#   sudo twm mail-test ВАШ@EMAIL — отправить тестовое письмо по настройкам почты
+#   sudo twm set-domain api.example.ru — перейти на свой домен (старый адрес продолжит работать)
 set -euo pipefail
 
 REPO="TWMandem/TWM-Market"
@@ -131,6 +133,40 @@ case "$cmd" in
     find "$dir" -type f -mtime +14 -delete
     echo "Копия сохранена: $dir/db-$stamp.dump, $dir/uploads-$stamp.tar.gz"
     ;;
+  mail-test)
+    need_root mail-test
+    run_cli mail-test "$@"
+    ;;
+  set-domain)
+    need_root set-domain
+    new="${1:-}"
+    new="${new,,}"
+    [[ "$new" =~ ^[a-z0-9.-]+\.[a-z]{2,}$ ]] || fail "укажите домен: sudo twm set-domain api.example.ru"
+    old="$(grep '^PUBLIC_DOMAIN=' "$ENV_FILE" | cut -d= -f2- | tr -d '"' || true)"
+    resolved="$(getent ahostsv4 "$new" | awk 'NR==1 {print $1}' || true)"
+    [ -n "$resolved" ] || fail "домен $new пока не находится в DNS. Проверьте A-запись и подождите (до нескольких часов)"
+    ip="$(curl -fsS4 --max-time 10 https://api.ipify.org 2>/dev/null || true)"
+    if [ -n "$ip" ] && [ "$resolved" != "$ip" ]; then
+      fail "домен $new указывает на $resolved, а у этого сервера адрес $ip. Исправьте A-запись"
+    fi
+    # Старый адрес оставляем рядом с новым: уже установленные приложения продолжат работать.
+    names="$new"
+    if [ -n "$old" ] && [ "$old" != "$new" ]; then names="$new $old"; fi
+    sed "s/__DOMAIN__/${names}/g" "$ROOT/current/deploy/nginx.conf" >/etc/nginx/sites-available/twm
+    nginx -t
+    systemctl reload nginx
+    cert_args=()
+    for name in $names; do cert_args+=(-d "$name"); done
+    certbot --nginx --cert-name twm "${cert_args[@]}" --non-interactive --agree-tos \
+      --register-unsafely-without-email --redirect --expand
+    sed -i "s/^PUBLIC_DOMAIN=.*/PUBLIC_DOMAIN=${new}/" "$ENV_FILE"
+    if curl -fsS "https://${new}/health"; then
+      echo
+      echo "Готово: сервер отвечает на https://${new} (и по-прежнему на ${old:-—})"
+    else
+      fail "сертификат получен, но https://${new}/health не ответил. Журнал: sudo twm logs"
+    fi
+    ;;
   admin-create)
     need_root admin-create
     run_cli create-admin "$@"
@@ -143,6 +179,6 @@ case "$cmd" in
     cat "$ROOT/current/VERSION"
     ;;
   *)
-    sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '2,/^set -euo/p' "$0" | grep '^#' | sed 's/^# \{0,1\}//'
     ;;
 esac

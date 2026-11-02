@@ -1,6 +1,12 @@
 import type { FastifyBaseLogger } from "fastify";
 import nodemailer, { type Transporter } from "nodemailer";
+import type { Config } from "../config.js";
 import { AppError } from "../lib/errors.js";
+import { signV4 } from "./sigv4.js";
+
+type ErrorLog = Pick<FastifyBaseLogger, "error">;
+const mailUnavailable = () =>
+  new AppError(503, "mail_unavailable", "Не удалось отправить письмо. Попробуйте ещё раз через минуту.");
 
 export interface MailMessage {
   to: string;
@@ -57,7 +63,7 @@ export class SmtpMailer implements Mailer {
       await this.transport.sendMail({ from: this.options.from, to: message.to, subject: message.subject, text: message.text });
     } catch (error) {
       this.log.error({ err: error, to: message.to }, "Не удалось отправить письмо");
-      throw new AppError(503, "mail_unavailable", "Не удалось отправить письмо. Попробуйте ещё раз через минуту.");
+      throw mailUnavailable();
     }
   }
 
@@ -65,6 +71,90 @@ export class SmtpMailer implements Mailer {
   async verify(): Promise<void> {
     await this.transport.verify();
   }
+}
+
+export interface PostboxOptions {
+  endpoint: string;
+  keyId: string;
+  secret: string;
+  from: string;
+}
+
+/**
+ * Yandex Cloud Postbox: письмо уходит HTTPS-запросом (API как у Amazon SES v2),
+ * поэтому закрытые почтовые порты на VPS не мешают.
+ */
+export class PostboxMailer implements Mailer {
+  constructor(
+    private readonly options: PostboxOptions,
+    private readonly log: ErrorLog,
+    private readonly fetchImpl: typeof fetch = fetch,
+  ) {}
+
+  /** Тело запроса SendEmail. Вынесено отдельно ради проверки в тестах. */
+  static body(from: string, message: MailMessage): string {
+    return JSON.stringify({
+      FromEmailAddress: from,
+      Destination: { ToAddresses: [message.to] },
+      Content: {
+        Simple: {
+          Subject: { Data: message.subject, Charset: "UTF-8" },
+          Body: { Text: { Data: message.text, Charset: "UTF-8" } },
+        },
+      },
+    });
+  }
+
+  async send(message: MailMessage): Promise<void> {
+    const url = new URL("/v2/email/outbound-emails", this.options.endpoint);
+    const body = PostboxMailer.body(this.options.from, message);
+    const headers = signV4({
+      method: "POST",
+      url,
+      headers: { "content-type": "application/json" },
+      body,
+      accessKeyId: this.options.keyId,
+      secretAccessKey: this.options.secret,
+      region: "ru-central1",
+      service: "ses",
+    });
+    let response: Response;
+    try {
+      response = await this.fetchImpl(url, { method: "POST", headers, body, signal: AbortSignal.timeout(15_000) });
+    } catch (error) {
+      this.log.error({ err: error, to: message.to }, "Postbox недоступен");
+      throw mailUnavailable();
+    }
+    if (!response.ok) {
+      const details = await response.text().catch(() => "");
+      this.log.error({ status: response.status, details: details.slice(0, 500), to: message.to }, "Postbox не принял письмо");
+      throw mailUnavailable();
+    }
+  }
+}
+
+/** Почта по настройкам сервера. Для console возвращает null — письма пишутся в журнал. */
+export function createMailer(config: Config, log: ErrorLog): SmtpMailer | PostboxMailer | null {
+  if (config.MAIL_TRANSPORT === "postbox") {
+    return new PostboxMailer(
+      { endpoint: config.POSTBOX_ENDPOINT, keyId: config.POSTBOX_KEY_ID!, secret: config.POSTBOX_SECRET!, from: config.MAIL_FROM! },
+      log,
+    );
+  }
+  if (config.MAIL_TRANSPORT === "smtp") {
+    return new SmtpMailer(
+      {
+        host: config.SMTP_HOST!,
+        port: config.SMTP_PORT,
+        secure: config.SMTP_SECURE,
+        user: config.SMTP_USER!,
+        pass: config.SMTP_PASS!,
+        from: config.MAIL_FROM ?? `TWM Market <${config.SMTP_USER}>`,
+      },
+      log,
+    );
+  }
+  return null;
 }
 
 /** Почта для тестов: письма складываются в массив. */
