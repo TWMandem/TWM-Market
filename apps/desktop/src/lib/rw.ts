@@ -480,21 +480,21 @@ function applySkin(mesh: RwMesh, skin: Skin, frames: Frames): boolean {
       const m = boneMatrices[skin.indices[v * 4 + k]!];
       if (!m) continue;
       total += w;
-      outP[v * 3] += w * (m[0]! * x + m[4]! * y + m[8]! * z + m[12]!);
-      outP[v * 3 + 1] += w * (m[1]! * x + m[5]! * y + m[9]! * z + m[13]!);
-      outP[v * 3 + 2] += w * (m[2]! * x + m[6]! * y + m[10]! * z + m[14]!);
-      outN[v * 3] += w * (m[0]! * nx + m[4]! * ny + m[8]! * nz);
-      outN[v * 3 + 1] += w * (m[1]! * nx + m[5]! * ny + m[9]! * nz);
-      outN[v * 3 + 2] += w * (m[2]! * nx + m[6]! * ny + m[10]! * nz);
+      outP[v * 3] = outP[v * 3]! + (w * (m[0]! * x + m[4]! * y + m[8]! * z + m[12]!));
+      outP[v * 3 + 1] = outP[v * 3 + 1]! + (w * (m[1]! * x + m[5]! * y + m[9]! * z + m[13]!));
+      outP[v * 3 + 2] = outP[v * 3 + 2]! + (w * (m[2]! * x + m[6]! * y + m[10]! * z + m[14]!));
+      outN[v * 3] = outN[v * 3]! + (w * (m[0]! * nx + m[4]! * ny + m[8]! * nz));
+      outN[v * 3 + 1] = outN[v * 3 + 1]! + (w * (m[1]! * nx + m[5]! * ny + m[9]! * nz));
+      outN[v * 3 + 2] = outN[v * 3 + 2]! + (w * (m[2]! * nx + m[6]! * ny + m[10]! * nz));
     }
     if (total <= 0) {
       outP.set([x, y, z], v * 3);
       outN.set([nx, ny, nz], v * 3);
     } else if (Math.abs(total - 1) > 1e-3) {
-      for (let k = 0; k < 3; k += 1) outP[v * 3 + k] /= total;
+      for (let k = 0; k < 3; k += 1) outP[v * 3 + k] = outP[v * 3 + k]! / total;
     }
     const len = Math.hypot(outN[v * 3]!, outN[v * 3 + 1]!, outN[v * 3 + 2]!) || 1;
-    for (let k = 0; k < 3; k += 1) outN[v * 3 + k] /= len;
+    for (let k = 0; k < 3; k += 1) outN[v * 3 + k] = outN[v * 3 + k]! / len;
   }
   mesh.positions = outP;
   mesh.normals = outN;
@@ -673,16 +673,16 @@ function computeNormals(positions: Float32Array, indices: number[]): Float32Arra
     const ny = uz * vx - ux * vz;
     const nz = ux * vy - uy * vx;
     for (const v of [a, b, c]) {
-      normals[v] += nx;
-      normals[v + 1] += ny;
-      normals[v + 2] += nz;
+      normals[v] = normals[v]! + (nx);
+      normals[v + 1] = normals[v + 1]! + (ny);
+      normals[v + 2] = normals[v + 2]! + (nz);
     }
   }
   for (let i = 0; i < normals.length; i += 3) {
     const len = Math.hypot(normals[i]!, normals[i + 1]!, normals[i + 2]!) || 1;
-    normals[i] /= len;
-    normals[i + 1] /= len;
-    normals[i + 2] /= len;
+    normals[i] = normals[i]! / (len);
+    normals[i + 1] = normals[i + 1]! / (len);
+    normals[i + 2] = normals[i + 2]! / (len);
   }
   return normals;
 }
