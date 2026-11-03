@@ -1,0 +1,67 @@
+# Проверка, что сервер работает. Каждые 10 минут GitHub открывает
+# https://api.twm-market.ru/health (сервер отвечает и база доступна).
+# Если сервер не отвечает, создаётся задача (issue) «Сервер недоступен» —
+# GitHub пришлёт владельцу письмо. Когда сервер снова работает, задача
+# закрывается с комментарием. Расписание GitHub может запаздывать на
+# несколько минут; в публичном репозитории без коммитов оно отключается
+# через 60 дней (включить: Actions → Uptime → Enable workflow).
+name: Uptime
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+concurrency:
+  group: uptime
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Сервер отвечает
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      URL: https://api.twm-market.ru/health
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Проверка /health (3 попытки)
+        id: health
+        run: |
+          ok=false
+          for attempt in 1 2 3; do
+            body="$(curl -fsS --max-time 15 "$URL" 2>&1)" && echo "$body" | grep -q '"status":"ok"' && { ok=true; break; }
+            echo "Попытка $attempt: $body"
+            sleep 20
+          done
+          echo "ok=$ok" >> "$GITHUB_OUTPUT"
+          echo "details<<EOF" >> "$GITHUB_OUTPUT"
+          echo "${body:-нет ответа}" | head -c 500 >> "$GITHUB_OUTPUT"
+          echo >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Задача о сбое
+        env:
+          OK: ${{ steps.health.outputs.ok }}
+          DETAILS: ${{ steps.health.outputs.details }}
+        run: |
+          gh label create uptime --color B60205 --description "Сервер недоступен" --force >/dev/null
+          open_issue="$(gh issue list --label uptime --state open --json number --jq '.[0].number // empty')"
+          now="$(TZ=Europe/Moscow date '+%d.%m.%Y %H:%M') МСК"
+          if [ "$OK" = "true" ]; then
+            if [ -n "$open_issue" ]; then
+              gh issue close "$open_issue" --comment "✅ Сервер снова отвечает ($now)."
+            fi
+            echo "Сервер работает"
+          else
+            if [ -z "$open_issue" ]; then
+              gh issue create --label uptime --title "🔴 Сервер недоступен" --body "$(printf 'С %s сервер не отвечает на %s.\n\nОтвет: `%s`\n\nЧто проверить на сервере:\n```\nsudo twm status\nsudo twm logs\n```\nЗадача закроется сама, когда сервер снова заработает.' "$now" "$URL" "$DETAILS")"
+            else
+              echo "Задача #$open_issue уже открыта"
+            fi
+            exit 1
+          fi

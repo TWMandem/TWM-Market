@@ -7,6 +7,10 @@
 #   sudo twm update         — скачать свежую сборку с GitHub и перейти на неё
 #   sudo twm rollback       — вернуться на предыдущую сборку
 #   sudo twm backup         — копия базы и загруженных файлов в /var/backups/twm
+#                             (и зашифрованная — в Object Storage, если настроено)
+#   sudo twm setup-offsite  — настроить копии вне сервера (Yandex Object Storage)
+#   sudo twm offsite-list   — список копий в хранилище
+#   sudo twm backup-passphrase — показать пароль шифрования копий (сохраните его вне сервера)
 #   sudo twm admin-create --login ЛОГИН --email EMAIL
 #   sudo twm reset-2fa --login ЛОГИН
 #   sudo twm mail-test ВАШ@EMAIL — отправить тестовое письмо по настройкам почты
@@ -21,6 +25,8 @@ SERVICE=twm-api
 
 fail() { printf '\033[1;31mОшибка: %s\033[0m\n' "$*" >&2; exit 1; }
 need_root() { [ "$(id -u)" -eq 0 ] || fail "нужны права администратора: sudo twm $*"; }
+# Значение настройки из env-файла (без кавычек).
+env_value() { grep "^$1=" "$ENV_FILE" 2>/dev/null | tail -n 1 | cut -d= -f2- | sed 's/^"//; s/"$//'; }
 
 healthy() {
   for _ in $(seq 1 30); do
@@ -132,6 +138,59 @@ case "$cmd" in
     tar -czf "$dir/uploads-$stamp.tar.gz" -C /var/lib/twm uploads
     find "$dir" -type f -mtime +14 -delete
     echo "Копия сохранена: $dir/db-$stamp.dump, $dir/uploads-$stamp.tar.gz"
+
+    # Копия вне сервера: шифруем и загружаем в Object Storage.
+    if grep -q '^S3_BUCKET=.' "$ENV_FILE"; then
+      pass="$(env_value BACKUP_PASSPHRASE)"
+      [ -n "$pass" ] || fail "в $ENV_FILE нет BACKUP_PASSPHRASE — без шифрования копия в хранилище не загружается"
+      out="$(mktemp -d)"
+      for f in "db-$stamp.dump" "uploads-$stamp.tar.gz"; do
+        BACKUP_PASSPHRASE="$pass" openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt \
+          -pass env:BACKUP_PASSPHRASE -in "$dir/$f" -out "$out/$f.enc"
+      done
+      chown -R twm "$out"
+      if run_cli offsite-backup "$out"/*.enc; then
+        echo "Зашифрованная копия загружена в хранилище"
+      else
+        rm -rf "$out"
+        fail "копия вне сервера не загружена — проверьте: sudo twm offsite-list"
+      fi
+      rm -rf "$out"
+    fi
+    ;;
+  setup-offsite)
+    need_root setup-offsite
+    echo "Копии вне сервера: Yandex Object Storage (инструкция — deploy/README.md)."
+    read -r -p "Имя бакета: " bucket
+    read -r -p "Идентификатор статического ключа: " key_id
+    read -r -s -p "Секретный ключ (при вводе не отображается): " secret
+    echo
+    [ -n "$bucket" ] && [ -n "$key_id" ] && [ -n "$secret" ] || fail "нужны все три значения"
+    sed -i '/^S3_BUCKET=/d;/^S3_KEY_ID=/d;/^S3_SECRET=/d' "$ENV_FILE"
+    {
+      printf '\n# Копии вне сервера (sudo twm setup-offsite)\n'
+      printf 'S3_BUCKET=%s\n' "$bucket"
+      printf 'S3_KEY_ID=%s\n' "$key_id"
+      printf 'S3_SECRET="%s"\n' "$secret"
+    } >>"$ENV_FILE"
+    if [ -z "$(env_value BACKUP_PASSPHRASE)" ]; then
+      printf 'BACKUP_PASSPHRASE=%s\n' "$(openssl rand -hex 24)" >>"$ENV_FILE"
+      echo "Создан пароль шифрования копий."
+    fi
+    run_cli offsite-backup --check || fail "хранилище недоступно — проверьте имя бакета, ключ и права сервисного аккаунта"
+    echo "Готово. Каждую ночь копия будет шифроваться и загружаться в хранилище (хранится 30 дней)."
+    echo "ВАЖНО: сохраните пароль шифрования вне сервера (менеджер паролей): sudo twm backup-passphrase"
+    echo "Без него копию из хранилища не расшифровать."
+    ;;
+  offsite-list)
+    need_root offsite-list
+    run_cli offsite-backup --list
+    ;;
+  backup-passphrase)
+    need_root backup-passphrase
+    pass="$(env_value BACKUP_PASSPHRASE)"
+    [ -n "$pass" ] || fail "пароль не задан — сначала: sudo twm setup-offsite"
+    echo "$pass"
     ;;
   mail-test)
     need_root mail-test

@@ -2,6 +2,7 @@ import { Link, Outlet, useLocation } from "react-router";
 import { useAuth } from "../lib/auth-context";
 import { AppHeader } from "./AppHeader";
 import { ConnectionStatus } from "./ConnectionStatus";
+import { ErrorBoundary } from "./ErrorBoundary";
 import { UpdateBanner, VersionInfo } from "./UpdateBanner";
 
 export function Layout() {
@@ -24,7 +25,9 @@ export function Layout() {
         </div>
       )}
       <main className="mx-auto w-full max-w-[1280px] flex-1 px-6 pb-16 pt-10">
-        <Outlet />
+        <ErrorBoundary resetKey={pathname}>
+          <Outlet />
+        </ErrorBoundary>
       </main>
       <footer className="border-t border-line-soft">
         <div className="mx-auto flex max-w-[1280px] flex-wrap items-center justify-between gap-4 px-6 py-4 text-[13px] text-muted">

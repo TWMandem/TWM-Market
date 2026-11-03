@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { getVersion } from "@tauri-apps/api/app";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check, type Update } from "@tauri-apps/plugin-updater";
+import { setReportedVersion } from "./error-report";
 import { isTauri } from "./token-store";
 
 /**
@@ -101,7 +102,10 @@ export function AppUpdateProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!isTauri()) return;
     getVersion()
-      .then(setVersion)
+      .then((v) => {
+        setVersion(v);
+        setReportedVersion(v);
+      })
       .catch(() => setVersion(null));
     const first = window.setTimeout(() => void checkNow(), FIRST_CHECK_MS);
     const timer = window.setInterval(() => void checkNow(), CHECK_EVERY_MS);

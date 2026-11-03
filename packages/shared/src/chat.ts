@@ -445,3 +445,26 @@ export interface AdminUserActivityDto {
   reviews: Array<{ id: string; positive: boolean; comment: string; author: string; hidden: boolean; createdAt: string }>;
   audit: Array<{ action: string; actor: string | null; createdAt: string; details: Record<string, unknown> }>;
 }
+
+// ── Журнал ошибок ───────────────────────────────────────────────────────────
+
+export const clientErrorSchema = z.object({
+  message: z.string().trim().min(1).max(500),
+  stack: z.string().max(4000).default(""),
+  route: z.string().max(200).default(""),
+  version: z.string().max(20).default(""),
+});
+
+export interface AppErrorGroupDto {
+  fingerprint: string;
+  source: "app" | "server";
+  message: string;
+  stack: string;
+  route: string;
+  count: number;
+  /** Сколько разных вошедших игроков столкнулись с ошибкой. */
+  users: number;
+  versions: string[];
+  firstAt: string;
+  lastAt: string;
+}

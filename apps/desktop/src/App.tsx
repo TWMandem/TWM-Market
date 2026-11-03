@@ -27,6 +27,7 @@ import { AuditPage } from "./pages/admin/AuditPage";
 import { CategoriesPage } from "./pages/admin/CategoriesPage";
 import { DashboardPage } from "./pages/admin/DashboardPage";
 import { AdminListingsPage } from "./pages/admin/AdminListingsPage";
+import { ErrorsPage } from "./pages/admin/ErrorsPage";
 import { FieldsPage } from "./pages/admin/FieldsPage";
 import { ServersPage } from "./pages/admin/ServersPage";
 import { StructurePage } from "./pages/admin/StructurePage";
@@ -139,6 +140,7 @@ const router = createHashRouter([
           { path: "audit", element: <AuditPage /> },
           { path: "moderation", element: <ModerationPage /> },
           { path: "listings", element: <AdminListingsPage /> },
+          { path: "errors", element: <ErrorsPage /> },
           { path: "stop-words", element: <StopWordsPage /> },
         ],
       },

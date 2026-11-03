@@ -26,6 +26,7 @@ import type {
   NicknameVerificationDto,
   AdminListingDto,
   AdminUserActivityDto,
+  AppErrorGroupDto,
   VerificationQueueItemDto,
   StatsPeriod,
   ReportDto,
@@ -335,6 +336,9 @@ export const api = {
   seenSavedSearch: (id: string) => request<SavedSearchDto>(`/v1/me/saved-searches/${encodeURIComponent(id)}/seen`, { method: "POST" }),
   deleteSavedSearch: (id: string) => request<void>(`/v1/me/saved-searches/${encodeURIComponent(id)}`, { method: "DELETE" }),
 
+  reportClientError: (body: { message: string; stack: string; route: string; version: string }) =>
+    request<void>("/v1/client-errors", { method: "POST", body }),
+
   // ── Подтверждение ника ─────────────────────────────────────────────────
   nicknameVerification: (profileId: string) =>
     request<NicknameVerificationDto>(`/v1/me/game-profiles/${encodeURIComponent(profileId)}/verification`),
@@ -450,6 +454,7 @@ export const adminApi = {
     request<Paged<AdminListingDto>>(`/v1/admin/listings${qs(params)}`),
   bulkListings: (body: { ids: string[]; action: "approve" | "reject"; reason?: string }) =>
     request<{ done: number; skipped: number }>("/v1/admin/listings/bulk", { method: "POST", body }),
+  errors: (params: { days?: number; source?: string }) => request<{ items: AppErrorGroupDto[] }>(`/v1/admin/errors${qs(params)}`),
   userActivity: (id: string) => request<AdminUserActivityDto>(`/v1/admin/users/${encodeURIComponent(id)}/activity`),
   verifications: () => request<{ items: VerificationQueueItemDto[] }>("/v1/admin/verifications"),
   verificationImage: (id: string) => request<Blob>(`/v1/admin/verifications/${encodeURIComponent(id)}/image`, { blob: true }),

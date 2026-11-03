@@ -1,4 +1,4 @@
-import type { FastifyError, FastifyInstance } from "fastify";
+import type { FastifyError, FastifyInstance, FastifyRequest } from "fastify";
 import { ZodError, type ZodTypeAny, type z } from "zod";
 import { fieldErrors, type ApiErrorBody } from "@twm/shared";
 
@@ -32,7 +32,10 @@ export function parseBody<S extends ZodTypeAny>(schema: S, body: unknown): z.inf
   return result.data;
 }
 
-export function registerErrorHandler(app: FastifyInstance): void {
+export function registerErrorHandler(
+  app: FastifyInstance,
+  onInternalError?: (error: Error, request: FastifyRequest) => void,
+): void {
   app.setErrorHandler((error: FastifyError | AppError | ZodError, request, reply) => {
     if (error instanceof AppError) {
       const body: ApiErrorBody = { error: error.code, message: error.message };
@@ -58,6 +61,7 @@ export function registerErrorHandler(app: FastifyInstance): void {
       return reply.code(status).send({ error: "bad_request", message: "Неверный запрос" });
     }
     request.log.error(error);
+    onInternalError?.(error as Error, request);
     return reply.code(500).send({ error: "internal", message: "Внутренняя ошибка сервера. Попробуйте позже." });
   });
 

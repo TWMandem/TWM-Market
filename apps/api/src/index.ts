@@ -5,6 +5,7 @@ import { migrate } from "./db/migrate.js";
 import { SmtpMailer, createMailer } from "./mail/mailer.js";
 import { archiveExpired } from "./modules/listings/service.js";
 import { snapshotPrices } from "./modules/stats/prices.js";
+import { pruneErrors } from "./lib/error-log.js";
 
 const config = loadConfig();
 if (!config.DATABASE_URL) {
@@ -37,6 +38,7 @@ const archiveTimer = setInterval(() => {
   archiveExpired(database.sql)
     .then((count) => count > 0 && app.log.info(`В архив ушло объявлений: ${count}`))
     .catch((error: unknown) => app.log.error(error));
+  pruneErrors(database.sql).catch((error: unknown) => app.log.error(error));
 }, 10 * 60 * 1000);
 
 // Раз в час — снимок цен для графиков «история цены» (и сразу после запуска).

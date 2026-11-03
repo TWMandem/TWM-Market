@@ -5,6 +5,9 @@ import "@fontsource-variable/unbounded";
 import "@fontsource-variable/jetbrains-mono";
 import "./styles.css";
 import { App } from "./App";
+import { installErrorReporting } from "./lib/error-report";
+
+installErrorReporting();
 
 const root = document.getElementById("root");
 if (!root) throw new Error("Не найден элемент #root");

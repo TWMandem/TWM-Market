@@ -2,7 +2,7 @@ import { createHash, createHmac } from "node:crypto";
 
 /**
  * Подпись запроса AWS Signature Version 4. Ею подписываются запросы
- * к Yandex Cloud Postbox (API, совместимый с Amazon SES).
+ * к Yandex Cloud Postbox (API, совместимый с Amazon SES) и к Object Storage (S3).
  * Своя реализация — чтобы не тянуть весь AWS SDK ради одного запроса.
  */
 
@@ -24,6 +24,8 @@ export interface SignInput {
   /** Заголовки, которые войдут в подпись (Host добавляется автоматически). */
   headers: Record<string, string>;
   body: string;
+  /** Готовый хеш тела (например, «UNSIGNED-PAYLOAD» для больших файлов в Object Storage). */
+  payloadHash?: string;
   accessKeyId: string;
   secretAccessKey: string;
   region: string;
@@ -57,7 +59,7 @@ export function signV4(input: SignInput): Record<string, string> {
     query,
     canonicalHeaders,
     signedHeaders,
-    sha256(input.body),
+    input.payloadHash ?? sha256(input.body),
   ].join("\n");
 
   const scope = `${dateStamp}/${input.region}/${input.service}/aws4_request`;

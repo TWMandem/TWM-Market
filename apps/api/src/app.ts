@@ -8,6 +8,7 @@ import { resolve } from "node:path";
 import type { Config } from "./config.js";
 import type { AppContext } from "./context.js";
 import type { Sql } from "./db/client.js";
+import { logError } from "./lib/error-log.js";
 import { registerErrorHandler } from "./lib/errors.js";
 import { ConsoleMailer, type Mailer } from "./mail/mailer.js";
 import { adminAuditRoutes } from "./modules/admin/audit.js";
@@ -28,8 +29,9 @@ import { adminActivityRoutes } from "./modules/admin/activity.js";
 import { priceRoutes } from "./modules/stats/prices.js";
 import { savedSearchRoutes } from "./modules/saved-searches/routes.js";
 import { verificationRoutes } from "./modules/game-profiles/verification.js";
+import { errorRoutes } from "./modules/errors/routes.js";
 
-export const API_VERSION = "0.9.0";
+export const API_VERSION = "0.10.0";
 
 export interface BuildOptions {
   config: Config;
@@ -68,7 +70,17 @@ export async function buildApp({ config, sql, mailer }: BuildOptions): Promise<F
   await mkdir(privateDir, { recursive: true, mode: 0o700 });
   const ctx: AppContext = { config, sql, mailer: mailer ?? new ConsoleMailer(app.log), uploadDir, privateDir };
 
-  registerErrorHandler(app);
+  // Внутренние ошибки (500) записываются в журнал для админки.
+  registerErrorHandler(app, (error, request) => {
+    logError(sql, {
+      source: "server",
+      message: error.message || error.name,
+      stack: error.stack ?? "",
+      route: `${request.method} ${request.routeOptions.url ?? request.url.split("?")[0]}`,
+      appVersion: API_VERSION,
+      userId: request.auth?.user.id ?? null,
+    }).catch(() => undefined);
+  });
 
   await app.register(cors, {
     origin: config.CORS_ORIGINS,
@@ -98,11 +110,15 @@ export async function buildApp({ config, sql, mailer }: BuildOptions): Promise<F
     maxAge: "30d",
   });
 
-  app.get("/health", async () => ({
-    status: "ok" as const,
-    version: API_VERSION,
-    time: new Date().toISOString(),
-  }));
+  // Проверка для мониторинга: сервер отвечает и база доступна.
+  app.get("/health", async (_request, reply) => {
+    try {
+      await sql`SELECT 1`;
+    } catch {
+      return reply.code(503).send({ status: "error", version: API_VERSION, time: new Date().toISOString(), database: "unavailable" });
+    }
+    return { status: "ok" as const, version: API_VERSION, time: new Date().toISOString() };
+  });
 
   await authRoutes(app, ctx);
   await meRoutes(app, ctx);
@@ -122,6 +138,7 @@ export async function buildApp({ config, sql, mailer }: BuildOptions): Promise<F
   await priceRoutes(app, ctx);
   await savedSearchRoutes(app, ctx);
   await verificationRoutes(app, ctx);
+  await errorRoutes(app, ctx);
 
   return app;
 }
