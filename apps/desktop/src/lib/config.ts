@@ -5,7 +5,7 @@ const DEV_API_URL = "http://localhost:3000";
  * Сборку можно направить на другой сервер переменной VITE_API_URL
  * (в GitHub — переменная репозитория API_URL).
  */
-export const PRODUCTION_API_URL = "https://5-44-41-166.sslip.io";
+export const PRODUCTION_API_URL = "https://api.twm-market.ru";
 
 /**
  * Приводит адрес API к единому виду: только http(s), без завершающего «/».
