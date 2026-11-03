@@ -25,6 +25,8 @@ pub fn run() {
         // Должен регистрироваться первым: второй запуск просто показывает окно.
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| show_main(app)))
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .setup(|app| {
             let open = MenuItem::with_id(app, "open", "Открыть TWM Market", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Выход", true, None::<&str>)?;

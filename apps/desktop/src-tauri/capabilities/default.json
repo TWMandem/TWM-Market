@@ -1,12 +1,14 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Права главного окна: базовые и всплывающие уведомления. Новые возможности добавляются сюда явно, по одной.",
+  "description": "Права главного окна: базовые, всплывающие уведомления, проверка обновлений и перезапуск после обновления. Новые возможности добавляются сюда явно, по одной.",
   "windows": [
     "main"
   ],
   "permissions": [
     "core:default",
-    "notification:default"
+    "notification:default",
+    "updater:default",
+    "process:allow-restart"
   ]
 }

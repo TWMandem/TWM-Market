@@ -1,6 +1,7 @@
 import { createHashRouter, RouterProvider } from "react-router";
 import { Layout } from "./components/Layout";
 import { RequireAuth } from "./components/RequireAuth";
+import { AppUpdateProvider } from "./lib/app-update";
 import { AuthProvider } from "./lib/auth-context";
 import { ServerProvider } from "./lib/server-context";
 import { UpdatesProvider } from "./lib/updates-context";
@@ -146,12 +147,14 @@ const router = createHashRouter([
 
 export function App() {
   return (
-    <ServerProvider>
-      <AuthProvider>
-        <UpdatesProvider>
-          <RouterProvider router={router} />
-        </UpdatesProvider>
-      </AuthProvider>
-    </ServerProvider>
+    <AppUpdateProvider>
+      <ServerProvider>
+        <AuthProvider>
+          <UpdatesProvider>
+            <RouterProvider router={router} />
+          </UpdatesProvider>
+        </AuthProvider>
+      </ServerProvider>
+    </AppUpdateProvider>
   );
 }

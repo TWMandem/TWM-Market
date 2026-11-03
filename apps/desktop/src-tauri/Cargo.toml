@@ -21,6 +21,10 @@ tauri = { version = "2", features = ["tray-icon"] }
 tauri-plugin-notification = "2"
 # Второй запуск не открывает новое окно, а показывает уже запущенное (оно может быть в трее).
 tauri-plugin-single-instance = "2"
+# Автообновление: проверка подписанного выпуска на GitHub и установка поверх.
+tauri-plugin-updater = "2"
+# Перезапуск приложения после установки обновления.
+tauri-plugin-process = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 # Системное хранилище учётных данных (на Windows — «Диспетчер учётных данных»).

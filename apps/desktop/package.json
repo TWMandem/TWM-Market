@@ -18,6 +18,8 @@
     "@fontsource-variable/unbounded": "^5.2.0",
     "@tauri-apps/api": "^2.5.0",
     "@tauri-apps/plugin-notification": "^2.2.0",
+    "@tauri-apps/plugin-process": "^2.2.0",
+    "@tauri-apps/plugin-updater": "^2.7.0",
     "@twm/shared": "workspace:*",
     "qrcode": "^1.5.4",
     "react": "^19.1.0",

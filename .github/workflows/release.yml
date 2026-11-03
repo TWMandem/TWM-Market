@@ -1,7 +1,10 @@
-# Выпуск новой версии. Запускается тегом вида v0.1.0:
-#   git tag v0.1.0 && git push origin v0.1.0
-# Собирает установщик на серверах GitHub, считает контрольную сумму SHA-256
-# и создаёт черновик релиза. Черновик публикуется вручную после проверки.
+# Выпуск новой версии. Запускается тегом вида v0.6.0 (версия должна совпадать
+# с apps/desktop/src-tauri/tauri.conf.json):
+#   git tag v0.6.0 && git push origin v0.6.0
+# Собирает установщик на серверах GitHub, подписывает его ключом обновлений,
+# считает SHA-256 и создаёт черновик релиза с latest.json для автообновления.
+# Черновик публикуется вручную после проверки — только тогда установленные
+# приложения увидят обновление.
 name: Release
 
 on:
@@ -17,6 +20,27 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Версия тега и приложения совпадают, ключ подписи задан
+        shell: pwsh
+        env:
+          HAS_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY != '' }}
+        run: |
+          $version = (Get-Content apps/desktop/src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
+          if ("v$version" -ne "${{ github.ref_name }}") {
+            throw "Тег ${{ github.ref_name }} не совпадает с версией приложения $version"
+          }
+          if ($env:HAS_KEY -ne "true") {
+            throw "Не задан секрет TAURI_SIGNING_PRIVATE_KEY (Settings → Secrets and variables → Actions)"
+          }
+          $notes = Get-Content CHANGELOG.md -Raw -Encoding utf8
+          $pattern = '(?ms)^## v' + [regex]::Escape($version) + '[ \t]*\r?\n(.*?)(?=^## |\z)'
+          $match = [regex]::Match($notes, $pattern)
+          if (-not $match.Success -or -not $match.Groups[1].Value.Trim()) {
+            throw "В CHANGELOG.md нет раздела ## v$version"
+          }
+          $match.Groups[1].Value.Trim() | Set-Content -Encoding utf8 RELEASE_NOTES.md
+          "VERSION=$version" >> $env:GITHUB_ENV
 
       - uses: pnpm/action-setup@v4
 
@@ -36,28 +60,50 @@ jobs:
       - name: Тесты
         run: pnpm test
 
-      - name: Сборка .exe
+      - name: Сборка и подпись .exe
         env:
           VITE_API_URL: ${{ vars.API_URL }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: pnpm --filter @twm/desktop tauri build
 
-      - name: Контрольные суммы
+      - name: Файлы выпуска, контрольные суммы и latest.json
         shell: pwsh
         run: |
-          $files = Get-ChildItem apps/desktop/src-tauri/target/release/bundle/nsis/*.exe
-          $lines = foreach ($f in $files) {
-            "$((Get-FileHash $f.FullName -Algorithm SHA256).Hash.ToLower())  $($f.Name)"
+          $bundle = "apps/desktop/src-tauri/target/release/bundle/nsis"
+          $exe = Get-ChildItem "$bundle/*-setup.exe" | Select-Object -First 1
+          $sig = Get-Item "$($exe.FullName).sig"
+          # Имя без пробелов: GitHub заменяет пробелы в именах файлов релиза.
+          $name = "TWM-Market_${env:VERSION}_x64-setup.exe"
+          New-Item -ItemType Directory -Force out | Out-Null
+          Copy-Item $exe.FullName "out/$name"
+          Copy-Item $sig.FullName "out/$name.sig"
+          $hash = (Get-FileHash "out/$name" -Algorithm SHA256).Hash.ToLower()
+          "$hash  $name" | Set-Content -Encoding utf8 out/SHA256SUMS.txt
+          $manifest = [ordered]@{
+            version   = $env:VERSION
+            notes     = (Get-Content RELEASE_NOTES.md -Raw -Encoding utf8).Trim()
+            pub_date  = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+            platforms = [ordered]@{
+              "windows-x86_64" = [ordered]@{
+                signature = (Get-Content $sig.FullName -Raw).Trim()
+                url       = "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/$name"
+              }
+            }
           }
-          $lines | Set-Content -Encoding utf8 SHA256SUMS.txt
-          Get-Content SHA256SUMS.txt
+          $json = $manifest | ConvertTo-Json -Depth 5
+          [IO.File]::WriteAllText("$PWD/out/latest.json", $json, [Text.UTF8Encoding]::new($false))
+          Get-Content out/SHA256SUMS.txt
+          Get-Content out/latest.json
 
       - name: Черновик релиза
         env:
           GH_TOKEN: ${{ github.token }}
         shell: pwsh
         run: |
-          $exe = (Get-ChildItem apps/desktop/src-tauri/target/release/bundle/nsis/*.exe).FullName
-          gh release create "${{ github.ref_name }}" $exe SHA256SUMS.txt `
+          $notes = (Get-Content RELEASE_NOTES.md -Raw -Encoding utf8).Trim() + "`n`n---`nУстановщик собран автоматически на серверах GitHub из кода этого тега. Перед установкой сверьте SHA-256 из файла SHA256SUMS.txt. Уже установленные приложения обновятся сами."
+          $notes | Set-Content -Encoding utf8 notes.md
+          gh release create "${{ github.ref_name }}" (Get-ChildItem out/*).FullName `
             --draft `
             --title "TWM Market ${{ github.ref_name }}" `
-            --notes "Установщик собран автоматически на серверах GitHub из кода этого тега. Перед установкой сверьте SHA-256 из файла SHA256SUMS.txt."
+            --notes-file notes.md

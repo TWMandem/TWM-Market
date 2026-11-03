@@ -126,7 +126,8 @@ jobs:
         # Settings → Secrets and variables → Actions → Variables → API_URL.
         env:
           VITE_API_URL: ${{ vars.API_URL }}
-        run: pnpm --filter @twm/desktop tauri build
+        # Пробная сборка без подписи обновлений: ключ подписи есть только у выпусков (release.yml).
+        run: pnpm --filter @twm/desktop tauri build --config src-tauri/tauri.ci.conf.json
 
       - name: Сохранить установщик
         uses: actions/upload-artifact@v4

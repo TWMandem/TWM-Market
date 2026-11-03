@@ -59,6 +59,18 @@
         ],
         "displayLanguageSelector": false
       }
+    },
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDdDQjIyMDZCMDREQTIxNzcKUldSM0lkb0VheUN5Zk5NcGVzQjl5eWlyNXVFK2Rxc2MxNFc2S1pSWWNsUjI2Y0tQMG1SRVByRG4K",
+      "endpoints": [
+        "https://github.com/TWMandem/TWM-Market/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
     }
   }
 }
