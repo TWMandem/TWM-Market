@@ -63,6 +63,7 @@ export function ForgotPasswordPage() {
         {resetForm.formError && <Alert>{resetForm.formError}</Alert>}
         <Field
           label="Код из письма"
+          hint="Не пришло письмо? Проверьте папку «Спам»"
           inputMode="numeric"
           autoComplete="one-time-code"
           maxLength={6}
