@@ -117,14 +117,24 @@ const IGNORED_SEARCH_PARAMS = new Set(["page", "sort"]);
  * сохраняются одной подпиской.
  */
 export function normalizeSearchParams(params: string): string {
-  const source = new URLSearchParams(params);
+  // Без URLSearchParams: общий пакет собирается и для сервера, и для приложения.
+  const decode = (text: string) => {
+    try {
+      return decodeURIComponent(text.replace(/\+/g, " "));
+    } catch {
+      return text;
+    }
+  };
   const entries: Array<[string, string]> = [];
-  source.forEach((value, key) => {
-    const v = value.trim();
-    if (v && !IGNORED_SEARCH_PARAMS.has(key)) entries.push([key, v]);
-  });
+  for (const pair of params.replace(/^\?/, "").split("&")) {
+    if (!pair) continue;
+    const eq = pair.indexOf("=");
+    const key = decode(eq === -1 ? pair : pair.slice(0, eq));
+    const value = decode(eq === -1 ? "" : pair.slice(eq + 1)).trim();
+    if (key && value && !IGNORED_SEARCH_PARAMS.has(key)) entries.push([key, value]);
+  }
   entries.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
-  return new URLSearchParams(entries).toString();
+  return entries.map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join("&");
 }
 
 export const savedSearchSchema = z.object({
