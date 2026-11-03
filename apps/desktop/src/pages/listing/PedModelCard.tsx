@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ModelViewer } from "../../components/ModelViewer";
 import { Button, Card } from "../../components/ui";
 import { GameNotFoundError, chooseGameDir, forgetGameModels, loadPedModel, type PedModel } from "../../lib/game";
+import { pedStyles, styleLabel } from "../../lib/ped-styles";
+import type { RwTexture } from "../../lib/rw";
 import { isTauri } from "../../lib/token-store";
 
 type State =
@@ -19,9 +21,20 @@ const errorText = (e: unknown) => (e instanceof Error ? e.message : typeof e ===
 export function PedModelCard({ gameCode, name }: { gameCode: string; name: string }) {
   const id = Number(gameCode);
   const [state, setState] = useState<State>({ kind: "loading" });
+  const [style, setStyle] = useState("default");
+  const styles = useMemo(() => (state.kind === "ready" ? pedStyles(state.data) : []), [state]);
+  const textures = useMemo(() => {
+    if (state.kind !== "ready") return null;
+    const replacement = style !== "default" ? state.data.textures.get(style) : undefined;
+    if (!replacement) return state.data.textures;
+    const map = new Map<string, RwTexture>(state.data.textures);
+    map.set("default", replacement);
+    return map;
+  }, [state, style]);
 
   const load = useCallback(() => {
     setState({ kind: "loading" });
+    setStyle("default");
     loadPedModel(id)
       .then((data) => setState({ kind: "ready", data }))
       .catch((e: unknown) => setState(e instanceof GameNotFoundError ? { kind: "no-game" } : { kind: "error", message: errorText(e) }));
@@ -54,10 +67,28 @@ export function PedModelCard({ gameCode, name }: { gameCode: string; name: strin
       {state.kind === "loading" && (
         <div className="flex h-[440px] items-center justify-center rounded-xl bg-surface-2 text-sm text-muted">Загружаю модель из игры…</div>
       )}
-      {state.kind === "ready" && (
+      {state.kind === "ready" && textures && (
         <>
-          <ModelViewer model={state.data.model} textures={state.data.textures} label={`3D-модель: ${name}`} />
-          <p className="m-0 text-[13px] text-faint">Перетащите мышью, чтобы повернуть. Колесо — приблизить, двойной щелчок — вернуть вид.</p>
+          {styles.length > 1 && (
+            <div role="group" aria-label="Стиль одежды" className="flex flex-wrap gap-1.5">
+              {styles.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  aria-pressed={style === s}
+                  onClick={() => setStyle(s)}
+                  className={`h-9 rounded-[9px] border px-3.5 text-sm font-bold ${style === s ? "border-accent bg-surface-2 text-ink" : "border-line text-muted hover:text-ink"}`}
+                >
+                  {styleLabel(s)}
+                </button>
+              ))}
+            </div>
+          )}
+          <ModelViewer model={state.data.model} textures={textures} label={`3D-модель: ${name}${style !== "default" ? `, ${styleLabel(style)}` : ""}`} />
+          <p className="m-0 text-[13px] text-faint">
+            Перетащите мышью, чтобы повернуть. Колесо — приблизить, двойной щелчок — вернуть вид.
+            {styles.length > 1 ? " У этой одежды есть стили — переключайте их кнопками над моделью." : ""}
+          </p>
         </>
       )}
       {state.kind === "no-game" && (
