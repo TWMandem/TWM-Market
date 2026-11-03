@@ -22,6 +22,7 @@ import type {
   PublicUserDto,
   SavedSearchDto,
   SavedSearchSection,
+  BlockedUserDto,
   StatsPeriod,
   ReportDto,
   ReportReason,
@@ -251,6 +252,7 @@ export const api = {
           rejectionReason: string | null;
           moderationReason: string | null;
           favorites: number;
+          bumpAvailableAt: string | null;
         }
       >;
       counts: Record<string, number>;
@@ -258,7 +260,7 @@ export const api = {
   myListing: (id: string) => request<MyListingDto>(`/v1/me/listings/${encodeURIComponent(id)}`),
   createListing: (body: unknown) => request<MyListingDto>("/v1/listings", { method: "POST", body }),
   updateListing: (id: string, body: unknown) => request<MyListingDto>(`/v1/listings/${encodeURIComponent(id)}`, { method: "PUT", body }),
-  listingAction: (id: string, action: "publish" | "extend" | "withdraw" | "sold") =>
+  listingAction: (id: string, action: "publish" | "extend" | "withdraw" | "sold" | "bump") =>
     request<MyListingDto>(`/v1/listings/${encodeURIComponent(id)}/${action}`, { method: "POST" }),
   deleteListing: (id: string) => request<void>(`/v1/listings/${encodeURIComponent(id)}`, { method: "DELETE" }),
   uploadListingImage: (id: string, file: Blob, name = "image.png") => {
@@ -301,7 +303,7 @@ export const api = {
     ),
   review: (id: string, body: { positive: boolean; comment: string }) =>
     request<ConversationDto>(`/v1/conversations/${encodeURIComponent(id)}/review`, { method: "POST", body }),
-  publicUser: (login: string) => request<PublicUserDto>(`/v1/users/${encodeURIComponent(login)}`, { auth: false }),
+  publicUser: (login: string) => request<PublicUserDto>(`/v1/users/${encodeURIComponent(login)}`),
 
   // ── Уведомления и жалобы ────────────────────────────────────────────────
   updates: (after?: number) => request<UpdatesDto>(`/v1/me/updates${qs({ after })}`),
@@ -325,6 +327,14 @@ export const api = {
     request<SavedSearchDto>(`/v1/me/saved-searches/${encodeURIComponent(id)}`, { method: "PATCH", body }),
   seenSavedSearch: (id: string) => request<SavedSearchDto>(`/v1/me/saved-searches/${encodeURIComponent(id)}/seen`, { method: "POST" }),
   deleteSavedSearch: (id: string) => request<void>(`/v1/me/saved-searches/${encodeURIComponent(id)}`, { method: "DELETE" }),
+
+  // ── Настройки, шаблоны ответов, чёрный список ───────────────────────────
+  updateSettings: (body: { showOnline: boolean }) => request<MeDto>("/v1/me/settings", { method: "PATCH", body }),
+  chatTemplates: () => request<{ items: string[] }>("/v1/me/chat-templates"),
+  saveChatTemplates: (items: string[]) => request<{ items: string[] }>("/v1/me/chat-templates", { method: "PUT", body: { items } }),
+  blocks: () => request<{ items: BlockedUserDto[] }>("/v1/me/blocks"),
+  blockUser: (login: string, on: boolean) =>
+    request<void>(`/v1/users/${encodeURIComponent(login)}/block`, { method: on ? "POST" : "DELETE" }),
 };
 
 /** Полный адрес файла с сервера (фото, иконки). */

@@ -30,3 +30,15 @@ test("жалоба «другое» требует пояснения", () => {
   assert.equal(reportSchema.safeParse({ targetType: "listing", targetId: "x", reason: "other" }).success, false);
   assert.equal(reportSchema.safeParse({ targetType: "listing", targetId: "x", reason: "scam" }).success, true);
 });
+
+test("последний раз в сети", async () => {
+  const { lastSeenText } = await import("./chat.js");
+  const now = new Date(2026, 10, 4, 12, 0).getTime();
+  assert.equal(lastSeenText(null, now), null);
+  assert.equal(lastSeenText(new Date(now - 60_000).toISOString(), now), "в сети");
+  assert.equal(lastSeenText(new Date(now - 20 * 60_000).toISOString(), now), "был(а) 20 мин назад");
+  assert.equal(lastSeenText(new Date(2026, 10, 4, 9, 5).toISOString(), now), "был(а) сегодня в 09:05");
+  assert.equal(lastSeenText(new Date(2026, 10, 3, 21, 40).toISOString(), now), "был(а) вчера в 21:40");
+  assert.equal(lastSeenText(new Date(2026, 9, 31, 10, 0).toISOString(), now), "был(а) 4 дн. назад");
+  assert.equal(lastSeenText(new Date(2026, 5, 1).toISOString(), now), "был(а) давно");
+});

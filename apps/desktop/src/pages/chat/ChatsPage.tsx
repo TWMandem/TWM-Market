@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router";
-import { MESSAGE_MAX, formatPrice, type ConversationDto, type MessageDto } from "@twm/shared";
+import { DEFAULT_CHAT_TEMPLATES, MESSAGE_MAX, formatPrice, type ConversationDto, type MessageDto } from "@twm/shared";
+import { Icon } from "../../components/Icon";
+import { LastSeen } from "../../components/LastSeen";
 import { Media, ServerDot, timeAgo } from "../../components/listing";
 import { ReportDialog } from "../../components/ReportDialog";
 import { Alert, Button } from "../../components/ui";
@@ -111,6 +113,9 @@ function Thread({ id, onChange }: { id: string; onChange: (c: ConversationDto) =
   const [sending, setSending] = useState(false);
   const [zoom, setZoom] = useState<string | null>(null);
   const [report, setReport] = useState<{ type: "message" | "user"; id: string } | null>(null);
+  const [templatesOpen, setTemplatesOpen] = useState(false);
+  const templates = useLoad(() => api.chatTemplates(), []);
+  const textarea = useRef<HTMLTextAreaElement>(null);
   const bottom = useRef<HTMLDivElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const lastAt = useRef<string | null>(null);
@@ -228,6 +233,23 @@ function Thread({ id, onChange }: { id: string; onChange: (c: ConversationDto) =
   }
   const c = conversation;
 
+  const toggleBlock = async () => {
+    setError(null);
+    try {
+      await api.blockUser(c.counterpart.login, c.blocked !== "by_me");
+      applyConversation(await api.conversation(id));
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Не удалось изменить чёрный список");
+    }
+  };
+
+  const insertTemplate = (template: string) => {
+    setText((current) => (current.trim() ? `${current.trimEnd()} ${template}` : template).slice(0, MESSAGE_MAX));
+    setTemplatesOpen(false);
+    window.setTimeout(() => textarea.current?.focus(), 0);
+  };
+  const templateList = templates.data && templates.data.items.length > 0 ? templates.data.items : DEFAULT_CHAT_TEMPLATES;
+
   return (
     <div className="flex h-full min-h-[560px] flex-col overflow-hidden rounded-[var(--radius-card)] border border-line bg-surface">
       <header className="flex flex-wrap items-center gap-3 border-b border-line-soft p-3.5">
@@ -252,14 +274,20 @@ function Thread({ id, onChange }: { id: string; onChange: (c: ConversationDto) =
             {c.counterpart.login}
           </Link>
           {c.counterpart.nickname && <span className="select-all font-mono text-xs text-muted">{c.counterpart.nickname}</span>}
+          <LastSeen at={c.counterpart.lastSeenAt} className="text-xs" />
         </div>
-        <button
-          type="button"
-          onClick={() => setReport({ type: "user", id: c.counterpart.login })}
-          className="text-xs text-faint hover:text-danger"
-        >
-          Пожаловаться
-        </button>
+        <div className="flex flex-col items-end gap-1">
+          <button
+            type="button"
+            onClick={() => setReport({ type: "user", id: c.counterpart.login })}
+            className="text-xs text-faint hover:text-danger"
+          >
+            Пожаловаться
+          </button>
+          <button type="button" onClick={() => void toggleBlock()} className="text-xs text-faint hover:text-ink">
+            {c.blocked === "by_me" ? "Убрать из чёрного списка" : "В чёрный список"}
+          </button>
+        </div>
       </header>
 
       <DealBar conversation={c} onChange={applyConversation} />
@@ -282,8 +310,23 @@ function Thread({ id, onChange }: { id: string; onChange: (c: ConversationDto) =
         <div ref={bottom} />
       </div>
 
+      {c.blocked ? (
+        <div className="flex flex-wrap items-center gap-3 border-t border-line-soft p-3.5 text-sm text-ink-2">
+          <span>
+            {c.blocked === "by_me"
+              ? "Вы добавили игрока в чёрный список — писать друг другу нельзя."
+              : "Игрок ограничил переписку с вами."}{" "}
+            Отметить сделку и оставить отзыв по-прежнему можно.
+          </span>
+          {c.blocked === "by_me" && (
+            <Button variant="secondary" onClick={() => void toggleBlock()}>
+              Убрать из чёрного списка
+            </Button>
+          )}
+        </div>
+      ) : (
       <form
-        className="flex items-end gap-2 border-t border-line-soft p-3"
+        className="relative flex items-end gap-2 border-t border-line-soft p-3"
         onSubmit={(e) => {
           e.preventDefault();
           void send();
@@ -298,6 +341,34 @@ function Thread({ id, onChange }: { id: string; onChange: (c: ConversationDto) =
         >
           <span aria-hidden="true">＋</span>
         </button>
+        <button
+          type="button"
+          aria-label="Шаблоны ответов"
+          aria-expanded={templatesOpen}
+          title="Шаблоны ответов"
+          onClick={() => setTemplatesOpen((v) => !v)}
+          className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-line text-ink-2 hover:border-faint"
+        >
+          <Icon name="chat" size={18} />
+        </button>
+        {templatesOpen && (
+          <div className="absolute bottom-full left-3 z-20 mb-2 flex w-[min(420px,calc(100%-24px))] flex-col gap-1 rounded-xl border border-line bg-surface p-2 shadow-xl">
+            <span className="px-2 pt-1 text-xs font-bold text-muted">ШАБЛОНЫ ОТВЕТОВ</span>
+            {templateList.map((t, i) => (
+              <button
+                key={`${i}-${t}`}
+                type="button"
+                onClick={() => insertTemplate(t)}
+                className="rounded-lg px-2.5 py-2 text-left text-sm text-ink-2 hover:bg-surface-2 hover:text-ink"
+              >
+                {t}
+              </button>
+            ))}
+            <Link to="/account#templates" className="px-2.5 py-1.5 text-xs font-bold text-accent hover:text-accent-soft">
+              Настроить свои шаблоны →
+            </Link>
+          </div>
+        )}
         <input
           ref={fileInput}
           type="file"
@@ -313,6 +384,7 @@ function Thread({ id, onChange }: { id: string; onChange: (c: ConversationDto) =
           Сообщение
         </label>
         <textarea
+          ref={textarea}
           id="chat-input"
           rows={1}
           maxLength={MESSAGE_MAX}
@@ -333,6 +405,7 @@ function Thread({ id, onChange }: { id: string; onChange: (c: ConversationDto) =
           Отправить
         </Button>
       </form>
+      )}
       {error && (
         <div className="px-3 pb-3">
           <Alert>{error}</Alert>

@@ -19,6 +19,8 @@ export interface UserRow {
   totpLastStep: string | null;
   blockedReason: string | null;
   blockedAt: Date | null;
+  lastSeenAt: Date | null;
+  showOnline: boolean;
   createdAt: Date;
   updatedAt: Date;
 }

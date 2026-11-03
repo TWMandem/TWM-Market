@@ -109,6 +109,13 @@ export function MyListingsPage() {
                 )}
               </div>
               <div className="flex flex-wrap gap-2">
+                {item.status === "active" && item.bumpAvailableAt && (
+                  <BumpButton
+                    availableAt={item.bumpAvailableAt}
+                    loading={busy === key("bump")}
+                    onBump={() => void run(key("bump"), () => api.listingAction(item.id, "bump"))}
+                  />
+                )}
                 {item.status === "active" && (
                   <>
                     <Button variant={exp.soon ? "primary" : "secondary"} loading={busy === key("extend")} onClick={() => void run(key("extend"), () => api.listingAction(item.id, "extend"))}>
@@ -143,5 +150,23 @@ export function MyListingsPage() {
         })}
       </div>
     </div>
+  );
+}
+
+/** «Поднять» — раз в сутки; до этого кнопка показывает, когда станет доступна. */
+function BumpButton({ availableAt, loading, onBump }: { availableAt: string; loading: boolean; onBump: () => void }) {
+  const wait = new Date(availableAt).getTime() - Date.now();
+  if (wait > 0) {
+    const hours = Math.ceil(wait / 3_600_000);
+    return (
+      <Button variant="secondary" disabled title="Поднимать объявление можно раз в сутки">
+        Поднять через {hours} ч
+      </Button>
+    );
+  }
+  return (
+    <Button loading={loading} onClick={onBump} title="Объявление окажется вверху «Новых». Раз в сутки.">
+      ↑ Поднять
+    </Button>
   );
 }

@@ -1,6 +1,7 @@
 import { Link, useLocation } from "react-router";
 import { Alert, Button, Card } from "../../components/ui";
 import { useAuth } from "../../lib/auth-context";
+import { ChatSettingsSection } from "./ChatSettingsSection";
 import { GameProfilesSection } from "./GameProfilesSection";
 import { SecuritySection } from "./SecuritySection";
 
@@ -72,6 +73,7 @@ export function AccountPage() {
       </Card>
 
       <GameProfilesSection />
+      <ChatSettingsSection />
       <SecuritySection />
     </div>
   );

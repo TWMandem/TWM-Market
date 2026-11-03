@@ -1,6 +1,6 @@
 import type { ConversationDto, DealDto, MediaDto, MessageDto, MessageKind, ReviewDto } from "@twm/shared";
 import type { Sql } from "../../db/client.js";
-import { errors } from "../../lib/errors.js";
+import { AppError, errors } from "../../lib/errors.js";
 import { mediaUrl } from "../../lib/media.js";
 
 /** Строка переписки со всем, что нужно для списка и шапки диалога. */
@@ -22,6 +22,10 @@ export interface ConversationRow {
   itemIconKind: "image" | "video" | null;
   buyerLogin: string;
   sellerLogin: string;
+  buyerLastSeen: Date | null;
+  sellerLastSeen: Date | null;
+  /** Кто кого заблокировал: by_me / by_them / null. */
+  blocked: "by_me" | "by_them" | null;
   sellerNickname: string;
   buyerNickname: string | null;
   lastKind: MessageKind | null;
@@ -45,6 +49,14 @@ export function conversationSelect(sql: Sql, viewerId: string) {
       sv.number AS server_number, sv.name AS server_name, sv.color AS server_color,
       mi.thumb_path AS main_thumb, ci.icon_path AS item_icon_path, ci.icon_kind AS item_icon_kind,
       bu.login AS buyer_login, su.login AS seller_login, gp.nickname AS seller_nickname,
+      CASE WHEN bu.show_online THEN bu.last_seen_at END AS buyer_last_seen,
+      CASE WHEN su.show_online THEN su.last_seen_at END AS seller_last_seen,
+      CASE
+        WHEN EXISTS (SELECT 1 FROM user_blocks ub WHERE ub.user_id = ${viewerId}
+          AND ub.blocked_id = CASE WHEN c.buyer_id = ${viewerId} THEN c.seller_id ELSE c.buyer_id END) THEN 'by_me'
+        WHEN EXISTS (SELECT 1 FROM user_blocks ub WHERE ub.blocked_id = ${viewerId}
+          AND ub.user_id = CASE WHEN c.buyer_id = ${viewerId} THEN c.seller_id ELSE c.buyer_id END) THEN 'by_them'
+      END AS blocked,
       (SELECT bgp.nickname FROM game_profiles bgp
         WHERE bgp.user_id = c.buyer_id AND bgp.server_id = l.server_id AND bgp.archived_at IS NULL
         ORDER BY bgp.created_at LIMIT 1) AS buyer_nickname,
@@ -153,8 +165,9 @@ export async function toConversations(sql: Sql, rows: readonly ConversationRow[]
       },
       counterpart:
         role === "buyer"
-          ? { login: row.sellerLogin, nickname: row.sellerNickname }
-          : { login: row.buyerLogin, nickname: row.buyerNickname },
+          ? { login: row.sellerLogin, nickname: row.sellerNickname, lastSeenAt: row.sellerLastSeen?.toISOString() ?? null }
+          : { login: row.buyerLogin, nickname: row.buyerNickname, lastSeenAt: row.buyerLastSeen?.toISOString() ?? null },
+      blocked: row.blocked,
       lastMessage:
         row.lastKind && row.lastCreatedAt
           ? {
@@ -210,3 +223,13 @@ export function toMessage(row: MessageRow, viewerId: string | null): MessageDto 
     createdAt: row.createdAt.toISOString(),
   };
 }
+
+/** Есть ли блокировка между двумя игроками в любую сторону. */
+export async function blockedBetween(sql: Sql, a: string, b: string): Promise<boolean> {
+  const [row] = await sql`
+    SELECT 1 FROM user_blocks WHERE (user_id = ${a} AND blocked_id = ${b}) OR (user_id = ${b} AND blocked_id = ${a}) LIMIT 1`;
+  return Boolean(row);
+}
+
+export const chatBlocked = () =>
+  new AppError(403, "chat_blocked", "Переписка с этим игроком недоступна: один из вас добавил другого в чёрный список");

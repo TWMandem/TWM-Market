@@ -1,4 +1,5 @@
 import {
+  BUMP_INTERVAL_HOURS,
   buildAttributesSchema,
   definitionsForCategory,
   fieldErrors,
@@ -17,6 +18,7 @@ import {
 } from "@twm/shared";
 import type { AppContext } from "../../context.js";
 import type { Fragment, Sql } from "../../db/client.js";
+import { visibleLastSeen } from "../../lib/activity.js";
 import { AppError, errors } from "../../lib/errors.js";
 import { mediaUrl } from "../../lib/media.js";
 import { attributeColumns, toAttributeDto, type AttributeRow } from "../catalog/attribute-row.js";
@@ -51,6 +53,7 @@ export interface ListingRow {
   moderationReason: string | null;
   views: number;
   publishedAt: Date | null;
+  bumpedAt: Date | null;
   expiresAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
@@ -82,7 +85,7 @@ export function listingSelect(sql: Sql, viewerId: string | null): Fragment {
       l.id, l.user_id, l.game_profile_id, l.server_id, l.listing_type_id, l.category_id, l.catalog_item_id,
       l.operation, l.title, l.description, l.price, l.quantity, l.transfer_mode, l.deal_places, l.attributes,
       l.want_listing_type_id, l.want_attributes, l.want_description, l.surcharge, l.surcharge_direction,
-      l.status, l.rejection_reason, l.moderation_reason, l.views, l.published_at, l.expires_at, l.created_at, l.updated_at,
+      l.status, l.rejection_reason, l.moderation_reason, l.views, l.published_at, l.bumped_at, l.expires_at, l.created_at, l.updated_at,
       s.code AS section_code, t.code AS type_code, t.name AS type_name,
       sv.number AS server_number, sv.name AS server_name, sv.color AS server_color,
       gp.nickname AS seller_nickname,
@@ -134,6 +137,7 @@ export function toCard(row: ListingRow): ListingCardDto {
     sellerNickname: row.sellerNickname,
     image: row.mainThumb ? { url: mediaUrl(row.mainThumb), kind: "image" } : icon(row),
     publishedAt: row.publishedAt?.toISOString() ?? null,
+    bumpedAt: row.bumpedAt?.toISOString() ?? null,
     views: row.views,
     favorite: row.favorite,
     // «Ниже средней» показываем, только если есть хотя бы 3 других предложения.
@@ -343,6 +347,8 @@ export async function toDetail(ctx: AppContext, row: ListingRow, viewerId: strin
     {
       login: string;
       createdAt: Date;
+      lastSeenAt: Date | null;
+      showOnline: boolean;
       verifiedAt: Date | null;
       sameNick: number;
       activeListings: number;
@@ -350,7 +356,7 @@ export async function toDetail(ctx: AppContext, row: ListingRow, viewerId: strin
       negative: number;
     }[]
   >`
-    SELECT u.login, u.created_at, gp.verified_at,
+    SELECT u.login, u.created_at, u.last_seen_at, u.show_online, gp.verified_at,
       (SELECT count(*)::int FROM reviews r WHERE r.target_id = u.id AND r.positive AND r.hidden_at IS NULL) AS positive,
       (SELECT count(*)::int FROM reviews r WHERE r.target_id = u.id AND NOT r.positive AND r.hidden_at IS NULL) AS negative,
       (SELECT count(DISTINCT o.user_id)::int FROM game_profiles o
@@ -393,6 +399,7 @@ export async function toDetail(ctx: AppContext, row: ListingRow, viewerId: strin
       sameNicknameCount: seller?.sameNick ?? 0,
       activeListings: seller?.activeListings ?? 0,
       reviews: { positive: seller?.positive ?? 0, negative: seller?.negative ?? 0 },
+      lastSeenAt: seller ? visibleLastSeen(seller) : null,
     },
     expiresAt: row.expiresAt?.toISOString() ?? null,
     createdAt: row.createdAt.toISOString(),
@@ -416,7 +423,16 @@ export async function toMyListing(ctx: AppContext, row: ListingRow): Promise<MyL
     rawWantAttributes: row.wantAttributes,
     wantListingTypeId: row.wantListingTypeId,
     favorites: fav?.count ?? 0,
+    bumpAvailableAt: bumpAvailableAt(row),
   };
+}
+
+/** Когда объявление можно поднять снова (раз в сутки от публикации или прошлого поднятия). */
+export function bumpAvailableAt(row: Pick<ListingRow, "status" | "publishedAt" | "bumpedAt">): string | null {
+  if (row.status !== "active") return null;
+  const last = row.bumpedAt ?? row.publishedAt;
+  if (!last) return null;
+  return new Date(last.getTime() + BUMP_INTERVAL_HOURS * 3600 * 1000).toISOString();
 }
 
 /** Объявления с истёкшим сроком уходят в архив. Запускается по таймеру. */

@@ -35,7 +35,8 @@ export async function setupTestEnv(env: Record<string, string> = {}): Promise<Te
              audit_log, attribute_definitions, catalog_items, categories,
              listings, listing_images, favorites, listing_price_history,
              conversations, messages, deals, reviews, notifications, reports,
-             listing_views_daily, user_activity_daily, price_snapshots, saved_searches CASCADE`;
+             listing_views_daily, user_activity_daily, price_snapshots, saved_searches,
+             chat_templates, user_blocks CASCADE`;
   resetActivityCache();
   // Убираем то, что тесты добавили к стартовым справочникам.
   await database.sql`DELETE FROM servers WHERE number > 13`;

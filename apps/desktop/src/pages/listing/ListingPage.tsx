@@ -13,6 +13,7 @@ import {
   type ListingDetailDto,
 } from "@twm/shared";
 import { Icon } from "../../components/Icon";
+import { LastSeen } from "../../components/LastSeen";
 import { Media, OperationBadge, ServerDot, priceText } from "../../components/listing";
 import { ReportDialog } from "../../components/ReportDialog";
 import { Alert, Button, Card } from "../../components/ui";
@@ -479,6 +480,7 @@ function SellerCard({ listing }: { listing: ListingDetailDto }) {
           <span className="text-[13px] text-muted">
             На площадке {memberFor(seller.memberSince)} · активных объявлений: {seller.activeListings}
           </span>
+          <LastSeen at={seller.lastSeenAt} />
         </div>
       </div>
       <Link

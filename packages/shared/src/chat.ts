@@ -63,7 +63,9 @@ export interface ConversationDto {
     image: MediaDto | null;
     server: ServerRefDto;
   };
-  counterpart: { login: string; nickname: string | null };
+  counterpart: { login: string; nickname: string | null; lastSeenAt: string | null };
+  /** Переписка закрыта чёрным списком: вами или собеседником. */
+  blocked: "by_me" | "by_them" | null;
   lastMessage: { kind: MessageKind; body: string; mine: boolean | null; createdAt: string } | null;
   unread: number;
   deal: DealDto | null;
@@ -86,6 +88,9 @@ export const reviewSchema = z.object({
 export interface PublicUserDto {
   login: string;
   memberSince: string;
+  lastSeenAt: string | null;
+  /** Вы добавили игрока в чёрный список (для гостя — false). */
+  blockedByMe: boolean;
   reviews: { positive: number; negative: number };
   deals: number;
   activeListings: number;
@@ -269,4 +274,52 @@ export interface ModeratorConversationDto {
   buyer: { login: string };
   seller: { login: string };
   messages: Array<MessageDto & { senderLogin: string | null; flagged: boolean }>;
+}
+
+// ── Шаблоны ответов и чёрный список ─────────────────────────────────────────
+
+export const CHAT_TEMPLATE_LIMIT = 15;
+
+/** Заготовки, которые видит игрок, пока не сделал свои. */
+export const DEFAULT_CHAT_TEMPLATES = [
+  "Здравствуйте! Ещё актуально?",
+  "Да, актуально.",
+  "Уже продано, извините.",
+  "Когда сможете встретиться в игре?",
+  "Я в игре, жду вас.",
+  "Цена окончательная.",
+] as const;
+
+export const chatTemplatesSchema = z.object({
+  items: z
+    .array(z.string().trim().min(1, "Пустой шаблон").max(300, "Шаблон — до 300 символов"))
+    .max(CHAT_TEMPLATE_LIMIT, `Не больше ${CHAT_TEMPLATE_LIMIT} шаблонов`),
+});
+
+export interface BlockedUserDto {
+  login: string;
+  createdAt: string;
+}
+
+export const meSettingsSchema = z.object({
+  showOnline: z.boolean(),
+});
+
+/** «в сети», «был(а) 5 мин назад», «был(а) вчера в 21:40». */
+export const ONLINE_WINDOW_MS = 5 * 60 * 1000;
+
+export function lastSeenText(iso: string | null, now = Date.now()): string | null {
+  if (!iso) return null;
+  const at = new Date(iso);
+  const diff = now - at.getTime();
+  if (diff < ONLINE_WINDOW_MS) return "в сети";
+  const minutes = Math.floor(diff / 60_000);
+  if (minutes < 60) return `был(а) ${minutes} мин назад`;
+  const time = at.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+  const day = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const days = Math.round((day(new Date(now)) - day(at)) / 86_400_000);
+  if (days === 0) return `был(а) сегодня в ${time}`;
+  if (days === 1) return `был(а) вчера в ${time}`;
+  if (days < 30) return `был(а) ${days} дн. назад`;
+  return "был(а) давно";
 }

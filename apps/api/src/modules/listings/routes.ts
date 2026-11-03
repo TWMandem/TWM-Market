@@ -26,6 +26,7 @@ import {
   notOwner,
   toCard,
   toDetail,
+  bumpAvailableAt,
   toMyListing,
   validateListing,
   type ListingRow,
@@ -73,7 +74,8 @@ export async function listingRoutes(app: FastifyInstance, ctx: AppContext): Prom
         case "popular":
           return sql`ORDER BY l.views DESC, l.published_at DESC`;
         default:
-          return sql`ORDER BY l.published_at DESC`;
+          // Поднятые объявления — вместе со свежими.
+          return sql`ORDER BY COALESCE(l.bumped_at, l.published_at) DESC`;
       }
     };
 
@@ -178,6 +180,7 @@ export async function listingRoutes(app: FastifyInstance, ctx: AppContext): Prom
         rejectionReason: r.rejectionReason,
         moderationReason: r.moderationReason,
         favorites: favMap.get(r.id) ?? 0,
+        bumpAvailableAt: bumpAvailableAt(r),
       })),
       counts: Object.fromEntries(counts.map((c) => [c.status, c.count])),
     };
@@ -339,7 +342,7 @@ export async function listingRoutes(app: FastifyInstance, ctx: AppContext): Prom
 
     await sql.begin(async (tx) => {
       await tx`
-        UPDATE listings SET status = 'active', published_at = now(), rejection_reason = NULL,
+        UPDATE listings SET status = 'active', published_at = now(), bumped_at = NULL, rejection_reason = NULL,
           expires_at = now() + make_interval(days => ${LISTING_TTL_DAYS}::int), updated_at = now()
         WHERE id = ${row.id}`;
       if (row.price !== null) {
@@ -356,6 +359,21 @@ export async function listingRoutes(app: FastifyInstance, ctx: AppContext): Prom
     await sql`
       UPDATE listings SET expires_at = now() + make_interval(days => ${LISTING_TTL_DAYS}::int), updated_at = now()
       WHERE id = ${row.id}`;
+    return fresh(row.id, user.id);
+  });
+
+  // Поднять наверх «Новых» — раз в сутки. Срок публикации не меняется.
+  app.post("/v1/listings/:id/bump", { preHandler: auth }, async (request) => {
+    const { user, row } = await ownListing(request);
+    if (row.status !== "active" || !row.expiresAt || row.expiresAt.getTime() <= Date.now()) {
+      throw errors.conflict("not_active", "Поднять можно только активное объявление");
+    }
+    const available = bumpAvailableAt(row);
+    if (available && new Date(available).getTime() > Date.now()) {
+      const hours = Math.max(1, Math.ceil((new Date(available).getTime() - Date.now()) / 3_600_000));
+      throw errors.conflict("bump_too_early", `Поднимать можно раз в сутки — снова через ${hours} ч.`);
+    }
+    await sql`UPDATE listings SET bumped_at = now(), updated_at = now() WHERE id = ${row.id}`;
     return fresh(row.id, user.id);
   });
 

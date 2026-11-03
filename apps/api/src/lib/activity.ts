@@ -25,7 +25,29 @@ export async function trackActivity(sql: Sql, userId: string): Promise<void> {
   }
 }
 
+/** «Был в сети»: пишем не чаще раза в минуту на игрока. */
+const lastTouch = new Map<string, number>();
+const TOUCH_EVERY_MS = 60 * 1000;
+
+export async function touchLastSeen(sql: Sql, userId: string): Promise<void> {
+  const now = Date.now();
+  if ((lastTouch.get(userId) ?? 0) > now - TOUCH_EVERY_MS) return;
+  lastTouch.set(userId, now);
+  if (lastTouch.size > 50_000) lastTouch.clear();
+  try {
+    await sql`UPDATE users SET last_seen_at = now() WHERE id = ${userId}`;
+  } catch {
+    lastTouch.delete(userId);
+  }
+}
+
+/** Когда игрок был в сети — если он это не скрыл. */
+export function visibleLastSeen(user: { lastSeenAt: Date | null; showOnline: boolean }): string | null {
+  return user.showOnline && user.lastSeenAt ? user.lastSeenAt.toISOString() : null;
+}
+
 /** Для тестов: база очищается между тестами, память — тоже. */
 export function resetActivityCache(): void {
   seen.clear();
+  lastTouch.clear();
 }

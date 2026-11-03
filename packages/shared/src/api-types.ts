@@ -21,6 +21,8 @@ export interface MeDto {
   emailVerified: boolean;
   role: Role;
   createdAt: string;
+  /** Показывать ли другим, когда игрок был в сети. */
+  showOnline: boolean;
 }
 
 export interface AuthResponseDto {
@@ -228,6 +230,8 @@ export interface ListingCardDto {
   /** Главное фото или иконка предмета из справочника. */
   image: MediaDto | null;
   publishedAt: string | null;
+  /** Когда объявление поднимали; null — не поднимали после публикации. */
+  bumpedAt: string | null;
   views: number;
   favorite: boolean;
   /** Цена ниже средней по этому предмету на сервере (если есть с чем сравнить). */
@@ -274,6 +278,8 @@ export interface ListingDetailDto extends ListingCardDto {
     activeListings: number;
     /** Отзывы по подтверждённым сделкам. */
     reviews: { positive: number; negative: number };
+    /** Когда продавец был в сети; null — скрыл это или давно не заходил. */
+    lastSeenAt: string | null;
   };
   expiresAt: string | null;
   createdAt: string;
@@ -293,6 +299,8 @@ export interface MyListingDto extends ListingDetailDto {
   rawWantAttributes: Record<string, string | number | boolean | string[]>;
   wantListingTypeId: number | null;
   favorites: number;
+  /** С какого момента можно поднять; null — поднимать нельзя (не опубликовано). */
+  bumpAvailableAt: string | null;
 }
 
 export interface ListingSearchResultDto {

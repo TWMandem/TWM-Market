@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { changePasswordSchema, type SessionDto } from "@twm/shared";
+import { changePasswordSchema, meSettingsSchema, type MeDto, type SessionDto } from "@twm/shared";
 import type { AppContext } from "../../context.js";
 import type { SessionRow } from "../../db/types.js";
 import { AppError, errors, parseBody } from "../../lib/errors.js";
@@ -14,6 +14,14 @@ export async function meRoutes(app: FastifyInstance, ctx: AppContext): Promise<v
   const auth = requireAuth(ctx);
 
   app.get("/v1/me", { preHandler: auth }, async (request) => toMeDto(authOf(request).user));
+
+  // Настройки приватности.
+  app.patch("/v1/me/settings", { preHandler: auth }, async (request): Promise<MeDto> => {
+    const { user } = authOf(request);
+    const { showOnline } = parseBody(meSettingsSchema, request.body);
+    await ctx.sql`UPDATE users SET show_online = ${showOnline}, updated_at = now() WHERE id = ${user.id}`;
+    return toMeDto({ ...user, showOnline });
+  });
 
   // Устройства, с которых выполнен вход.
   app.get("/v1/me/sessions", { preHandler: auth }, async (request): Promise<{ items: SessionDto[] }> => {

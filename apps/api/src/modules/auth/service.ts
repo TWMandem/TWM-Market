@@ -26,6 +26,7 @@ export function toMeDto(user: UserRow): MeDto {
     emailVerified: user.emailVerifiedAt !== null,
     role: user.role,
     createdAt: user.createdAt.toISOString(),
+    showOnline: user.showOnline,
   };
 }
 

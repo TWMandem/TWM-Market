@@ -4,6 +4,8 @@ import { OPERATIONS, TRANSFER_MODES } from "./listings.js";
 
 /** Срок публикации объявления, дней. После него объявление уходит в архив. */
 export const LISTING_TTL_DAYS = 14;
+/** Поднять объявление наверх «Новых» можно раз в столько часов. */
+export const BUMP_INTERVAL_HOURS = 24;
 /** Сколько активных объявлений может быть у одного аккаунта одновременно. */
 export const MAX_ACTIVE_LISTINGS = 50;
 export const LISTING_TITLE_MAX = 80;

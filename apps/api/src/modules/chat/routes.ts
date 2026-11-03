@@ -1,8 +1,11 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 import {
+  CHAT_TEMPLATE_LIMIT,
+  chatTemplatesSchema,
   messageSchema,
   reviewSchema,
+  type BlockedUserDto,
   type ConversationDto,
   type MessageDto,
   type MessagesPageDto,
@@ -16,9 +19,12 @@ import { AppError, errors, parseBody } from "../../lib/errors.js";
 import { saveChatImage } from "../../lib/media.js";
 import { notify } from "../../lib/notify.js";
 import { stopWordReason } from "../../lib/stop-words.js";
-import { authOf, requireAuth } from "../auth/guard.js";
+import { visibleLastSeen } from "../../lib/activity.js";
+import { authOf, optionalAuth, requireAuth } from "../auth/guard.js";
 import {
   MESSAGE_COLUMNS,
+  blockedBetween,
+  chatBlocked,
   conversationSelect,
   participantConversation,
   reviewSelect,
@@ -42,6 +48,7 @@ const snippet = (text: string) => (text.length > 120 ? `${text.slice(0, 117)}…
 export async function chatRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
   const sql = ctx.sql;
   const auth = requireAuth(ctx);
+  const maybeAuth = optionalAuth(ctx);
 
   const conversationOf = async (request: FastifyRequest) => {
     const { user } = authOf(request);
@@ -92,6 +99,7 @@ export async function chatRoutes(app: FastifyInstance, ctx: AppContext): Promise
         SELECT id, user_id, status, expires_at FROM listings WHERE id = ${params.data.id}`;
       if (!listing) throw errors.notFound("Объявление не найдено");
       if (listing.userId === user.id) throw errors.conflict("own_listing", "Это ваше объявление");
+      if (await blockedBetween(sql, user.id, listing.userId)) throw chatBlocked();
 
       const [existing] = await sql<{ id: string }[]>`
         SELECT id FROM conversations WHERE listing_id = ${listing.id} AND buyer_id = ${user.id}`;
@@ -166,6 +174,7 @@ export async function chatRoutes(app: FastifyInstance, ctx: AppContext): Promise
     { preHandler: auth, config: { rateLimit: { max: 40, timeWindow: "1 minute" } } },
     async (request, reply): Promise<MessageDto> => {
       const { user, row, other } = await conversationOf(request);
+      if (row.blocked) throw chatBlocked();
       const { body } = parseBody(messageSchema, request.body);
       // Стоп-слово не мешает доставке, но сообщение увидит модератор.
       const flag = await stopWordReason(sql, body);
@@ -184,6 +193,7 @@ export async function chatRoutes(app: FastifyInstance, ctx: AppContext): Promise
     { preHandler: auth, config: { rateLimit: { max: 20, timeWindow: "10 minutes" } } },
     async (request, reply): Promise<MessageDto> => {
       const { user, row, other } = await conversationOf(request);
+      if (row.blocked) throw chatBlocked();
       const file = await request.file();
       if (!file) throw errors.validation({ file: "Прикрепите изображение" });
       const saved = await saveChatImage(ctx.uploadDir, row.id, await file.toBuffer());
@@ -270,10 +280,10 @@ export async function chatRoutes(app: FastifyInstance, ctx: AppContext): Promise
 
   // ── Профиль игрока: отзывы ────────────────────────────────────────────────
 
-  app.get("/v1/users/:login", async (request): Promise<PublicUserDto> => {
+  app.get("/v1/users/:login", { preHandler: maybeAuth }, async (request): Promise<PublicUserDto> => {
     const { login } = z.object({ login: z.string().min(1).max(40) }).parse(request.params);
-    const [user] = await sql<{ id: string; login: string; createdAt: Date; status: string }[]>`
-      SELECT id, login, created_at, status FROM users WHERE lower(login) = lower(${login})`;
+    const [user] = await sql<{ id: string; login: string; createdAt: Date; status: string; lastSeenAt: Date | null; showOnline: boolean }[]>`
+      SELECT id, login, created_at, status, last_seen_at, show_online FROM users WHERE lower(login) = lower(${login})`;
     if (!user) throw errors.notFound("Игрок не найден");
     const [stats] = await sql<{ positive: number; negative: number; deals: number; activeListings: number }[]>`
       SELECT
@@ -284,9 +294,15 @@ export async function chatRoutes(app: FastifyInstance, ctx: AppContext): Promise
     const recent = await sql<Parameters<typeof toReview>[0][]>`
       ${reviewSelect(sql)} WHERE r.target_id = ${user.id} AND r.hidden_at IS NULL
       ORDER BY r.created_at DESC LIMIT 30`;
+    const viewer = request.auth?.user ?? null;
+    const [blocked] = viewer
+      ? await sql`SELECT 1 FROM user_blocks WHERE user_id = ${viewer.id} AND blocked_id = ${user.id}`
+      : [];
     return {
       login: user.login,
       memberSince: user.createdAt.toISOString(),
+      lastSeenAt: user.status === "blocked" ? null : visibleLastSeen(user),
+      blockedByMe: Boolean(blocked),
       reviews: { positive: stats?.positive ?? 0, negative: stats?.negative ?? 0 },
       deals: stats?.deals ?? 0,
       activeListings: user.status === "blocked" ? 0 : stats?.activeListings ?? 0,
@@ -365,6 +381,63 @@ export async function chatRoutes(app: FastifyInstance, ctx: AppContext): Promise
   });
 
   // Отзывы о продавце для карточки объявления: короткая сводка.
+  // ── Чёрный список ─────────────────────────────────────────────────────────
+  // Заблокированный не может начать переписку и писать в уже начатую.
+  // Отметить сделку и оставить отзыв по-прежнему можно.
+
+  const targetOf = async (request: FastifyRequest) => {
+    const { user } = authOf(request);
+    const { login } = z.object({ login: z.string().min(1).max(40) }).parse(request.params);
+    const [target] = await sql<{ id: string; login: string }[]>`SELECT id, login FROM users WHERE lower(login) = lower(${login})`;
+    if (!target) throw errors.notFound("Игрок не найден");
+    if (target.id === user.id) throw errors.conflict("self_block", "Нельзя заблокировать себя");
+    return { user, target };
+  };
+
+  app.post("/v1/users/:login/block", { preHandler: auth }, async (request, reply) => {
+    const { user, target } = await targetOf(request);
+    const [count] = await sql<{ count: number }[]>`SELECT count(*)::int AS count FROM user_blocks WHERE user_id = ${user.id}`;
+    if ((count?.count ?? 0) >= 500) throw errors.conflict("too_many_blocks", "Чёрный список переполнен — уберите оттуда кого-нибудь");
+    await sql`INSERT INTO user_blocks (user_id, blocked_id) VALUES (${user.id}, ${target.id}) ON CONFLICT DO NOTHING`;
+    return reply.code(204).send();
+  });
+
+  app.delete("/v1/users/:login/block", { preHandler: auth }, async (request, reply) => {
+    const { user, target } = await targetOf(request);
+    await sql`DELETE FROM user_blocks WHERE user_id = ${user.id} AND blocked_id = ${target.id}`;
+    return reply.code(204).send();
+  });
+
+  app.get("/v1/me/blocks", { preHandler: auth }, async (request): Promise<{ items: BlockedUserDto[] }> => {
+    const { user } = authOf(request);
+    const rows = await sql<{ login: string; createdAt: Date }[]>`
+      SELECT u.login, b.created_at FROM user_blocks b JOIN users u ON u.id = b.blocked_id
+      WHERE b.user_id = ${user.id} ORDER BY b.created_at DESC`;
+    return { items: rows.map((r) => ({ login: r.login, createdAt: r.createdAt.toISOString() })) };
+  });
+
+  // ── Шаблоны ответов ───────────────────────────────────────────────────────
+
+  app.get("/v1/me/chat-templates", { preHandler: auth }, async (request): Promise<{ items: string[] }> => {
+    const { user } = authOf(request);
+    const rows = await sql<{ body: string }[]>`
+      SELECT body FROM chat_templates WHERE user_id = ${user.id} ORDER BY sort_order, id LIMIT ${CHAT_TEMPLATE_LIMIT}::int`;
+    return { items: rows.map((r) => r.body) };
+  });
+
+  // Список сохраняется целиком: так проще менять порядок и удалять.
+  app.put("/v1/me/chat-templates", { preHandler: auth }, async (request): Promise<{ items: string[] }> => {
+    const { user } = authOf(request);
+    const { items } = parseBody(chatTemplatesSchema, request.body);
+    await sql.begin(async (tx) => {
+      await tx`DELETE FROM chat_templates WHERE user_id = ${user.id}`;
+      for (const [index, body] of items.entries()) {
+        await tx`INSERT INTO chat_templates (user_id, body, sort_order) VALUES (${user.id}, ${body}, ${index}::int)`;
+      }
+    });
+    return { items };
+  });
+
   app.get("/v1/users/:login/reviews", async (request): Promise<{ items: ReviewDto[] }> => {
     const { login } = z.object({ login: z.string().min(1).max(40) }).parse(request.params);
     const rows = await sql<Parameters<typeof toReview>[0][]>`
