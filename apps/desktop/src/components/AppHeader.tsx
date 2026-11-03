@@ -20,7 +20,7 @@ export function AppHeader() {
 
   return (
     <header className="border-b border-line-soft bg-ground">
-      <div className="mx-auto flex max-w-[1280px] flex-wrap items-center gap-3 px-6 py-3">
+      <div className="mx-auto flex max-w-[1280px] flex-wrap items-center gap-2.5 px-6 py-3">
         <NavLink to="/" className="flex items-center gap-2.5 text-ink no-underline">
           <span
             aria-hidden="true"
@@ -54,7 +54,7 @@ export function AppHeader() {
             const q = search.trim();
             if (q) navigate(`/search?q=${encodeURIComponent(q)}`);
           }}
-          className="flex h-11 min-w-[170px] flex-[1_1_170px] items-center gap-2 rounded-xl border border-line bg-surface px-3 focus-within:border-accent"
+          className="flex h-11 min-w-[150px] flex-[1_1_150px] items-center gap-2 rounded-xl border border-line bg-surface px-3 focus-within:border-accent"
         >
           <Icon name="search" size={18} className="text-muted" />
           <label htmlFor="global-search" className="sr-only">
