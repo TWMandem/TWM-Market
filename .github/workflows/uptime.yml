@@ -1,8 +1,9 @@
 # Проверка, что сервер работает. Каждые 10 минут GitHub открывает
 # https://api.twm-market.ru/health (сервер отвечает и база доступна).
-# Если сервер не отвечает, создаётся задача (issue) «Сервер недоступен» —
-# GitHub пришлёт владельцу письмо. Когда сервер снова работает, задача
-# закрывается с комментарием. Расписание GitHub может запаздывать на
+# Если сервер не отвечает, запуск завершается ошибкой — GitHub пришлёт
+# владельцу письмо о неудачном запуске. Если в репозитории включены задачи
+# (Issues), дополнительно создаётся задача «Сервер недоступен», которая
+# закрывается сама, когда сервер снова работает. Расписание GitHub может запаздывать на
 # несколько минут; в публичном репозитории без коммитов оно отключается
 # через 60 дней (включить: Actions → Uptime → Enable workflow).
 name: Uptime
@@ -49,6 +50,14 @@ jobs:
           OK: ${{ steps.health.outputs.ok }}
           DETAILS: ${{ steps.health.outputs.details }}
         run: |
+          # Задачи (Issues) могут быть выключены в настройках репозитория —
+          # тогда остаётся письмо GitHub о неудачном запуске.
+          issues="$(gh api "repos/$GH_REPO" --jq .has_issues)"
+          if [ "$issues" != "true" ]; then
+            if [ "$OK" = "true" ]; then echo "Сервер работает"; exit 0; fi
+            echo "::error::Сервер не отвечает: $DETAILS"
+            exit 1
+          fi
           gh label create uptime --color B60205 --description "Сервер недоступен" --force >/dev/null
           open_issue="$(gh issue list --label uptime --state open --json number --jq '.[0].number // empty')"
           now="$(TZ=Europe/Moscow date '+%d.%m.%Y %H:%M') МСК"
