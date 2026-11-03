@@ -8,6 +8,10 @@ import {
   type FlaggedMessageDto,
   type ModerationListingDto,
   type ModerationSummaryDto,
+  type AdminListingDto,
+  type Paged,
+  bulkListingsSchema,
+  adminListingsQuery,
   type ModeratorConversationDto,
   type ReportDto,
   type StopWordDto,
@@ -109,8 +113,8 @@ export async function adminModerationRoutes(app: FastifyInstance, ctx: AppContex
       WHERE target_type = ${type} AND target_id = ${id} AND status = 'open'`;
   };
 
-  app.post("/v1/admin/moderation/listings/:id/approve", moderator, async (request) => {
-    const id = idOf(request, "Объявление");
+  /** Одобрить объявление на проверке. false — его уже нет в очереди. */
+  const approveListing = async (request: FastifyRequest, id: string): Promise<boolean> => {
     const [row] = await sql<{ userId: string; title: string }[]>`
       UPDATE listings SET status = 'active', moderation_reason = NULL, rejection_reason = NULL,
         published_at = COALESCE(published_at, now()),
@@ -118,27 +122,126 @@ export async function adminModerationRoutes(app: FastifyInstance, ctx: AppContex
         updated_at = now()
       WHERE id = ${id} AND status = 'moderation'
       RETURNING user_id, title`;
-    if (!row) throw errors.notFound("Объявление не найдено или уже проверено");
+    if (!row) return false;
     await closeReports(request, "listing", id, "dismissed", "Объявление проверено и одобрено");
     await writeAudit(ctx, request, "listing.approved", { type: "listing", id });
     await notify(sql, row.userId, "listing_approved", "Объявление опубликовано", `«${row.title}» прошло проверку.`, `/listing/${id}`);
     notifySavedSearchesLater(ctx, id, request.log);
+    return true;
+  };
+
+  /** Отклонить объявление (на проверке или опубликованное, например по жалобе). */
+  const rejectListing = async (request: FastifyRequest, id: string, reason: string): Promise<boolean> => {
+    const [row] = await sql<{ userId: string; title: string }[]>`
+      UPDATE listings SET status = 'rejected', rejection_reason = ${reason}, moderation_reason = NULL, updated_at = now()
+      WHERE id = ${id} AND status IN ('moderation', 'active')
+      RETURNING user_id, title`;
+    if (!row) return false;
+    await closeReports(request, "listing", id, "resolved", `Объявление отклонено: ${reason}`);
+    await writeAudit(ctx, request, "listing.rejected", { type: "listing", id }, { reason });
+    await notify(sql, row.userId, "listing_rejected", "Объявление отклонено", `«${row.title}»: ${reason}`, "/my/listings");
+    return true;
+  };
+
+  app.post("/v1/admin/moderation/listings/:id/approve", moderator, async (request) => {
+    const id = idOf(request, "Объявление");
+    if (!(await approveListing(request, id))) throw errors.notFound("Объявление не найдено или уже проверено");
     return { ok: true };
   });
 
   app.post("/v1/admin/moderation/listings/:id/reject", moderator, async (request) => {
     const id = idOf(request, "Объявление");
     const { reason } = parseBody(rejectListingSchema, request.body);
-    // Отклонить можно и опубликованное объявление (например, по жалобе).
-    const [row] = await sql<{ userId: string; title: string }[]>`
-      UPDATE listings SET status = 'rejected', rejection_reason = ${reason}, moderation_reason = NULL, updated_at = now()
-      WHERE id = ${id} AND status IN ('moderation', 'active')
-      RETURNING user_id, title`;
-    if (!row) throw errors.notFound("Объявление не найдено");
-    await closeReports(request, "listing", id, "resolved", `Объявление отклонено: ${reason}`);
-    await writeAudit(ctx, request, "listing.rejected", { type: "listing", id }, { reason });
-    await notify(sql, row.userId, "listing_rejected", "Объявление отклонено", `«${row.title}»: ${reason}`, "/my/listings");
+    if (!(await rejectListing(request, id, reason))) throw errors.notFound("Объявление не найдено");
     return { ok: true };
+  });
+
+  // ── Все объявления: поиск и массовые действия ─────────────────────────────
+
+  app.get("/v1/admin/listings", moderator, async (request): Promise<Paged<AdminListingDto>> => {
+    const q = adminListingsQuery.parse(request.query);
+    const pageSize = 50;
+    const conditions = [sql`true`];
+    if (q.status) conditions.push(sql`l.status = ${q.status}`);
+    if (q.server) conditions.push(sql`sv.number = ${q.server}::smallint`);
+    if (q.login) conditions.push(sql`lower(u.login) = lower(${q.login})`);
+    if (q.reported) conditions.push(sql`EXISTS (SELECT 1 FROM reports r WHERE r.target_type = 'listing' AND r.target_id = l.id::text AND r.status = 'open')`);
+    if (q.q) {
+      const like = `%${q.q.toLowerCase().replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+      conditions.push(sql`(
+        l.id::text = ${q.q} OR lower(l.title) LIKE ${like} OR lower(l.description) LIKE ${like}
+        OR lower(gp.nickname) LIKE ${like} OR lower(u.login) LIKE ${like}
+      )`);
+    }
+    const where = () => conditions.reduce((acc, c, i) => (i === 0 ? sql`WHERE ${c}` : sql`${acc} AND ${c}`), sql``);
+    const from = () => sql`
+      FROM listings l
+      JOIN users u ON u.id = l.user_id
+      JOIN game_profiles gp ON gp.id = l.game_profile_id
+      JOIN servers sv ON sv.id = l.server_id
+      JOIN listing_types t ON t.id = l.listing_type_id
+      JOIN sections s ON s.id = t.section_id`;
+    const [count] = await sql<{ total: number }[]>`SELECT count(*)::int AS total ${from()} ${where()}`;
+    const rows = await sql<
+      {
+        id: string;
+        title: string;
+        price: string | null;
+        operation: AdminListingDto["operation"];
+        status: AdminListingDto["status"];
+        sectionCode: AdminListingDto["sectionCode"];
+        login: string;
+        userStatus: "active" | "blocked";
+        nickname: string;
+        serverNumber: number;
+        serverName: string;
+        serverColor: string;
+        createdAt: Date;
+        publishedAt: Date | null;
+        views: number;
+        openReports: number;
+        rejectionReason: string | null;
+        moderationReason: string | null;
+      }[]
+    >`
+      SELECT l.id, l.title, l.price, l.operation, l.status, s.code AS section_code,
+        u.login, u.status AS user_status, gp.nickname,
+        sv.number AS server_number, sv.name AS server_name, sv.color AS server_color,
+        l.created_at, l.published_at, l.views, l.rejection_reason, l.moderation_reason,
+        (SELECT count(*)::int FROM reports r WHERE r.target_type = 'listing' AND r.target_id = l.id::text AND r.status = 'open') AS open_reports
+      ${from()} ${where()}
+      ORDER BY l.updated_at DESC
+      LIMIT ${pageSize}::int OFFSET ${(q.page - 1) * pageSize}::int`;
+    return {
+      items: rows.map((r) => ({
+        id: r.id,
+        title: r.title,
+        price: r.price === null ? null : Number(r.price),
+        operation: r.operation,
+        status: r.status,
+        sectionCode: r.sectionCode,
+        author: { login: r.login, nickname: r.nickname, blocked: r.userStatus === "blocked" },
+        server: { number: r.serverNumber, name: r.serverName, color: r.serverColor },
+        createdAt: r.createdAt.toISOString(),
+        publishedAt: r.publishedAt?.toISOString() ?? null,
+        views: r.views,
+        openReports: r.openReports,
+        reason: r.rejectionReason ?? r.moderationReason,
+      })),
+      total: count?.total ?? 0,
+      page: q.page,
+      pageSize,
+    };
+  });
+
+  app.post("/v1/admin/listings/bulk", moderator, async (request): Promise<{ done: number; skipped: number }> => {
+    const input = parseBody(bulkListingsSchema, request.body);
+    let done = 0;
+    for (const id of input.ids) {
+      const ok = input.action === "approve" ? await approveListing(request, id) : await rejectListing(request, id, input.reason ?? "");
+      if (ok) done += 1;
+    }
+    return { done, skipped: input.ids.length - done };
   });
 
   // ── Жалобы ────────────────────────────────────────────────────────────────

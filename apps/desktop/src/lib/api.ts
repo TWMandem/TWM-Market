@@ -24,6 +24,8 @@ import type {
   SavedSearchSection,
   BlockedUserDto,
   NicknameVerificationDto,
+  AdminListingDto,
+  AdminUserActivityDto,
   VerificationQueueItemDto,
   StatsPeriod,
   ReportDto,
@@ -444,6 +446,11 @@ export const adminApi = {
   clearMessage: (id: string) => request<{ ok: true }>(`/v1/admin/messages/${encodeURIComponent(id)}/clear`, { method: "POST" }),
   hideReview: (id: string) => request<{ ok: true }>(`/v1/admin/reviews/${encodeURIComponent(id)}/hide`, { method: "POST" }),
   conversation: (id: string) => request<ModeratorConversationDto>(`/v1/admin/conversations/${encodeURIComponent(id)}`),
+  listings: (params: { q?: string; status?: string; login?: string; server?: number; reported?: string; page?: number }) =>
+    request<Paged<AdminListingDto>>(`/v1/admin/listings${qs(params)}`),
+  bulkListings: (body: { ids: string[]; action: "approve" | "reject"; reason?: string }) =>
+    request<{ done: number; skipped: number }>("/v1/admin/listings/bulk", { method: "POST", body }),
+  userActivity: (id: string) => request<AdminUserActivityDto>(`/v1/admin/users/${encodeURIComponent(id)}/activity`),
   verifications: () => request<{ items: VerificationQueueItemDto[] }>("/v1/admin/verifications"),
   verificationImage: (id: string) => request<Blob>(`/v1/admin/verifications/${encodeURIComponent(id)}/image`, { blob: true }),
   approveVerification: (id: string) => request<{ ok: true }>(`/v1/admin/verifications/${encodeURIComponent(id)}/approve`, { method: "POST" }),

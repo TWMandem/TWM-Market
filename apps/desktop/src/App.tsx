@@ -26,6 +26,7 @@ import { AdminLayout } from "./pages/admin/AdminLayout";
 import { AuditPage } from "./pages/admin/AuditPage";
 import { CategoriesPage } from "./pages/admin/CategoriesPage";
 import { DashboardPage } from "./pages/admin/DashboardPage";
+import { AdminListingsPage } from "./pages/admin/AdminListingsPage";
 import { FieldsPage } from "./pages/admin/FieldsPage";
 import { ServersPage } from "./pages/admin/ServersPage";
 import { StructurePage } from "./pages/admin/StructurePage";
@@ -137,6 +138,7 @@ const router = createHashRouter([
           { path: "fields", element: <FieldsPage /> },
           { path: "audit", element: <AuditPage /> },
           { path: "moderation", element: <ModerationPage /> },
+          { path: "listings", element: <AdminListingsPage /> },
           { path: "stop-words", element: <StopWordsPage /> },
         ],
       },

@@ -24,6 +24,7 @@ import { chatRoutes } from "./modules/chat/routes.js";
 import { reportRoutes } from "./modules/reports/routes.js";
 import { adminModerationRoutes } from "./modules/admin/moderation.js";
 import { adminStatsRoutes } from "./modules/admin/stats.js";
+import { adminActivityRoutes } from "./modules/admin/activity.js";
 import { priceRoutes } from "./modules/stats/prices.js";
 import { savedSearchRoutes } from "./modules/saved-searches/routes.js";
 import { verificationRoutes } from "./modules/game-profiles/verification.js";
@@ -117,6 +118,7 @@ export async function buildApp({ config, sql, mailer }: BuildOptions): Promise<F
   await reportRoutes(app, ctx);
   await adminModerationRoutes(app, ctx);
   await adminStatsRoutes(app, ctx);
+  await adminActivityRoutes(app, ctx);
   await priceRoutes(app, ctx);
   await savedSearchRoutes(app, ctx);
   await verificationRoutes(app, ctx);

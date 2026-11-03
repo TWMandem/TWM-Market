@@ -1,5 +1,6 @@
 import { z } from "zod";
-import type { ListingStatusDto, MediaDto, ServerRefDto } from "./api-types.js";
+import type { ListingStatusDto, MediaDto, SectionCode, ServerRefDto } from "./api-types.js";
+import { LISTING_STATUSES } from "./listings.js";
 
 // ── Переписка ──────────────────────────────────────────────────────────────
 
@@ -379,3 +380,68 @@ export interface VerificationQueueItemDto {
 export const rejectVerificationSchema = z.object({
   reason: z.string().trim().min(3, "Укажите причину").max(300, "До 300 символов"),
 });
+
+// ── Админка: все объявления и история игрока ────────────────────────────────
+
+export const adminListingsQuery = z.object({
+  q: z.string().trim().max(100).optional(),
+  status: z.enum(LISTING_STATUSES).optional(),
+  login: z.string().trim().max(40).optional(),
+  server: z.coerce.number().int().positive().optional(),
+  reported: z.enum(["1", "true"]).optional(),
+  page: z.coerce.number().int().min(1).max(1000).default(1),
+});
+
+export interface AdminListingDto {
+  id: string;
+  title: string;
+  price: number | null;
+  operation: "sell" | "buy" | "exchange";
+  status: ListingStatusDto;
+  sectionCode: SectionCode;
+  author: { login: string; nickname: string; blocked: boolean };
+  server: ServerRefDto;
+  createdAt: string;
+  publishedAt: string | null;
+  views: number;
+  openReports: number;
+  /** Причина отклонения или проверки. */
+  reason: string | null;
+}
+
+export const bulkListingsSchema = z
+  .object({
+    ids: z.array(z.string().uuid()).min(1, "Выберите объявления").max(100, "Не больше 100 за раз"),
+    action: z.enum(["approve", "reject"]),
+    reason: z.string().trim().max(300, "До 300 символов").optional(),
+  })
+  .superRefine((v, ctx) => {
+    if (v.action === "reject" && (!v.reason || v.reason.length < 3)) {
+      ctx.addIssue({ code: "custom", path: ["reason"], message: "Укажите причину" });
+    }
+  });
+
+export interface AdminUserActivityDto {
+  stats: {
+    listings: Record<string, number>;
+    deals: number;
+    reviewsReceived: { positive: number; negative: number; hidden: number };
+    reportsAgainst: { open: number; total: number };
+    reportsFiled: number;
+    /** Сколько игроков добавили его в чёрный список. */
+    blockedBy: number;
+    lastSeenAt: string | null;
+  };
+  listings: Array<{ id: string; title: string; status: ListingStatusDto; price: number | null; updatedAt: string }>;
+  reportsAgainst: Array<{
+    id: string;
+    targetType: ReportTarget;
+    reason: ReportReason | "stop_word";
+    comment: string;
+    status: "open" | "resolved" | "dismissed";
+    author: string | null;
+    createdAt: string;
+  }>;
+  reviews: Array<{ id: string; positive: boolean; comment: string; author: string; hidden: boolean; createdAt: string }>;
+  audit: Array<{ action: string; actor: string | null; createdAt: string; details: Record<string, unknown> }>;
+}

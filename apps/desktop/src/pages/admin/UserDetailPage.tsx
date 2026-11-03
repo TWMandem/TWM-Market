@@ -6,6 +6,7 @@ import { adminApi } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
 import { attempt, useLoad } from "../../lib/use-load";
 import { AdminTitle, hasRole } from "./AdminLayout";
+import { UserActivity } from "./UserActivity";
 import { ROLE_NAMES } from "./UsersPage";
 
 const dateTime = (iso: string | null) =>
@@ -102,6 +103,8 @@ export function UserDetailPage() {
           ))}
         </ul>
       </Card>
+
+      <UserActivity id={target.id} />
     </>
   );
 }

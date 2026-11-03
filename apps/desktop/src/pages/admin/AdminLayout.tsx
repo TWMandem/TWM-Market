@@ -16,6 +16,7 @@ export function hasRole(role: Role | undefined, min: Role): boolean {
 const NAV: Array<{ to: string; label: string; min: Role; group?: string }> = [
   { to: "/admin", label: "Дашборд", min: "moderator" },
   { to: "/admin/moderation", label: "Модерация", min: "moderator" },
+  { to: "/admin/listings", label: "Все объявления", min: "moderator" },
   { to: "/admin/users", label: "Пользователи", min: "moderator" },
   { to: "/admin/stop-words", label: "Стоп-слова", min: "moderator" },
   { to: "/admin/audit", label: "Журнал действий", min: "admin" },
