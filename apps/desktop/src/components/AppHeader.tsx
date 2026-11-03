@@ -20,7 +20,7 @@ export function AppHeader() {
 
   return (
     <header className="border-b border-line-soft bg-ground">
-      <div className="mx-auto flex max-w-[1280px] flex-wrap items-center gap-4 px-6 py-3">
+      <div className="mx-auto flex max-w-[1280px] flex-wrap items-center gap-3 px-6 py-3">
         <NavLink to="/" className="flex items-center gap-2.5 text-ink no-underline">
           <span
             aria-hidden="true"
@@ -54,7 +54,7 @@ export function AppHeader() {
             const q = search.trim();
             if (q) navigate(`/search?q=${encodeURIComponent(q)}`);
           }}
-          className="flex h-11 min-w-[200px] flex-[1_1_220px] items-center gap-2 rounded-xl border border-line bg-surface px-3 focus-within:border-accent"
+          className="flex h-11 min-w-[170px] flex-[1_1_220px] items-center gap-2 rounded-xl border border-line bg-surface px-3 focus-within:border-accent"
         >
           <Icon name="search" size={18} className="text-muted" />
           <label htmlFor="global-search" className="sr-only">
@@ -120,7 +120,8 @@ export function AppHeader() {
             >
               {user.login.slice(0, 2)}
             </span>
-            <span className="max-w-[140px] truncate text-[15px] font-bold">{user.login}</span>
+            {/* В окне приложения шириной до 1440 px — только аватар, чтобы шапка помещалась в одну строку. */}
+            <span className="hidden max-w-[140px] truncate text-[15px] font-bold min-[1440px]:inline">{user.login}</span>
           </Link>
         ) : (
           <Link
@@ -137,7 +138,8 @@ export function AppHeader() {
           className="flex h-11 items-center gap-2 rounded-xl bg-accent px-4.5 font-extrabold text-on-accent hover:bg-accent-soft"
         >
           <Icon name="plus" size={18} strokeWidth={2.6} />
-          Разместить
+          {/* Модераторам шапка шире (кнопка админ-панели): на узком окне — только «+». */}
+          <span className={user && user.role !== "user" ? "max-[1439px]:sr-only" : ""}>Разместить</span>
         </button>
       </div>
     </header>

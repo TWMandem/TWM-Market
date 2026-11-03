@@ -309,6 +309,10 @@ export const api = {
       `/v1/conversations/${encodeURIComponent(id)}/deal${action === "propose" ? "" : `/${action}`}`,
       { method: "POST" },
     ),
+  offerPrice: (id: string, price: number) =>
+    request<ConversationDto>(`/v1/conversations/${encodeURIComponent(id)}/offers`, { method: "POST", body: { price } }),
+  answerOffer: (id: string, offerId: string, action: "accept" | "decline" | "withdraw") =>
+    request<ConversationDto>(`/v1/conversations/${encodeURIComponent(id)}/offers/${encodeURIComponent(offerId)}/${action}`, { method: "POST" }),
   review: (id: string, body: { positive: boolean; comment: string }) =>
     request<ConversationDto>(`/v1/conversations/${encodeURIComponent(id)}/review`, { method: "POST", body }),
   publicUser: (login: string) => request<PublicUserDto>(`/v1/users/${encodeURIComponent(login)}`),

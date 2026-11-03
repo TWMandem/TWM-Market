@@ -39,6 +39,13 @@ export interface ConversationRow {
   dealProposedBy: string | null;
   dealProposedAt: Date | null;
   dealConfirmedAt: Date | null;
+  dealPrice: string | null;
+  offerId: string | null;
+  offerAuthorId: string | null;
+  offerPrice: string | null;
+  offerCreatedAt: Date | null;
+  agreedPrice: string | null;
+  listingExpiresAt: Date | null;
 }
 
 export function conversationSelect(sql: Sql, viewerId: string) {
@@ -46,6 +53,7 @@ export function conversationSelect(sql: Sql, viewerId: string) {
     SELECT
       c.id, c.listing_id, c.buyer_id, c.seller_id, c.last_message_at,
       l.title AS listing_title, l.price AS listing_price, l.operation AS listing_operation, l.status AS listing_status,
+      l.expires_at AS listing_expires_at,
       sv.number AS server_number, sv.name AS server_name, sv.color AS server_color,
       mi.thumb_path AS main_thumb, ci.icon_path AS item_icon_path, ci.icon_kind AS item_icon_kind,
       bu.login AS buyer_login, su.login AS seller_login, gp.nickname AS seller_nickname,
@@ -67,7 +75,9 @@ export function conversationSelect(sql: Sql, viewerId: string) {
           AND m.created_at > CASE WHEN c.buyer_id = ${viewerId} THEN c.buyer_last_read_at ELSE c.seller_last_read_at END
       ) AS unread,
       d.id AS deal_id, d.status AS deal_status, d.proposed_by AS deal_proposed_by,
-      d.proposed_at AS deal_proposed_at, d.confirmed_at AS deal_confirmed_at
+      d.proposed_at AS deal_proposed_at, d.confirmed_at AS deal_confirmed_at, d.price AS deal_price,
+      op.id AS offer_id, op.author_id AS offer_author_id, op.price AS offer_price, op.created_at AS offer_created_at,
+      oa.price AS agreed_price
     FROM conversations c
     JOIN listings l ON l.id = c.listing_id
     JOIN servers sv ON sv.id = l.server_id
@@ -83,7 +93,15 @@ export function conversationSelect(sql: Sql, viewerId: string) {
       SELECT m.kind, m.body, m.sender_id, m.created_at, m.hidden_at FROM messages m
       WHERE m.conversation_id = c.id ORDER BY m.created_at DESC LIMIT 1
     ) lm ON true
-    LEFT JOIN deals d ON d.conversation_id = c.id`;
+    LEFT JOIN deals d ON d.conversation_id = c.id
+    LEFT JOIN LATERAL (
+      SELECT po.id, po.author_id, po.price, po.created_at FROM price_offers po
+      WHERE po.conversation_id = c.id AND po.status = 'pending' LIMIT 1
+    ) op ON true
+    LEFT JOIN LATERAL (
+      SELECT po.price FROM price_offers po
+      WHERE po.conversation_id = c.id AND po.status = 'accepted' ORDER BY po.answered_at DESC LIMIT 1
+    ) oa ON true`;
 }
 
 interface ReviewRow {
@@ -146,6 +164,7 @@ export async function toConversations(sql: Sql, rows: readonly ConversationRow[]
         proposedByMe: row.dealProposedBy === viewerId,
         proposedAt: row.dealProposedAt.toISOString(),
         confirmedAt: row.dealConfirmedAt?.toISOString() ?? null,
+        price: row.dealPrice === null ? null : Number(row.dealPrice),
         myReview: mine ? toReview(mine) : null,
         theirReview: theirs ? toReview(theirs) : null,
         canReview: row.dealStatus === "confirmed" && !mine,
@@ -179,9 +198,33 @@ export async function toConversations(sql: Sql, rows: readonly ConversationRow[]
           : null,
       unread: row.unread,
       deal,
+      offer:
+        row.offerId && row.offerPrice !== null && row.offerCreatedAt
+          ? { id: row.offerId, price: Number(row.offerPrice), mine: row.offerAuthorId === viewerId, createdAt: row.offerCreatedAt.toISOString() }
+          : null,
+      agreedPrice: row.agreedPrice === null ? null : Number(row.agreedPrice),
+      canOffer: canOffer(row),
       lastMessageAt: row.lastMessageAt.toISOString(),
     };
   });
+}
+
+/** Листинг активен: опубликован и срок не истёк. */
+export const listingActive = (row: Pick<ConversationRow, "listingStatus" | "listingExpiresAt">) =>
+  row.listingStatus === "active" && row.listingExpiresAt !== null && row.listingExpiresAt.getTime() > Date.now();
+
+/**
+ * Предлагать цену можно по продаже и скупке (не по обмену), пока объявление
+ * активно, переписка не закрыта чёрным списком и сделка ещё не отмечена.
+ */
+export function canOffer(row: ConversationRow): boolean {
+  return (
+    row.listingOperation !== "exchange" &&
+    listingActive(row) &&
+    row.blocked === null &&
+    row.dealStatus !== "proposed" &&
+    row.dealStatus !== "confirmed"
+  );
 }
 
 /** Переписка, если пользователь в ней участвует. Иначе — «не найдено», чтобы не раскрывать чужие диалоги. */
@@ -203,10 +246,12 @@ export interface MessageRow {
   imageHeight: number | null;
   flagged: boolean;
   hiddenAt: Date | null;
+  offerPrice: string | null;
   createdAt: Date;
 }
 
-export const MESSAGE_COLUMNS = "id, sender_id, kind, body, image_path, image_width, image_height, flagged, hidden_at, created_at";
+export const MESSAGE_COLUMNS =
+  "id, sender_id, kind, body, image_path, image_width, image_height, flagged, hidden_at, offer_price, created_at";
 
 export function toMessage(row: MessageRow, viewerId: string | null): MessageDto {
   const hidden = row.hiddenAt !== null;
@@ -220,6 +265,7 @@ export function toMessage(row: MessageRow, viewerId: string | null): MessageDto 
         : null,
     mine: row.senderId === null ? null : row.senderId === viewerId,
     hidden,
+    offerPrice: row.offerPrice === null || row.offerPrice === undefined ? null : Number(row.offerPrice),
     createdAt: row.createdAt.toISOString(),
   };
 }

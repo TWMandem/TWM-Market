@@ -88,11 +88,11 @@ export async function priceRoutes(app: FastifyInstance, ctx: AppContext): Promis
     const deals = await sql<
       { price: string; confirmedAt: Date; operation: "sell" | "buy"; serverNumber: number; serverName: string; serverColor: string }[]
     >`
-      SELECT l.price, d.confirmed_at, l.operation, sv.number AS server_number, sv.name AS server_name, sv.color AS server_color
+      SELECT COALESCE(d.price, l.price) AS price, d.confirmed_at, l.operation, sv.number AS server_number, sv.name AS server_name, sv.color AS server_color
       FROM deals d
       JOIN listings l ON l.id = d.listing_id
       JOIN servers sv ON sv.id = l.server_id
-      WHERE l.catalog_item_id = ${item.id} AND d.status = 'confirmed' AND l.price IS NOT NULL
+      WHERE l.catalog_item_id = ${item.id} AND d.status = 'confirmed' AND COALESCE(d.price, l.price) IS NOT NULL
         AND l.operation IN ('sell', 'buy')
         AND d.confirmed_at > now() - make_interval(days => ${q.days}::int)
         ${serverId !== null ? sql`AND l.server_id = ${serverId}` : sql``}

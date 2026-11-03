@@ -152,12 +152,16 @@ await api("POST", `/v1/conversations/${conv.id}/messages`, ivan.token, { body: "
 await api("POST", `/v1/conversations/${conv.id}/messages`, maks.token, { body: "Отлично, в 20:00 подойдёт?" });
 await api("POST", `/v1/conversations/${conv.id}/messages`, ivan.token, { body: "Подойдёт, жду." });
 await upload(`/v1/conversations/${conv.id}/images`, maks.token, await picture("Я у мэрии", ["#24503a", "#0e1014"], 960, 540), "screen.png");
+const offered = await api("POST", `/v1/conversations/${conv.id}/offers`, maks.token, { price: 2_300_000 });
+await api("POST", `/v1/conversations/${conv.id}/offers/${offered.offer.id}/accept`, ivan.token);
 await api("POST", `/v1/conversations/${conv.id}/deal`, maks.token);
 await api("POST", `/v1/conversations/${conv.id}/deal/confirm`, ivan.token);
 await api("POST", `/v1/conversations/${conv.id}/review`, maks.token, { positive: true, comment: "Всё честно, быстро встретились. Рекомендую!" });
 
 const conv2 = await api("POST", `/v1/listings/${ivanCar.id}/conversations`, maks.token);
 await api("POST", `/v1/conversations/${conv2.id}/messages`, maks.token, { body: "Добрый вечер! Какой пробег у машины?" });
+await api("POST", `/v1/conversations/${conv2.id}/messages`, ivan.token, { body: "Добрый! Машина в отличном состоянии, всё стоит." });
+await api("POST", `/v1/conversations/${conv2.id}/offers`, maks.token, { price: 17_000_000 });
 
 // ── Жалоба, заявка на подтверждение ника, подписки, шаблоны, ошибки ───────
 await api("POST", "/v1/reports", maks.token, { targetType: "listing", targetId: fastDeadpool.id, reason: "scam", comment: "Просит сначала перевести деньги" });
@@ -167,7 +171,7 @@ const [clothes] = await sql`SELECT id FROM categories WHERE name = 'Одежда
 await api("POST", "/v1/me/saved-searches", maks.token, { name: "Одежда до 3 млн, сервер 1", section: "items", params: `section=items&category=${clothes.id}&server=1&priceMax=3000000`, notify: true });
 await api("PUT", "/v1/me/chat-templates", ivan.token, { items: ["Здравствуйте! Да, актуально.", "Встречаемся у мэрии в 20:00.", "Цена окончательная."] });
 await api("POST", `/v1/listings/${ivanCar.id}/favorite`, maks.token);
-await api("POST", "/v1/client-errors", maks.token, { message: "TypeError: Cannot read properties of undefined (reading 'price')", stack: "TypeError: Cannot read properties of undefined\n    at PriceCard (index.js:1:2)", route: "/listing/…", version: "0.10.0" });
+await api("POST", "/v1/client-errors", maks.token, { message: "TypeError: Cannot read properties of undefined (reading 'price')", stack: "TypeError: Cannot read properties of undefined\n    at PriceCard (index.js:1:2)", route: "/listing/…", version: "0.11.0" });
 
 await writeFile(
   `${OUT}seed.json`,
@@ -180,6 +184,7 @@ await writeFile(
       fast: { login: fast.login, id: fast.id },
       listings: { ivanDeadpool: ivanDeadpool.id, ivanCar: ivanCar.id, fastDeadpool: fastDeadpool.id },
       conversation: conv.id,
+      offerConversation: conv2.id,
     },
     null,
     2,

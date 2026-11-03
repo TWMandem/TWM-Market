@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { ListingStatusDto, MediaDto, SectionCode, ServerRefDto } from "./api-types.js";
 import { LISTING_STATUSES } from "./listings.js";
+import { MAX_PRICE } from "./price.js";
 
 // ── Переписка ──────────────────────────────────────────────────────────────
 
@@ -14,7 +15,18 @@ export const messageSchema = z.object({
     .max(MESSAGE_MAX, `Сообщение — до ${MESSAGE_MAX} символов`),
 });
 
-export type MessageKind = "text" | "image" | "deal_proposed" | "deal_confirmed" | "deal_cancelled";
+export type MessageKind =
+  | "text"
+  | "image"
+  | "deal_proposed"
+  | "deal_confirmed"
+  | "deal_cancelled"
+  /** Предложение цены (от участника переписки). */
+  | "price_offer"
+  /** Служебные: ответ на предложение цены. */
+  | "offer_accepted"
+  | "offer_declined"
+  | "offer_withdrawn";
 
 export interface MessageDto {
   id: string;
@@ -25,6 +37,31 @@ export interface MessageDto {
   mine: boolean | null;
   /** Скрыто модератором: текст не показывается. */
   hidden: boolean;
+  /** Для «price_offer» — предложенная цена. */
+  offerPrice: number | null;
+  createdAt: string;
+}
+
+// ── Предложение цены ───────────────────────────────────────────────────────
+// Торг в переписке: одна сторона предлагает цену, другая принимает,
+// отклоняет или предлагает свою. Согласованная цена записывается в сделку
+// и попадает в историю цен. Деньги через площадку не проходят.
+
+export const priceOfferSchema = z.object({
+  price: z
+    .number({ required_error: "Укажите цену", invalid_type_error: "Укажите цену" })
+    .int("Цена — целое число")
+    .min(1, "Цена должна быть больше нуля")
+    .max(MAX_PRICE, "Слишком большая цена"),
+});
+export type PriceOfferInput = z.infer<typeof priceOfferSchema>;
+
+/** Предложение цены, ждущее ответа. */
+export interface PriceOfferDto {
+  id: string;
+  price: number;
+  /** Предложил я — ответить должен собеседник. */
+  mine: boolean;
   createdAt: string;
 }
 
@@ -45,6 +82,8 @@ export interface DealDto {
   proposedByMe: boolean;
   proposedAt: string;
   confirmedAt: string | null;
+  /** Цена сделки: согласованная в переписке или цена объявления. */
+  price: number | null;
   myReview: ReviewDto | null;
   theirReview: ReviewDto | null;
   /** Сделка подтверждена, а свой отзыв ещё не оставлен. */
@@ -70,6 +109,12 @@ export interface ConversationDto {
   lastMessage: { kind: MessageKind; body: string; mine: boolean | null; createdAt: string } | null;
   unread: number;
   deal: DealDto | null;
+  /** Предложение цены, ждущее ответа. */
+  offer: PriceOfferDto | null;
+  /** Последняя принятая обеими сторонами цена. */
+  agreedPrice: number | null;
+  /** Можно ли сейчас предлагать цену (не обмен, объявление активно, сделка не отмечена). */
+  canOffer: boolean;
   lastMessageAt: string;
 }
 
@@ -109,6 +154,8 @@ export type NotificationKind =
   | "deal_proposed"
   | "deal_confirmed"
   | "deal_cancelled"
+  | "price_offer"
+  | "price_offer_answered"
   | "review"
   | "listing_moderation"
   | "listing_approved"

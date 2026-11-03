@@ -28,7 +28,7 @@ async function settle(page) {
 }
 
 async function session(role, login) {
-  const context = await browser.newContext({ viewport: { width: 1366, height: 860 }, locale: "ru-RU", timezoneId: "Europe/Moscow" });
+  const context = await browser.newContext({ viewport: { width: 1280, height: 820 }, locale: "ru-RU", timezoneId: "Europe/Moscow" });
   await context.addInitScript(() => {
     try {
       window.localStorage.setItem("twm:server", "1");
@@ -101,6 +101,7 @@ await guest.context.close();
 const buyer = await session("покупатель", seed.maks.login);
 await shot(buyer, "listing-warning", "Подозрительно дешёвое объявление", `/listing/${L.fastDeadpool}`);
 await shot(buyer, "chats", "Переписка", `/chats/${seed.conversation}`);
+await shot(buyer, "offer-waiting", "Своё предложение цены ждёт ответа", `/chats/${seed.offerConversation}`);
 await shot(buyer, "searches", "Подписки на поиск", "/my/searches");
 await shot(buyer, "favorites", "Избранное", "/favorites");
 await shot(buyer, "account", "Личный кабинет", "/account");
@@ -114,6 +115,11 @@ await shot(seller, "edit-listing", "Редактирование объявле�
 await shot(seller, "new-listing", "Новое объявление", "/listings/new");
 await shot(seller, "chat-templates", "Шаблоны ответов в переписке", `/chats/${seed.conversation}`, async (page) => {
   await page.getByRole("button", { name: "Шаблоны ответов" }).click();
+});
+await shot(seller, "offer-incoming", "Предложение цены от покупателя", `/chats/${seed.offerConversation}`);
+await shot(seller, "offer-counter", "Встречное предложение цены", `/chats/${seed.offerConversation}`, async (page) => {
+  await page.getByRole("button", { name: "Своя цена" }).click();
+  await page.getByLabel("Ваша цена").fill("17.6кк");
 });
 await seller.context.close();
 

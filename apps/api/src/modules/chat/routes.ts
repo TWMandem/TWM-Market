@@ -3,8 +3,10 @@ import { z } from "zod";
 import {
   CHAT_TEMPLATE_LIMIT,
   chatTemplatesSchema,
+  formatPrice,
   isTrustedSeller,
   messageSchema,
+  priceOfferSchema,
   reviewSchema,
   type BlockedUserDto,
   type ConversationDto,
@@ -16,6 +18,7 @@ import {
   type UpdatesDto,
 } from "@twm/shared";
 import type { AppContext } from "../../context.js";
+import { uniqueViolation } from "../../db/client.js";
 import { AppError, errors, parseBody } from "../../lib/errors.js";
 import { saveChatImage } from "../../lib/media.js";
 import { notify } from "../../lib/notify.js";
@@ -25,6 +28,7 @@ import { authOf, optionalAuth, requireAuth } from "../auth/guard.js";
 import {
   MESSAGE_COLUMNS,
   blockedBetween,
+  canOffer,
   chatBlocked,
   conversationSelect,
   participantConversation,
@@ -37,6 +41,7 @@ import {
 } from "./service.js";
 
 const idParam = z.object({ id: z.string().uuid() });
+const offerParams = z.object({ id: z.string().uuid(), offerId: z.string().uuid() });
 const PAGE = 50;
 
 /** Короткий текст сообщения для уведомления. */
@@ -79,7 +84,8 @@ export async function chatRoutes(app: FastifyInstance, ctx: AppContext): Promise
       WHERE id = ${row.id}`;
   };
 
-  const systemMessage = async (row: ConversationRow, kind: "deal_proposed" | "deal_confirmed" | "deal_cancelled", body: string) => {
+  type SystemKind = "deal_proposed" | "deal_confirmed" | "deal_cancelled" | "offer_accepted" | "offer_declined" | "offer_withdrawn";
+  const systemMessage = async (row: ConversationRow, kind: SystemKind, body: string) => {
     await sql`INSERT INTO messages (conversation_id, sender_id, kind, body) VALUES (${row.id}, NULL, ${kind}, ${body})`;
     await touch(row, null);
   };
@@ -221,11 +227,18 @@ export async function chatRoutes(app: FastifyInstance, ctx: AppContext): Promise
     if ((messages?.count ?? 0) < 2) {
       throw errors.conflict("deal_too_early", "Отметить сделку можно, когда в переписке написали обе стороны");
     }
+    // Цена сделки — согласованная в переписке, иначе цена объявления.
+    const price = row.listingOperation === "exchange" ? null : (row.agreedPrice ?? row.listingPrice);
     await sql`
-      INSERT INTO deals (conversation_id, listing_id, buyer_id, seller_id, proposed_by)
-      VALUES (${row.id}, ${row.listingId}, ${row.buyerId}, ${row.sellerId}, ${user.id})
+      INSERT INTO deals (conversation_id, listing_id, buyer_id, seller_id, proposed_by, price)
+      VALUES (${row.id}, ${row.listingId}, ${row.buyerId}, ${row.sellerId}, ${user.id}, ${price}::bigint)
       ON CONFLICT (conversation_id) DO UPDATE SET
-        status = 'proposed', proposed_by = EXCLUDED.proposed_by, proposed_at = now(), confirmed_at = NULL`;
+        status = 'proposed', proposed_by = EXCLUDED.proposed_by, proposed_at = now(), confirmed_at = NULL,
+        price = EXCLUDED.price`;
+    // Сделка отмечена — торг закончен.
+    await sql`
+      UPDATE price_offers SET status = 'withdrawn', answered_at = now()
+      WHERE conversation_id = ${row.id} AND status = 'pending'`;
     await systemMessage(row, "deal_proposed", `${user.login} отметил(а), что сделка состоялась. Вторая сторона должна подтвердить.`);
     await notify(sql, other, "deal_proposed", "Подтвердите сделку", `${user.login} отметил(а) сделку по «${row.listingTitle}»`, `/chats/${row.id}`);
     return one(row, user.id);
@@ -248,6 +261,111 @@ export async function chatRoutes(app: FastifyInstance, ctx: AppContext): Promise
     const declined = row.dealProposedBy !== user.id;
     await systemMessage(row, "deal_cancelled", declined ? `${user.login} не подтвердил(а) сделку.` : `${user.login} отменил(а) отметку о сделке.`);
     await notify(sql, other, "deal_cancelled", "Отметка о сделке снята", `По «${row.listingTitle}»`, `/chats/${row.id}`);
+    return one(row, user.id);
+  });
+
+  // ── Предложение цены ──────────────────────────────────────────────────────
+  // Торг до встречи: предложить цену, принять, отклонить, предложить свою.
+
+  app.post(
+    "/v1/conversations/:id/offers",
+    { preHandler: auth, config: { rateLimit: { max: 20, timeWindow: "10 minutes" } } },
+    async (request, reply): Promise<ConversationDto> => {
+      const { user, row, other } = await conversationOf(request);
+      if (row.blocked) throw chatBlocked();
+      if (!canOffer(row)) {
+        if (row.listingOperation === "exchange") throw errors.conflict("offer_exchange", "В объявлении об обмене цену не предлагают");
+        if (row.dealStatus === "proposed" || row.dealStatus === "confirmed") {
+          throw errors.conflict("offer_deal", "Сделка уже отмечена — торговаться поздно");
+        }
+        throw errors.conflict("listing_inactive", "Объявление снято с публикации");
+      }
+      const { price } = parseBody(priceOfferSchema, request.body);
+      if (row.offerId && row.offerAuthorId === user.id) {
+        throw errors.conflict("offer_pending", "Вы уже предложили цену — дождитесь ответа или отзовите предложение");
+      }
+      const counter = row.offerId !== null;
+      await sql
+        .begin(async (tx) => {
+        // Своя цена в ответ на чужое предложение — встречное предложение.
+        if (counter) {
+          await tx`
+            UPDATE price_offers SET status = 'countered', answered_at = now()
+            WHERE conversation_id = ${row.id} AND status = 'pending'`;
+        }
+        await tx`INSERT INTO price_offers (conversation_id, author_id, price) VALUES (${row.id}, ${user.id}, ${price})`;
+        await tx`
+          INSERT INTO messages (conversation_id, sender_id, kind, body, offer_price)
+          VALUES (${row.id}, ${user.id}, 'price_offer', ${`${counter ? "Встречное предложение" : "Предлагаю цену"}: ${formatPrice(price)}`}, ${price})`;
+        })
+        .catch((error: unknown) => {
+          // Обе стороны предложили цену одновременно: второе предложение не записано.
+          if (uniqueViolation(error) === "price_offers_pending_uq") {
+            throw errors.conflict("offer_pending", "Собеседник только что предложил цену — обновите переписку");
+          }
+          throw error;
+        });
+      await touch(row, user.id);
+      await notify(
+        sql,
+        other,
+        "price_offer",
+        counter ? "Встречное предложение цены" : "Предложение цены",
+        `${user.login} предлагает ${formatPrice(price)} за «${row.listingTitle}»`,
+        `/chats/${row.id}`,
+      );
+      reply.code(201);
+      return one(row, user.id);
+    },
+  );
+
+  /** Предложение, ждущее ответа, по адресу …/offers/:offerId. */
+  const pendingOffer = async (request: FastifyRequest) => {
+    const params = offerParams.safeParse(request.params);
+    if (!params.success) throw errors.notFound("Предложение не найдено");
+    const found = await conversationOf(request);
+    if (found.row.offerId !== params.data.offerId) {
+      throw errors.conflict("offer_not_pending", "Предложение уже неактуально — обновите переписку");
+    }
+    return { ...found, price: Number(found.row.offerPrice) };
+  };
+
+  const answerOffer = async (row: ConversationRow, status: "accepted" | "declined" | "withdrawn") => {
+    const [updated] = await sql<{ id: string }[]>`
+      UPDATE price_offers SET status = ${status}, answered_at = now()
+      WHERE id = ${row.offerId} AND status = 'pending'
+      RETURNING id`;
+    if (!updated) throw errors.conflict("offer_not_pending", "Предложение уже неактуально — обновите переписку");
+  };
+
+  app.post("/v1/conversations/:id/offers/:offerId/accept", { preHandler: auth }, async (request): Promise<ConversationDto> => {
+    const { user, row, other, price } = await pendingOffer(request);
+    if (row.offerAuthorId === user.id) throw errors.conflict("own_offer", "Принять предложение должна другая сторона");
+    if (row.blocked) throw chatBlocked();
+    await answerOffer(row, "accepted");
+    await systemMessage(
+      row,
+      "offer_accepted",
+      `${user.login} принял(а) цену ${formatPrice(price)}. Встретьтесь в игре, а после обмена отметьте сделку.`,
+    );
+    await notify(sql, other, "price_offer_answered", "Цена принята", `${user.login} согласен(на) на ${formatPrice(price)} за «${row.listingTitle}»`, `/chats/${row.id}`);
+    return one(row, user.id);
+  });
+
+  app.post("/v1/conversations/:id/offers/:offerId/decline", { preHandler: auth }, async (request): Promise<ConversationDto> => {
+    const { user, row, other, price } = await pendingOffer(request);
+    if (row.offerAuthorId === user.id) throw errors.conflict("own_offer", "Своё предложение можно только отозвать");
+    await answerOffer(row, "declined");
+    await systemMessage(row, "offer_declined", `${user.login} отклонил(а) предложение ${formatPrice(price)}.`);
+    await notify(sql, other, "price_offer_answered", "Предложение отклонено", `${user.login} не согласен(на) на ${formatPrice(price)} за «${row.listingTitle}»`, `/chats/${row.id}`);
+    return one(row, user.id);
+  });
+
+  app.post("/v1/conversations/:id/offers/:offerId/withdraw", { preHandler: auth }, async (request): Promise<ConversationDto> => {
+    const { user, row, price } = await pendingOffer(request);
+    if (row.offerAuthorId !== user.id) throw errors.conflict("not_own_offer", "Отозвать можно только своё предложение");
+    await answerOffer(row, "withdrawn");
+    await systemMessage(row, "offer_withdrawn", `${user.login} отозвал(а) предложение ${formatPrice(price)}.`);
     return one(row, user.id);
   });
 
