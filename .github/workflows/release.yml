@@ -1,15 +1,16 @@
-# Выпуск новой версии. Запускается тегом вида v0.6.0 (версия должна совпадать
-# с apps/desktop/src-tauri/tauri.conf.json):
-#   git tag v0.6.0 && git push origin v0.6.0
+# Выпуск новой версии. Версия берётся из apps/desktop/src-tauri/tauri.conf.json.
+# Запуск: GitHub → Actions → Release → Run workflow (ветка main)
+# или тегом: git tag v0.6.0 && git push origin v0.6.0.
 # Собирает установщик на серверах GitHub, подписывает его ключом обновлений,
 # считает SHA-256 и создаёт черновик релиза с latest.json для автообновления.
-# Черновик публикуется вручную после проверки — только тогда установленные
-# приложения увидят обновление.
+# Черновик публикуется вручную после проверки — только тогда создаётся тег
+# и установленные приложения увидят обновление.
 name: Release
 
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -24,11 +25,15 @@ jobs:
       - name: Версия тега и приложения совпадают, ключ подписи задан
         shell: pwsh
         env:
+          GH_TOKEN: ${{ github.token }}
           HAS_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY != '' }}
         run: |
           $version = (Get-Content apps/desktop/src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
-          if ("v$version" -ne "${{ github.ref_name }}") {
-            throw "Тег ${{ github.ref_name }} не совпадает с версией приложения $version"
+          $tag = "v$version"
+          if ("${{ github.ref_type }}" -eq "tag") {
+            if ($tag -ne "${{ github.ref_name }}") { throw "Тег ${{ github.ref_name }} не совпадает с версией приложения $version" }
+          } elseif ("${{ github.ref_name }}" -ne "main") {
+            throw "Выпуск запускается только из ветки main"
           }
           if ($env:HAS_KEY -ne "true") {
             throw "Не задан секрет TAURI_SIGNING_PRIVATE_KEY (Settings → Secrets and variables → Actions)"
@@ -40,7 +45,11 @@ jobs:
             throw "В CHANGELOG.md нет раздела ## v$version"
           }
           $match.Groups[1].Value.Trim() | Set-Content -Encoding utf8 RELEASE_NOTES.md
+          gh release view $tag --repo "${{ github.repository }}" *> $null
+          if ($LASTEXITCODE -eq 0) { throw "Релиз $tag уже есть. Поднимите версию или удалите старый черновик." }
+          $global:LASTEXITCODE = 0
           "VERSION=$version" >> $env:GITHUB_ENV
+          "TAG=$tag" >> $env:GITHUB_ENV
 
       - uses: pnpm/action-setup@v4
 
@@ -87,7 +96,7 @@ jobs:
             platforms = [ordered]@{
               "windows-x86_64" = [ordered]@{
                 signature = (Get-Content $sig.FullName -Raw).Trim()
-                url       = "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/$name"
+                url       = "https://github.com/${{ github.repository }}/releases/download/${env:TAG}/$name"
               }
             }
           }
@@ -103,7 +112,9 @@ jobs:
         run: |
           $notes = (Get-Content RELEASE_NOTES.md -Raw -Encoding utf8).Trim() + "`n`n---`nУстановщик собран автоматически на серверах GitHub из кода этого тега. Перед установкой сверьте SHA-256 из файла SHA256SUMS.txt. Уже установленные приложения обновятся сами."
           $notes | Set-Content -Encoding utf8 notes.md
-          gh release create "${{ github.ref_name }}" (Get-ChildItem out/*).FullName `
+          # Тег создаётся при публикации черновика — на коммите этой сборки.
+          gh release create $env:TAG (Get-ChildItem out/*).FullName `
             --draft `
-            --title "TWM Market ${{ github.ref_name }}" `
+            --target "${{ github.sha }}" `
+            --title "TWM Market $env:TAG" `
             --notes-file notes.md

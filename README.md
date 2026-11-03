@@ -68,9 +68,9 @@ Get-FileHash .\TWM-Market_0.6.0_x64-setup.exe -Algorithm SHA256
 
 1. Поднять версию во всех `package.json`, `apps/desktop/src-tauri/tauri.conf.json` и `Cargo.toml`.
 2. Дописать раздел `## vX.Y.Z` в [CHANGELOG.md](CHANGELOG.md) — он станет описанием релиза и текстом «Что нового» в приложении.
-3. Влить в `main`, затем `git tag vX.Y.Z && git push origin vX.Y.Z`.
+3. Влить в `main`, затем на GitHub: **Actions → Release → Run workflow** (ветка `main`). Можно и тегом: `git tag vX.Y.Z && git push origin vX.Y.Z`.
 4. GitHub соберёт и подпишет установщик и создаст **черновик** релиза: установщик, `SHA256SUMS.txt`, `latest.json`, подпись `.sig`.
-5. Скачать установщик из черновика, проверить, нажать «Publish release». С этого момента установленные приложения увидят обновление.
+5. Скачать установщик из черновика, проверить, нажать «Publish release» — тогда же создаётся тег `vX.Y.Z`. С этого момента установленные приложения увидят обновление.
 
 Для подписи нужны секреты репозитория `TAURI_SIGNING_PRIVATE_KEY` и `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` (Settings → Secrets and variables → Actions). Закрытый ключ хранится только у владельца проекта и в секретах GitHub. Если его потерять, уже установленные приложения не смогут обновиться автоматически — понадобится установить новую версию вручную.
 
