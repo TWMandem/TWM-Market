@@ -4,6 +4,8 @@ import { basename } from "node:path";
 import { Readable } from "node:stream";
 import { signV4 } from "../mail/sigv4.js";
 
+type Body = NonNullable<RequestInit["body"]>;
+
 /**
  * Минимальный клиент Object Storage (S3-совместимого, например Yandex Cloud):
  * загрузить файл, список файлов, удалить файл. Для копий базы вне сервера.
@@ -29,7 +31,7 @@ function objectUrl(o: StorageOptions, key: string, query = ""): URL {
   return new URL(`${base}/${encodeURIComponent(o.bucket)}/${path}${query}`);
 }
 
-async function send(o: StorageOptions, method: string, url: URL, headers: Record<string, string> = {}, body?: BodyInit, payloadHash = "UNSIGNED-PAYLOAD") {
+async function send(o: StorageOptions, method: string, url: URL, headers: Record<string, string> = {}, body?: Body, payloadHash = "UNSIGNED-PAYLOAD") {
   const signed = signV4({
     method,
     url,
@@ -60,8 +62,8 @@ const STREAM_FROM_BYTES = 512 * 1024 * 1024;
 
 export async function uploadFile(o: StorageOptions, key: string, path: string): Promise<void> {
   const { size } = await stat(path);
-  const body: BodyInit =
-    size < STREAM_FROM_BYTES ? new Uint8Array(await readFile(path)) : (Readable.toWeb(createReadStream(path)) as unknown as BodyInit);
+  const body: Body =
+    size < STREAM_FROM_BYTES ? new Uint8Array(await readFile(path)) : (Readable.toWeb(createReadStream(path)) as unknown as Body);
   const headers: Record<string, string> = { "content-type": "application/octet-stream" };
   if (size >= STREAM_FROM_BYTES) headers["content-length"] = String(size);
   await send(o, "PUT", objectUrl(o, key), headers, body);

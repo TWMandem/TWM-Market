@@ -7,7 +7,7 @@ import { deleteObject, listObjects, uploadFile, type StorageOptions } from "./ob
 
 function fakeStorage() {
   const calls: Array<{ method: string; url: string; headers: Record<string, string>; body: string }> = [];
-  const fetchFn = (async (input: URL | RequestInfo, init?: RequestInit) => {
+  const fetchFn = (async (input: string | URL | Request, init?: RequestInit) => {
     const headers = (init?.headers ?? {}) as Record<string, string>;
     const body = init?.body instanceof Uint8Array ? Buffer.from(init.body).toString() : "";
     calls.push({ method: init?.method ?? "GET", url: String(input), headers, body });
