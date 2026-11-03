@@ -54,7 +54,7 @@ export function AppHeader() {
             const q = search.trim();
             if (q) navigate(`/search?q=${encodeURIComponent(q)}`);
           }}
-          className="flex h-11 min-w-[170px] flex-[1_1_220px] items-center gap-2 rounded-xl border border-line bg-surface px-3 focus-within:border-accent"
+          className="flex h-11 min-w-[170px] flex-[1_1_170px] items-center gap-2 rounded-xl border border-line bg-surface px-3 focus-within:border-accent"
         >
           <Icon name="search" size={18} className="text-muted" />
           <label htmlFor="global-search" className="sr-only">

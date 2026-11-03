@@ -291,8 +291,8 @@ function Thread({ id, onChange }: { id: string; onChange: (c: ConversationDto) =
         </div>
       </header>
 
-      <DealBar conversation={c} onChange={applyConversation} />
       <OfferBar conversation={c} onChange={applyConversation} onPulled={() => void pull()} onCounter={() => setOfferOpen(true)} />
+      <DealBar conversation={c} onChange={applyConversation} />
 
       <div role="log" aria-live="polite" aria-label="Сообщения" className="flex flex-1 flex-col gap-2 overflow-y-auto p-4">
         {hasMore && (
@@ -788,7 +788,7 @@ function OfferForm({
           {counter && c.offer && (
             <>
               {" "}
-              · {c.counterpart.login} предлагает <b className="font-mono">{formatPrice(c.offer.price)}</b>
+              · {c.counterpart.nickname ?? c.counterpart.login} предлагает <b className="font-mono">{formatPrice(c.offer.price)}</b>
             </>
           )}
         </span>
