@@ -590,6 +590,22 @@ describe("объявления", { skip: skipWithoutDb }, () => {
     assert.equal(uploadedVideo.statusCode, 200, uploadedVideo.body);
     assert.equal(uploadedVideo.json().icon.kind, "video");
 
+    // Анимированный гиф (3 кадра) становится анимированным WebP.
+    const gif = Buffer.from(
+      "R0lGODlhKAAeAIEAAP8AAAAAAAAAAAAAACH/C05FVFNDQVBFMi4wAwEAAAAh+QQACgAAACwAAAAAKAAeAAAIOgABCBxIsKDBgwgTKlzIsKHDhxAjSpxIsaLFixgzatzIsaPHjyBDihxJsqTJkyhTqlzJsqXLlzAxBgQAIfkEAQoAAQAsAAAAACgAHgCBAAD/AAAAAAAAAAAACDoAAQgcSLCgwYMIEypcyLChw4cQI0qcSLGixYsYM2rcyLGjx48gQ4ocSbKkyZMoU6pcybKly5cwMQYEACH5BAEKAAEALAAAAAAoAB4AgQCAAAAAAAAAAAAAAAg6AAEIHEiwoMGDCBMqXMiwocOHECNKnEixosWLGDNq3Mixo8ePIEOKHEmypMmTKFOqXMmypcuXMDEGBAA7",
+      "base64",
+    );
+    const gifForm = multipart("file", "icon.gif", gif, "image/gif");
+    const uploadedGif = await env.app.inject({ method: "POST", url: `/v1/admin/catalog-items/${itemId}/icon`, headers: { ...bearer(admin.accessToken), ...gifForm.headers }, payload: gifForm.payload });
+    assert.equal(uploadedGif.statusCode, 200, uploadedGif.body);
+    const gifIcon = uploadedGif.json().icon as { kind: string; url: string };
+    assert.equal(gifIcon.kind, "image");
+    assert.match(gifIcon.url, /\.webp$/);
+    const stored = await env.app.inject({ method: "GET", url: new URL(gifIcon.url, "http://x").pathname });
+    assert.equal(stored.statusCode, 200);
+    const storedMeta = await sharp(stored.rawPayload, { animated: true }).metadata();
+    assert.equal(storedMeta.pages, 3, "кадры сохранились");
+
     const options = (await call("GET", `/v1/catalog/items?q=${encodeURIComponent("часы")}`)).json() as { items: Array<{ id: number; icon: { kind: string } | null }> };
     assert.equal(options.items.length, 2, "два предмета с одинаковым названием");
     assert.ok(options.items.every((i) => i.icon !== null));

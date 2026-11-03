@@ -104,9 +104,13 @@ function isWebm(buffer: Buffer): boolean {
   );
 }
 
-export const ICON_VIDEO_MAX_BYTES = 4 * 1024 * 1024;
+/** Видео-иконка и гиф — до 10 МБ (как и общий предел загрузки файла). */
+export const ICON_VIDEO_MAX_BYTES = 10 * 1024 * 1024;
 
-/** Иконка предмета: картинка → WebP 256×256, видео WebM сохраняется как есть после проверки. */
+/**
+ * Иконка предмета: картинка → WebP 256×256, гиф → анимированный WebP 256×256,
+ * видео WebM сохраняется как есть после проверки.
+ */
 export async function saveIcon(
   root: string,
   itemId: number,
@@ -115,27 +119,34 @@ export async function saveIcon(
   const name = randomUUID();
   if (isWebm(buffer)) {
     if (buffer.length > ICON_VIDEO_MAX_BYTES) {
-      throw new AppError(400, "file_too_large", "Видео-иконка должна быть не больше 4 МБ.");
+      throw new AppError(400, "file_too_large", "Видео-иконка должна быть не больше 10 МБ.");
     }
     const path = join("icons", String(itemId), `${name}.webm`);
     await save(root, path, buffer);
     return { path, kind: "video" };
   }
 
-  const image = sharp(buffer, { limitInputPixels: 40_000_000, failOn: "error" });
+  const invalid = () => new AppError(400, "invalid_icon", "Подходят PNG, JPG, WebP, GIF или видео WebM.");
   let meta: sharp.Metadata;
   try {
-    meta = await image.metadata();
+    meta = await sharp(buffer, { limitInputPixels: false }).metadata();
   } catch {
-    throw new AppError(400, "invalid_icon", "Подходят PNG, JPG, WebP или видео WebM.");
+    throw invalid();
   }
-  if (!meta.format || !["jpeg", "png", "webp"].includes(meta.format)) {
-    throw new AppError(400, "invalid_icon", "Подходят PNG, JPG, WebP или видео WebM.");
+  if (!meta.format || !["jpeg", "png", "webp", "gif"].includes(meta.format)) throw invalid();
+  const animated = (meta.pages ?? 1) > 1;
+  if (animated && buffer.length > ICON_VIDEO_MAX_BYTES) {
+    throw new AppError(400, "file_too_large", "Анимированная иконка должна быть не больше 10 МБ.");
   }
-  const data = await image
-    .rotate()
+  // У анимации считаются все кадры сразу: 80 млн точек — например, 500 кадров 400×400.
+  const totalPixels = (meta.width ?? 0) * (meta.height ?? 0) * (meta.pages ?? 1);
+  if (totalPixels > 80_000_000) {
+    throw new AppError(400, "icon_too_big", "Слишком много кадров или слишком большой размер кадра. Уменьшите гиф до 256×256.");
+  }
+  const image = sharp(buffer, { animated, limitInputPixels: false, failOn: "error" });
+  const data = await (animated ? image : image.rotate())
     .resize({ width: 256, height: 256, fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
-    .webp({ quality: 85 })
+    .webp({ quality: 85, ...(animated ? { effort: 4 } : {}) })
     .toBuffer();
   const path = join("icons", String(itemId), `${name}.webp`);
   await save(root, path, data);

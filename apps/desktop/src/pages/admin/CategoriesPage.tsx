@@ -470,13 +470,13 @@ function ItemRow({
     <li className="group flex flex-wrap items-center gap-3 rounded-xl bg-surface-2 px-3 py-2">
       <label
         className={`relative flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-ground ${canEdit ? "cursor-pointer hover:ring-2 hover:ring-accent" : ""}`}
-        title={canEdit ? "Загрузить иконку (PNG, JPG, WebP или WebM)" : undefined}
+        title={canEdit ? "Загрузить иконку: PNG, JPG, WebP, GIF или видео WebM до 10 МБ" : undefined}
       >
         <Media media={item.icon} alt="" fit="contain" className="size-full" />
         {canEdit && (
           <input
             type="file"
-            accept="image/png,image/jpeg,image/webp,video/webm"
+            accept="image/png,image/jpeg,image/webp,image/gif,video/webm"
             className="sr-only"
             aria-label={`Иконка для «${item.name}»`}
             onChange={(e) => {
