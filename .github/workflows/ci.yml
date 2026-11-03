@@ -177,6 +177,17 @@ jobs:
           pnpm --filter @twm/screenshots shoot
           cat tools/screenshots/out/report.md >> "$GITHUB_STEP_SUMMARY"
 
+      # Копия снимков в журнале (архив в base64) — для проверки на рабочих ветках
+      # там, где скачать артефакт нельзя. Обычно снимки удобнее брать из артефакта.
+      - name: Снимки в журнале
+        if: always() && github.ref != 'refs/heads/main'
+        run: |
+          if [ -d tools/screenshots/out/screens ]; then
+            echo "----- TWM-SCREENS-BEGIN -----"
+            tar -czf - -C tools/screenshots/out screens report.md | base64 -w 120
+            echo "----- TWM-SCREENS-END -----"
+          fi
+
       - name: Журнал сервера
         if: always()
         run: tail -n 200 "$RUNNER_TEMP/api.log" || true
