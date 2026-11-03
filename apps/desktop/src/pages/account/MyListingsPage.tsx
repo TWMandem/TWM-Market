@@ -102,6 +102,11 @@ export function MyListingsPage() {
                 <span>
                   <span className="font-mono font-bold text-ink">{item.favorites}</span> в избр.
                 </span>
+                {item.publishedAt && (
+                  <Link to={`/listing/${item.id}`} className="font-bold text-accent no-underline hover:text-accent-soft">
+                    Статистика →
+                  </Link>
+                )}
               </div>
               <div className="flex flex-wrap gap-2">
                 {item.status === "active" && (
