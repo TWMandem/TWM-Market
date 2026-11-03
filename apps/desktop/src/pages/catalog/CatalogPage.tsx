@@ -15,8 +15,10 @@ import {
   type SectionCode,
 } from "@twm/shared";
 import { ListingGrid } from "../../components/listing";
+import { SaveSearchDialog } from "../../components/SaveSearchDialog";
 import { Alert, Button } from "../../components/ui";
 import { ApiError, api } from "../../lib/api";
+import { useAuth } from "../../lib/auth-context";
 import { useAttributes, useCatalog, useFavoriteToggle } from "../../lib/catalog";
 import { useServers } from "../../lib/server-context";
 
@@ -46,6 +48,8 @@ export function CatalogPage({ section }: { section: SectionCode | "search" }) {
   const [result, setResult] = useState<ListingSearchResultDto | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [subscribing, setSubscribing] = useState(false);
+  const { status } = useAuth();
 
   const get = (key: string) => params.get(key) ?? "";
   const set = useCallback(
@@ -123,6 +127,25 @@ export function CatalogPage({ section }: { section: SectionCode | "search" }) {
   const page = Number(get("page")) || 1;
   const activeFilters = [...params.keys()].filter((k) => !["sort", "page", "q"].includes(k)).length;
 
+  // Подписка хранит параметры запроса к поиску (с разделом, типом и сервером).
+  const subscriptionParams = () => {
+    const out = new URLSearchParams();
+    for (const [key, value] of Object.entries(query)) {
+      if (value !== undefined && value !== "" && key !== "page" && key !== "sort") out.set(key, String(value));
+    }
+    return out.toString();
+  };
+  const suggestedName = () => {
+    const parts: string[] = [];
+    const category = catalog?.categories.find((c) => c.id === categoryFilter)?.name;
+    const type = section === "notary" && typeId ? sectionTypes.find((t) => t.id === typeId)?.name : undefined;
+    parts.push(category ?? type ?? TITLES[section]);
+    if (get("q")) parts.push(`«${get("q")}»`);
+    if (get("priceMax")) parts.push(`до ${formatPrice(Number(get("priceMax")))}`);
+    if (current && !params.get("allServers")) parts.push(current.name);
+    return parts.join(", ");
+  };
+
   return (
     <div className="flex flex-col gap-6">
       <nav aria-label="Хлебные крошки" className="text-sm text-muted">
@@ -143,6 +166,11 @@ export function CatalogPage({ section }: { section: SectionCode | "search" }) {
           </span>
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
+          {status === "authed" && (
+            <Button variant="secondary" onClick={() => setSubscribing(true)}>
+              <span aria-hidden="true">🔔</span> Подписаться на поиск
+            </Button>
+          )}
           <Segmented
             label="Тип объявлений"
             value={get("operation")}
@@ -183,6 +211,9 @@ export function CatalogPage({ section }: { section: SectionCode | "search" }) {
       )}
 
       {catalogError && <Alert>{catalogError}</Alert>}
+      {subscribing && (
+        <SaveSearchDialog section={section} params={subscriptionParams()} suggestedName={suggestedName()} onClose={() => setSubscribing(false)} />
+      )}
 
       <div className="flex flex-wrap items-start gap-6">
         <aside aria-label="Фильтры" className="flex min-w-0 flex-[1_1_250px] flex-col gap-5 rounded-[var(--radius-card)] border border-line bg-surface p-5 lg:max-w-[290px]">

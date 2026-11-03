@@ -2,6 +2,7 @@ import type { FastifyReply, FastifyRequest, preHandlerAsyncHookHandler } from "f
 import type { Role } from "@twm/shared";
 import type { AppContext, AuthState } from "../../context.js";
 import type { UserRow } from "../../db/types.js";
+import { trackActivity } from "../../lib/activity.js";
 import { AppError, errors } from "../../lib/errors.js";
 import { verifyAccessToken } from "../../lib/tokens.js";
 
@@ -31,6 +32,7 @@ export function requireAuth(ctx: AppContext) {
 
     const { sessionMfaVerifiedAt, ...user } = row;
     request.auth = { user, sessionId: claims.sid, sessionMfaVerified: sessionMfaVerifiedAt !== null };
+    await trackActivity(ctx.sql, user.id);
   };
 }
 

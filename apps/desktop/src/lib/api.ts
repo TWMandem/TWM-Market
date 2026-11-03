@@ -17,7 +17,12 @@ import type {
   ModerationSummaryDto,
   ModeratorConversationDto,
   NotificationDto,
+  ListingStatsDto,
+  PriceHistoryDto,
   PublicUserDto,
+  SavedSearchDto,
+  SavedSearchSection,
+  StatsPeriod,
   ReportDto,
   ReportReason,
   ReportTarget,
@@ -305,6 +310,21 @@ export const api = {
     request<void>("/v1/me/notifications/read", { method: "POST", body: ids ? { ids } : {} }),
   report: (body: { targetType: ReportTarget; targetId: string; reason: ReportReason; comment: string }) =>
     request<{ id: string }>("/v1/reports", { method: "POST", body }),
+
+  // ── Статистика и цены ───────────────────────────────────────────────────
+  listingStats: (id: string) => request<ListingStatsDto>(`/v1/me/listings/${encodeURIComponent(id)}/stats`),
+  similarListings: (id: string) => request<{ items: ListingCardDto[] }>(`/v1/listings/${encodeURIComponent(id)}/similar`),
+  priceHistory: (itemId: number, params: { server?: number; days?: number }) =>
+    request<PriceHistoryDto>(`/v1/catalog/items/${itemId}/prices${qs(params)}`, { auth: false }),
+
+  // ── Подписки на поиск ───────────────────────────────────────────────────
+  savedSearches: () => request<{ items: SavedSearchDto[] }>("/v1/me/saved-searches"),
+  createSavedSearch: (body: { name: string; section: SavedSearchSection; params: string; notify: boolean }) =>
+    request<SavedSearchDto>("/v1/me/saved-searches", { method: "POST", body }),
+  updateSavedSearch: (id: string, body: { name?: string; notify?: boolean }) =>
+    request<SavedSearchDto>(`/v1/me/saved-searches/${encodeURIComponent(id)}`, { method: "PATCH", body }),
+  seenSavedSearch: (id: string) => request<SavedSearchDto>(`/v1/me/saved-searches/${encodeURIComponent(id)}/seen`, { method: "POST" }),
+  deleteSavedSearch: (id: string) => request<void>(`/v1/me/saved-searches/${encodeURIComponent(id)}`, { method: "DELETE" }),
 };
 
 /** Полный адрес файла с сервера (фото, иконки). */
@@ -323,7 +343,7 @@ const qs = (params: Record<string, string | number | undefined>) => {
 
 /** Методы админ-панели. Сервер проверяет роль и двухфакторный вход на каждом запросе. */
 export const adminApi = {
-  stats: () => request<AdminStatsDto>("/v1/admin/stats"),
+  stats: (days: StatsPeriod) => request<AdminStatsDto>(`/v1/admin/stats${qs({ days })}`),
 
   users: (params: { query?: string; role?: string; status?: string; page?: number }) =>
     request<Paged<AdminUserListItemDto>>(`/v1/admin/users${qs(params)}`),

@@ -37,6 +37,9 @@ export function AccountPage() {
           <Link to="/favorites" className="flex h-11 items-center rounded-xl border border-line px-4 font-bold text-ink no-underline hover:border-faint">
             Избранное
           </Link>
+          <Link to="/my/searches" className="flex h-11 items-center rounded-xl border border-line px-4 font-bold text-ink no-underline hover:border-faint">
+            Подписки на поиск
+          </Link>
           <Button variant="secondary" onClick={() => void signOut()}>
             Выйти
           </Button>

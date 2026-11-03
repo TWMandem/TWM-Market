@@ -75,14 +75,6 @@ export interface TwoFactorSetupDto {
   otpauthUrl: string;
 }
 
-export interface AdminStatsDto {
-  users: { total: number; new7d: number; new30d: number; verified: number; blocked: number; staff: number };
-  gameProfiles: number;
-  activeSessions: number;
-  /** Регистрации по дням за последние 30 дней (включая сегодня). */
-  registrationsByDay: Array<{ date: string; count: number }>;
-}
-
 export interface AdminUserListItemDto {
   id: string;
   login: string;

@@ -7,3 +7,4 @@ export * from "./admin.js";
 export * from "./attributes.js";
 export * from "./api-types.js";
 export * from "./chat.js";
+export * from "./stats.js";

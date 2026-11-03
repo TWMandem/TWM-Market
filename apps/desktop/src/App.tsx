@@ -14,6 +14,7 @@ import { ListingPage } from "./pages/listing/ListingPage";
 import { ListingFormPage } from "./pages/listing/ListingFormPage";
 import { MyListingsPage } from "./pages/account/MyListingsPage";
 import { FavoritesPage } from "./pages/account/FavoritesPage";
+import { SavedSearchesPage } from "./pages/account/SavedSearchesPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { LoginPage } from "./pages/auth/LoginPage";
 import { RegisterPage } from "./pages/auth/RegisterPage";
@@ -63,6 +64,14 @@ const router = createHashRouter([
         element: (
           <RequireAuth>
             <MyListingsPage />
+          </RequireAuth>
+        ),
+      },
+      {
+        path: "my/searches",
+        element: (
+          <RequireAuth>
+            <SavedSearchesPage />
           </RequireAuth>
         ),
       },

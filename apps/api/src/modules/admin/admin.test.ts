@@ -94,8 +94,9 @@ describe("доступ к админ-панели и двухфакторный 
     const response = await stats(admin.accessToken);
     const body = response.json() as AdminStatsDto;
     assert.ok(body.users.total >= 1);
-    assert.equal(body.registrationsByDay.length, 30);
-    assert.ok((body.registrationsByDay.at(-1)?.count ?? 0) >= 1);
+    assert.equal(body.days, 30);
+    assert.equal(body.metrics.registrations.byDay.length, 30);
+    assert.ok((body.metrics.registrations.byDay.at(-1)?.value ?? 0) >= 1);
   });
 });
 

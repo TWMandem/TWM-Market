@@ -18,6 +18,7 @@ import { errors, parseBody } from "../../lib/errors.js";
 import { mediaUrl } from "../../lib/media.js";
 import { notify } from "../../lib/notify.js";
 import { resetStopWordCache } from "../../lib/stop-words.js";
+import { notifySavedSearchesLater } from "../saved-searches/routes.js";
 import { requireStaff } from "../auth/guard.js";
 import { MESSAGE_COLUMNS, toMessage, type MessageRow } from "../chat/service.js";
 
@@ -120,6 +121,7 @@ export async function adminModerationRoutes(app: FastifyInstance, ctx: AppContex
     await closeReports(request, "listing", id, "dismissed", "Объявление проверено и одобрено");
     await writeAudit(ctx, request, "listing.approved", { type: "listing", id });
     await notify(sql, row.userId, "listing_approved", "Объявление опубликовано", `«${row.title}» прошло проверку.`, `/listing/${id}`);
+    notifySavedSearchesLater(ctx, id, request.log);
     return { ok: true };
   });
 

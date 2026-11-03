@@ -4,6 +4,7 @@ import { createDatabase } from "./db/client.js";
 import { migrate } from "./db/migrate.js";
 import { SmtpMailer, createMailer } from "./mail/mailer.js";
 import { archiveExpired } from "./modules/listings/service.js";
+import { snapshotPrices } from "./modules/stats/prices.js";
 
 const config = loadConfig();
 if (!config.DATABASE_URL) {
@@ -38,8 +39,16 @@ const archiveTimer = setInterval(() => {
     .catch((error: unknown) => app.log.error(error));
 }, 10 * 60 * 1000);
 
+// Раз в час — снимок цен для графиков «история цены» (и сразу после запуска).
+const takeSnapshot = () => {
+  snapshotPrices(database.sql).catch((error: unknown) => app.log.error(error, "Снимок цен не удался"));
+};
+takeSnapshot();
+const priceTimer = setInterval(takeSnapshot, 60 * 60 * 1000);
+
 const shutdown = async (signal: string) => {
   clearInterval(archiveTimer);
+  clearInterval(priceTimer);
   app.log.info(`Получен ${signal}, останавливаю сервер`);
   await app.close();
   await database.close();

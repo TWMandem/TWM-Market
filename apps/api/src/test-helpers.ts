@@ -7,6 +7,7 @@ import { buildApp } from "./app.js";
 import { loadConfig } from "./config.js";
 import { createDatabase, type Database } from "./db/client.js";
 import { migrate } from "./db/migrate.js";
+import { resetActivityCache } from "./lib/activity.js";
 import { MemoryMailer } from "./mail/mailer.js";
 import { currentStep, totpAt } from "./lib/totp.js";
 
@@ -33,7 +34,9 @@ export async function setupTestEnv(env: Record<string, string> = {}): Promise<Te
     TRUNCATE users, sessions, email_codes, game_profiles, game_profile_history,
              audit_log, attribute_definitions, catalog_items, categories,
              listings, listing_images, favorites, listing_price_history,
-             conversations, messages, deals, reviews, notifications, reports CASCADE`;
+             conversations, messages, deals, reviews, notifications, reports,
+             listing_views_daily, user_activity_daily, price_snapshots, saved_searches CASCADE`;
+  resetActivityCache();
   // Убираем то, что тесты добавили к стартовым справочникам.
   await database.sql`DELETE FROM servers WHERE number > 13`;
   await database.sql`

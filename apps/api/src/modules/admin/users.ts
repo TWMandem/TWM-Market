@@ -3,7 +3,6 @@ import { z } from "zod";
 import {
   blockUserSchema,
   changeRoleSchema,
-  type AdminStatsDto,
   type AdminUserDetailDto,
   type AdminUserListItemDto,
   type Paged,
@@ -59,34 +58,6 @@ const likePattern = (text: string) => `%${text.replace(/[\\%_]/g, (c) => `\\${c}
 
 export async function adminUserRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
   const sql = ctx.sql;
-
-  // ── Статистика для дашборда ───────────────────────────────────────────────
-  app.get("/v1/admin/stats", { preHandler: requireStaff(ctx) }, async (): Promise<AdminStatsDto> => {
-    const [users] = await sql<AdminStatsDto["users"][]>`
-      SELECT
-        count(*)::int AS total,
-        count(*) FILTER (WHERE created_at > now() - interval '7 days')::int AS new7d,
-        count(*) FILTER (WHERE created_at > now() - interval '30 days')::int AS new30d,
-        count(*) FILTER (WHERE email_verified_at IS NOT NULL)::int AS verified,
-        count(*) FILTER (WHERE status = 'blocked')::int AS blocked,
-        count(*) FILTER (WHERE role <> 'user')::int AS staff
-      FROM users`;
-    const [extra] = await sql<{ gameProfiles: number; activeSessions: number }[]>`
-      SELECT
-        (SELECT count(*)::int FROM game_profiles) AS game_profiles,
-        (SELECT count(*)::int FROM sessions WHERE revoked_at IS NULL AND expires_at > now()) AS active_sessions`;
-    const days = await sql<{ date: string; count: number }[]>`
-      SELECT to_char(d, 'YYYY-MM-DD') AS date, count(u.id)::int AS count
-      FROM generate_series(current_date - 29, current_date, interval '1 day') AS d
-      LEFT JOIN users u ON u.created_at::date = d::date
-      GROUP BY d ORDER BY d`;
-    return {
-      users: users ?? { total: 0, new7d: 0, new30d: 0, verified: 0, blocked: 0, staff: 0 },
-      gameProfiles: extra?.gameProfiles ?? 0,
-      activeSessions: extra?.activeSessions ?? 0,
-      registrationsByDay: days.map((d) => ({ date: d.date, count: d.count })),
-    };
-  });
 
   // ── Список пользователей ──────────────────────────────────────────────────
   app.get("/v1/admin/users", { preHandler: requireStaff(ctx) }, async (request): Promise<Paged<AdminUserListItemDto>> => {

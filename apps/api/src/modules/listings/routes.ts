@@ -1,25 +1,26 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 import {
-  LISTING_PERIODS,
-  LISTING_SORTS,
+  LISTING_STATS_DAYS,
   LISTING_TTL_DAYS,
   MAX_ACTIVE_LISTINGS,
-  geneCounts,
   imageOrderSchema,
   listingInputSchema,
   type ListingCardDto,
   type ListingSearchResultDto,
+  type ListingStatsDto,
 } from "@twm/shared";
 import type { AppContext } from "../../context.js";
 import type { Fragment } from "../../db/client.js";
 import { AppError, errors, parseBody } from "../../lib/errors.js";
 import { removeMedia, removeMediaDir, saveListingImage } from "../../lib/media.js";
+import { dayMinus, dayRange, mskDay } from "../../lib/day.js";
 import { stopWordReason } from "../../lib/stop-words.js";
 import { authOf, hasRole, optionalAuth, requireAuth } from "../auth/guard.js";
+import { notifySavedSearchesLater } from "../saved-searches/routes.js";
+import { filterDefinitions, searchConditions, searchFrom, searchQuery, whereOf } from "./search.js";
 import {
   listingSelect,
-  loadDefinitions,
   loadImages,
   loadListingRow,
   notOwner,
@@ -32,29 +33,6 @@ import {
 
 const idParam = z.object({ id: z.string().uuid() });
 const PAGE_SIZE = 24;
-
-const searchQuery = z.object({
-  section: z.enum(["items", "cars", "notary"]).optional(),
-  type: z.coerce.number().int().positive().optional(),
-  category: z.coerce.number().int().positive().optional(),
-  item: z.coerce.number().int().positive().optional(),
-  operation: z.enum(["sell", "buy", "exchange"]).optional(),
-  server: z.coerce.number().int().positive().optional(),
-  /** Показать предложения с других серверов, где возможен перевод. */
-  transfer: z.enum(["1", "true"]).optional(),
-  priceMin: z.coerce.number().int().min(0).optional(),
-  priceMax: z.coerce.number().int().min(0).optional(),
-  q: z.string().trim().max(100).optional(),
-  nick: z.string().trim().max(40).optional(),
-  period: z.enum(LISTING_PERIODS).optional(),
-  dealPlace: z.enum(["car_market", "notary"]).optional(),
-  sort: z.enum(LISTING_SORTS).default("new"),
-  page: z.coerce.number().int().min(1).max(1000).default(1),
-});
-
-const likePattern = (text: string) => `%${text.toLowerCase().replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
-
-const PERIOD_INTERVAL = { "1d": "1 day", "7d": "7 days", "30d": "30 days" } as const;
 
 export async function listingRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
   const sql = ctx.sql;
@@ -83,64 +61,8 @@ export async function listingRoutes(app: FastifyInstance, ctx: AppContext): Prom
     const raw = request.query as Record<string, string | undefined>;
     const viewerId = request.auth?.user.id ?? null;
 
-    // Фильтры по характеристикам: a.<ключ>=значение, a.<ключ>.min / .max для чисел.
-    const definitions = q.type ? (await loadDefinitions(sql, q.type)).filter((d) => d.filterable && d.isActive) : [];
-
-    const where = (): Fragment => {
-      const c: Fragment[] = [sql`l.status = 'active'`, sql`l.expires_at > now()`, sql`s.is_active`, sql`t.is_active`];
-      if (q.section) c.push(sql`s.code = ${q.section}`);
-      if (q.type) c.push(sql`l.listing_type_id = ${q.type}::smallint`);
-      if (q.category) {
-        c.push(sql`(l.category_id = ${q.category} OR l.category_id IN (SELECT id FROM categories WHERE parent_id = ${q.category}))`);
-      }
-      if (q.item) c.push(sql`l.catalog_item_id = ${q.item}`);
-      if (q.operation) c.push(sql`l.operation = ${q.operation}`);
-      if (q.server) {
-        c.push(
-          q.transfer
-            ? sql`(sv.number = ${q.server}::smallint OR l.transfer_mode <> 'none')`
-            : sql`sv.number = ${q.server}::smallint`,
-        );
-      }
-      if (q.priceMin !== undefined) c.push(sql`l.price >= ${q.priceMin}::bigint`);
-      if (q.priceMax !== undefined) c.push(sql`l.price <= ${q.priceMax}::bigint`);
-      if (q.period) c.push(sql`l.published_at > now() - ${PERIOD_INTERVAL[q.period]}::interval`);
-      if (q.dealPlace) c.push(sql`${q.dealPlace} = ANY(l.deal_places)`);
-      if (q.nick) c.push(sql`lower(gp.nickname) LIKE ${likePattern(q.nick)}`);
-      if (q.q) {
-        const like = likePattern(q.q);
-        c.push(sql`(
-          l.search_vector @@ websearch_to_tsquery('russian', ${q.q})
-          OR lower(l.title) LIKE ${like}
-          OR lower(gp.nickname) = lower(${q.q})
-          OR ci.game_code = ${q.q}
-          OR EXISTS (SELECT 1 FROM unnest(ci.aliases) a WHERE lower(a) LIKE ${like})
-        )`);
-      }
-      for (const def of definitions) {
-        const key = def.key;
-        if (def.dataType === "number") {
-          const min = Number(raw[`a.${key}.min`]);
-          const max = Number(raw[`a.${key}.max`]);
-          const value = sql`(CASE WHEN jsonb_typeof(l.attributes -> ${key}) = 'number' THEN (l.attributes ->> ${key})::numeric END)`;
-          if (raw[`a.${key}.min`] && Number.isFinite(min)) c.push(sql`${value} >= ${min}::numeric`);
-          if (raw[`a.${key}.max`] && Number.isFinite(max)) c.push(sql`${value} <= ${max}::numeric`);
-        } else {
-          const value = raw[`a.${key}`];
-          if (!value) continue;
-          if (def.dataType === "genes") {
-            // «YYG» — в геноме не меньше двух Y и одной G.
-            const genes = () => sql`coalesce(l.attributes ->> ${key}, '')`;
-            for (const [letter, count] of Object.entries(geneCounts(value, def.options))) {
-              c.push(sql`(length(${genes()}) - length(replace(${genes()}, ${letter}, ''))) >= ${count}::int`);
-            }
-          } else if (def.dataType === "multiselect") c.push(sql`jsonb_exists(l.attributes -> ${key}, ${value})`);
-          else if (def.dataType === "boolean") c.push(sql`(l.attributes ->> ${key}) = ${value === "true" ? "true" : "false"}`);
-          else c.push(sql`(l.attributes ->> ${key}) = ${value}`);
-        }
-      }
-      return c.reduce((acc, cond, i) => (i === 0 ? sql`WHERE ${cond}` : sql`${acc} AND ${cond}`), sql``);
-    };
+    const definitions = await filterDefinitions(sql, q.type);
+    const where = (): Fragment => whereOf(sql, searchConditions(sql, q, raw, definitions));
 
     const order = () => {
       switch (q.sort) {
@@ -157,12 +79,7 @@ export async function listingRoutes(app: FastifyInstance, ctx: AppContext): Prom
 
     const [count] = await sql<{ total: number }[]>`
       SELECT count(*)::int AS total
-      FROM listings l
-      JOIN listing_types t ON t.id = l.listing_type_id
-      JOIN sections s ON s.id = t.section_id
-      JOIN servers sv ON sv.id = l.server_id
-      JOIN game_profiles gp ON gp.id = l.game_profile_id
-      LEFT JOIN catalog_items ci ON ci.id = l.catalog_item_id
+      ${searchFrom(sql)}
       ${where()}`;
     const rows = await sql<ListingRow[]>`
       ${listingSelect(sql, viewerId)}
@@ -189,9 +106,48 @@ export async function listingRoutes(app: FastifyInstance, ctx: AppContext): Prom
     // Просмотры владельца не считаются.
     if (isPublic && viewer?.id !== row.userId) {
       await sql`UPDATE listings SET views = views + 1 WHERE id = ${row.id}`;
+      await sql`
+        INSERT INTO listing_views_daily (listing_id, day, views) VALUES (${row.id}, ${mskDay()}::date, 1)
+        ON CONFLICT (listing_id, day) DO UPDATE SET views = listing_views_daily.views + 1`;
       row.views += 1;
     }
     return toDetail(ctx, row, viewer?.id ?? null);
+  });
+
+  // Похожие предложения: тот же предмет или модель, затем та же категория.
+  // Сначала свой сервер (или с переводом), затем ближе по цене.
+  app.get("/v1/listings/:id/similar", { preHandler: maybeAuth }, async (request): Promise<{ items: ListingCardDto[] }> => {
+    const params = idParam.safeParse(request.params);
+    if (!params.success) throw notOwner();
+    const viewerId = request.auth?.user.id ?? null;
+    const [base] = await sql<
+      { id: string; userId: string; listingTypeId: number; operation: string; catalogItemId: number | null; categoryId: number | null; serverId: number; price: string | null; title: string }[]
+    >`
+      SELECT id, user_id, listing_type_id, operation, catalog_item_id, category_id, server_id, price, title
+      FROM listings WHERE id = ${params.data.id}`;
+    if (!base) throw notOwner();
+
+    const match =
+      base.catalogItemId !== null
+        ? base.categoryId !== null
+          ? sql`(l.catalog_item_id = ${base.catalogItemId} OR l.category_id = ${base.categoryId})`
+          : sql`l.catalog_item_id = ${base.catalogItemId}`
+        : base.categoryId !== null
+          ? sql`l.category_id = ${base.categoryId}`
+          : sql`l.search_vector @@ plainto_tsquery('russian', ${base.title})`;
+    const rows = await sql<ListingRow[]>`
+      ${listingSelect(sql, viewerId)}
+      WHERE l.status = 'active' AND l.expires_at > now() AND s.is_active AND t.is_active
+        AND l.id <> ${base.id} AND l.user_id <> ${base.userId}
+        AND l.listing_type_id = ${base.listingTypeId} AND l.operation = ${base.operation}
+        AND ${match}
+      ORDER BY
+        ${base.catalogItemId !== null ? sql`(l.catalog_item_id = ${base.catalogItemId}) DESC,` : sql``}
+        (l.server_id = ${base.serverId} OR l.transfer_mode <> 'none') DESC,
+        ${base.price !== null ? sql`abs(l.price - ${base.price}::bigint) ASC NULLS LAST,` : sql``}
+        l.published_at DESC
+      LIMIT 8`;
+    return { items: rows.map(toCard) };
   });
 
   // ── Мои объявления ────────────────────────────────────────────────────────
@@ -228,6 +184,52 @@ export async function listingRoutes(app: FastifyInstance, ctx: AppContext): Prom
   app.get("/v1/me/listings/:id", { preHandler: auth }, async (request) => {
     const { row } = await ownListing(request);
     return toMyListing(ctx, row);
+  });
+
+  // Статистика объявления для продавца: просмотры по дням, интерес, место по цене.
+  app.get("/v1/me/listings/:id/stats", { preHandler: auth }, async (request): Promise<ListingStatsDto> => {
+    const { row } = await ownListing(request);
+    const today = mskDay();
+    const from = dayMinus(today, LISTING_STATS_DAYS - 1);
+    const daily = await sql<{ day: string; views: number }[]>`
+      SELECT to_char(day, 'YYYY-MM-DD') AS day, views FROM listing_views_daily
+      WHERE listing_id = ${row.id} AND day >= ${from}::date`;
+    const byDay = new Map(daily.map((d) => [d.day, d.views]));
+    const [counts] = await sql<{ favorites: number; conversations: number; deals: number }[]>`
+      SELECT
+        (SELECT count(*)::int FROM favorites WHERE listing_id = ${row.id}) AS favorites,
+        (SELECT count(*)::int FROM conversations WHERE listing_id = ${row.id}) AS conversations,
+        (SELECT count(*)::int FROM deals WHERE listing_id = ${row.id} AND status = 'confirmed') AS deals`;
+
+    let position: ListingStatsDto["position"] = null;
+    if (row.catalogItemId !== null && row.operation === "sell" && row.price !== null) {
+      const [rank] = await sql<{ total: number; cheaper: number; median: string | null; min: string | null }[]>`
+        SELECT count(*)::int AS total,
+          count(*) FILTER (WHERE price < ${row.price}::bigint)::int AS cheaper,
+          round(percentile_cont(0.5) WITHIN GROUP (ORDER BY price))::bigint AS median,
+          min(price) AS min
+        FROM listings
+        WHERE catalog_item_id = ${row.catalogItemId} AND server_id = ${row.serverId} AND operation = 'sell'
+          AND status = 'active' AND expires_at > now() AND price IS NOT NULL AND id <> ${row.id}`;
+      if (rank && rank.total > 0) {
+        position = {
+          rank: rank.cheaper + 1,
+          total: rank.total + 1,
+          median: Number(rank.median),
+          min: Math.min(Number(rank.min), Number(row.price)),
+        };
+      }
+    }
+
+    return {
+      views: row.views,
+      viewsToday: byDay.get(today) ?? 0,
+      viewsByDay: dayRange(from, today).map((date) => ({ date, value: byDay.get(date) ?? 0 })),
+      favorites: counts?.favorites ?? 0,
+      conversations: counts?.conversations ?? 0,
+      deals: counts?.deals ?? 0,
+      position,
+    };
   });
 
   // Создание — всегда черновик. Публикация отдельным шагом, после загрузки фото.
@@ -341,6 +343,7 @@ export async function listingRoutes(app: FastifyInstance, ctx: AppContext): Prom
         await tx`INSERT INTO listing_price_history (listing_id, price) VALUES (${row.id}, ${row.price}::bigint)`;
       }
     });
+    notifySavedSearchesLater(ctx, row.id, request.log);
     return fresh(row.id, user.id);
   });
 

@@ -103,7 +103,8 @@ export type NotificationKind =
   | "listing_moderation"
   | "listing_approved"
   | "listing_rejected"
-  | "report_resolved";
+  | "report_resolved"
+  | "saved_search";
 
 export interface NotificationDto {
   id: number;

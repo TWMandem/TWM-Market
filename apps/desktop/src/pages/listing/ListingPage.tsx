@@ -19,6 +19,7 @@ import { Alert, Button, Card } from "../../components/ui";
 import { ApiError, api, mediaSrc } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
 import { useLoad } from "../../lib/use-load";
+import { OwnerStatsCard, PriceHistoryCard, SimilarListings } from "./ListingInsights";
 
 const SECTION_LINKS = { items: ["/items", "Рынок предметов"], cars: ["/cars", "Авторынок"], notary: ["/notary", "Нотариус"] } as const;
 
@@ -87,6 +88,8 @@ export function ListingPage() {
             </Card>
           )}
 
+          {listing.catalogItem && (listing.sectionCode === "items" || listing.sectionCode === "cars") && <PriceHistoryCard listing={listing} />}
+
           {listing.want && (
             <Card className="flex flex-col gap-4 border-[#4a4266]">
               <h2 className="m-0 font-display text-[19px] font-bold text-exchange">Хочу получить взамен</h2>
@@ -111,9 +114,12 @@ export function ListingPage() {
 
         <aside aria-label="Цена и продавец" className="flex min-w-0 flex-[1_1_340px] flex-col gap-4 lg:max-w-[420px]">
           <PriceCard listing={listing} onChange={setData} />
+          {listing.isOwner && listing.publishedAt && <OwnerStatsCard listing={listing} />}
           <SellerCard listing={listing} />
         </aside>
       </div>
+
+      <SimilarListings key={listing.id} listingId={listing.id} />
     </div>
   );
 }
