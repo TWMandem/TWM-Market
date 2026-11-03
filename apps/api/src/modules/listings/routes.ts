@@ -18,7 +18,7 @@ import { dayMinus, dayRange, mskDay } from "../../lib/day.js";
 import { stopWordReason } from "../../lib/stop-words.js";
 import { authOf, hasRole, optionalAuth, requireAuth } from "../auth/guard.js";
 import { notifySavedSearchesLater } from "../saved-searches/routes.js";
-import { filterDefinitions, searchConditions, searchFrom, searchQuery, whereOf } from "./search.js";
+import { filterDefinitions, ownerActive, searchConditions, searchFrom, searchQuery, whereOf } from "./search.js";
 import {
   listingSelect,
   loadImages,
@@ -99,7 +99,9 @@ export async function listingRoutes(app: FastifyInstance, ctx: AppContext): Prom
     const row = await loadListingRow(sql, params.data.id, viewer?.id ?? null);
     if (!row) throw notOwner();
 
-    const isPublic = row.status === "active" && row.expiresAt !== null && row.expiresAt.getTime() > Date.now();
+    const [owner] = await sql<{ status: string }[]>`SELECT status FROM users WHERE id = ${row.userId}`;
+    const isPublic =
+      row.status === "active" && row.expiresAt !== null && row.expiresAt.getTime() > Date.now() && owner?.status === "active";
     const canSeeHidden = viewer !== null && (viewer.id === row.userId || hasRole(viewer.role, "moderator"));
     if (!isPublic && !canSeeHidden) throw notOwner();
 
@@ -137,7 +139,7 @@ export async function listingRoutes(app: FastifyInstance, ctx: AppContext): Prom
           : sql`l.search_vector @@ plainto_tsquery('russian', ${base.title})`;
     const rows = await sql<ListingRow[]>`
       ${listingSelect(sql, viewerId)}
-      WHERE l.status = 'active' AND l.expires_at > now() AND s.is_active AND t.is_active
+      WHERE l.status = 'active' AND l.expires_at > now() AND s.is_active AND t.is_active AND ${ownerActive(sql)}
         AND l.id <> ${base.id} AND l.user_id <> ${base.userId}
         AND l.listing_type_id = ${base.listingTypeId} AND l.operation = ${base.operation}
         AND ${match}
@@ -210,7 +212,8 @@ export async function listingRoutes(app: FastifyInstance, ctx: AppContext): Prom
           min(price) AS min
         FROM listings
         WHERE catalog_item_id = ${row.catalogItemId} AND server_id = ${row.serverId} AND operation = 'sell'
-          AND status = 'active' AND expires_at > now() AND price IS NOT NULL AND id <> ${row.id}`;
+          AND status = 'active' AND expires_at > now() AND price IS NOT NULL AND id <> ${row.id}
+          AND ${ownerActive(sql, "listings")}`;
       if (rank && rank.total > 0) {
         position = {
           rank: rank.cheaper + 1,

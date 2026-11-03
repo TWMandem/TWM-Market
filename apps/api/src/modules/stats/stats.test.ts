@@ -216,6 +216,29 @@ describe("статистика, история цен, похожие, подп�
     assert.equal(list.items.length, 0);
   });
 
+  test("объявления заблокированного игрока скрыты везде", async () => {
+    const cheater = await player("Blocked_Seller");
+    const buyer = await player("Blocked_Buyer");
+    const item = await newItem();
+    const listing = await publish(cheater, item, 777);
+    const visible = (await call("GET", `/v1/listings?item=${item}`)).json() as { total: number };
+    assert.equal(visible.total, 1);
+
+    const blocked = await call("POST", `/v1/admin/users/${cheater.user.id}/block`, admin.accessToken, { reason: "Мошенничество" });
+    assert.equal(blocked.statusCode, 200, blocked.body);
+
+    assert.equal(((await call("GET", `/v1/listings?item=${item}`)).json() as { total: number }).total, 0, "нет в каталоге");
+    assert.equal((await call("GET", `/v1/listings/${listing.id}`)).statusCode, 404, "карточка закрыта для гостя");
+    assert.equal((await call("GET", `/v1/listings/${listing.id}`, buyer.accessToken)).statusCode, 404, "и для игрока");
+    assert.equal((await call("GET", `/v1/listings/${listing.id}`, admin.accessToken)).statusCode, 200, "модератор видит");
+    assert.equal((await call("POST", `/v1/listings/${listing.id}/conversations`, buyer.accessToken)).statusCode, 409, "написать нельзя");
+    const prices = (await call("GET", `/v1/catalog/items/${item}/prices`)).json() as PriceHistoryDto;
+    assert.equal(prices.current, null, "цена не учитывается");
+
+    await call("POST", `/v1/admin/users/${cheater.user.id}/unblock`, admin.accessToken);
+    assert.equal(((await call("GET", `/v1/listings?item=${item}`)).json() as { total: number }).total, 1, "после разблокировки снова видно");
+  });
+
   test("дашборд: период, показатели по дням и сравнение", async () => {
     const response = await call("GET", "/v1/admin/stats?days=7", admin.accessToken);
     assert.equal(response.statusCode, 200, response.body);

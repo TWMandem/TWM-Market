@@ -45,6 +45,10 @@ export const searchFrom = (sql: Sql) => sql`
   JOIN game_profiles gp ON gp.id = l.game_profile_id
   LEFT JOIN catalog_items ci ON ci.id = l.catalog_item_id`;
 
+/** Объявления заблокированных игроков не показываются нигде, кроме админки. */
+export const ownerActive = (sql: Sql, alias = "l"): Fragment =>
+  sql`EXISTS (SELECT 1 FROM users own_u WHERE own_u.id = ${sql(alias)}.user_id AND own_u.status = 'active')`;
+
 export const whereOf = (sql: Sql, conditions: Fragment[]): Fragment =>
   conditions.reduce((acc, cond, i) => (i === 0 ? sql`WHERE ${cond}` : sql`${acc} AND ${cond}`), sql``);
 
@@ -59,7 +63,7 @@ export function searchConditions(
   raw: Record<string, string | undefined>,
   definitions: AttributeDefinitionDto[],
 ): Fragment[] {
-  const c: Fragment[] = [sql`l.status = 'active'`, sql`l.expires_at > now()`, sql`s.is_active`, sql`t.is_active`];
+  const c: Fragment[] = [sql`l.status = 'active'`, sql`l.expires_at > now()`, sql`s.is_active`, sql`t.is_active`, ownerActive(sql)];
   if (q.section) c.push(sql`s.code = ${q.section}`);
   if (q.type) c.push(sql`l.listing_type_id = ${q.type}::smallint`);
   if (q.category) {

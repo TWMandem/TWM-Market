@@ -97,7 +97,9 @@ export async function chatRoutes(app: FastifyInstance, ctx: AppContext): Promise
         SELECT id FROM conversations WHERE listing_id = ${listing.id} AND buyer_id = ${user.id}`;
       if (existing) return one({ id: existing.id } as ConversationRow, user.id);
 
-      const active = listing.status === "active" && listing.expiresAt !== null && listing.expiresAt.getTime() > Date.now();
+      const [owner] = await sql<{ status: string }[]>`SELECT status FROM users WHERE id = ${listing.userId}`;
+      const active =
+        listing.status === "active" && listing.expiresAt !== null && listing.expiresAt.getTime() > Date.now() && owner?.status === "active";
       if (!active) throw errors.conflict("listing_inactive", "Объявление снято с публикации — написать по нему нельзя");
 
       const [created] = await sql<{ id: string }[]>`

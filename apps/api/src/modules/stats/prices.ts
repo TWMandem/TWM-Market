@@ -5,6 +5,7 @@ import type { AppContext } from "../../context.js";
 import type { Sql } from "../../db/client.js";
 import { errors } from "../../lib/errors.js";
 import { dayMinus, mskDay } from "../../lib/day.js";
+import { ownerActive } from "../listings/search.js";
 
 /**
  * Снимок цен: по каждому предмету или модели и серверу — сколько сейчас
@@ -19,7 +20,7 @@ export async function snapshotPrices(sql: Sql): Promise<number> {
       round(avg(price))::bigint, min(price), max(price)
     FROM listings
     WHERE catalog_item_id IS NOT NULL AND operation = 'sell' AND status = 'active'
-      AND expires_at > now() AND price IS NOT NULL
+      AND expires_at > now() AND price IS NOT NULL AND ${ownerActive(sql, "listings")}
     GROUP BY catalog_item_id, server_id
     ON CONFLICT (catalog_item_id, server_id, day) DO UPDATE SET
       offers = EXCLUDED.offers, median = EXCLUDED.median, average = EXCLUDED.average,
@@ -68,7 +69,7 @@ export async function priceRoutes(app: FastifyInstance, ctx: AppContext): Promis
         min(price) AS min, max(price) AS max
       FROM listings
       WHERE catalog_item_id = ${item.id} AND operation = 'sell' AND status = 'active'
-        AND expires_at > now() AND price IS NOT NULL
+        AND expires_at > now() AND price IS NOT NULL AND ${ownerActive(sql, "listings")}
         ${serverId !== null ? sql`AND server_id = ${serverId}` : sql``}`;
 
     // По всем серверам медиану из снимков не сложить — показываем среднюю.

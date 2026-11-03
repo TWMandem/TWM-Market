@@ -108,6 +108,7 @@ export function listingSelect(sql: Sql, viewerId: string | null): Fragment {
       WHERE l.catalog_item_id IS NOT NULL AND o.catalog_item_id = l.catalog_item_id
         AND o.server_id = l.server_id AND o.operation = 'sell' AND o.status = 'active'
         AND o.expires_at > now() AND o.id <> l.id
+        AND EXISTS (SELECT 1 FROM users ou WHERE ou.id = o.user_id AND ou.status = 'active')
     ) ps ON true`;
 }
 
@@ -323,7 +324,8 @@ async function priceStats(sql: Sql, row: ListingRow): Promise<PriceStatsDto | nu
            min(price) AS min, max(price) AS max
     FROM listings
     WHERE catalog_item_id = ${row.catalogItemId} AND server_id = ${row.serverId}
-      AND operation = 'sell' AND status = 'active' AND expires_at > now() AND id <> ${row.id}`;
+      AND operation = 'sell' AND status = 'active' AND expires_at > now() AND id <> ${row.id}
+      AND EXISTS (SELECT 1 FROM users u WHERE u.id = listings.user_id AND u.status = 'active')`;
   if (!stats || stats.count < 2) return null;
   return {
     count: stats.count,
