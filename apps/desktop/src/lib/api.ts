@@ -23,6 +23,8 @@ import type {
   SavedSearchDto,
   SavedSearchSection,
   BlockedUserDto,
+  NicknameVerificationDto,
+  VerificationQueueItemDto,
   StatsPeriod,
   ReportDto,
   ReportReason,
@@ -159,6 +161,8 @@ interface RequestOptions {
   body?: unknown;
   /** Нужен ли вход. По умолчанию — да, если токен есть. */
   auth?: boolean;
+  /** Ответ — файл (картинка), а не JSON. */
+  blob?: boolean;
 }
 
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
@@ -191,6 +195,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     throw error;
   }
   if (response.status === 204) return undefined as T;
+  if (options.blob) return (await response.blob()) as T;
   return (await response.json()) as T;
 }
 
@@ -328,6 +333,15 @@ export const api = {
   seenSavedSearch: (id: string) => request<SavedSearchDto>(`/v1/me/saved-searches/${encodeURIComponent(id)}/seen`, { method: "POST" }),
   deleteSavedSearch: (id: string) => request<void>(`/v1/me/saved-searches/${encodeURIComponent(id)}`, { method: "DELETE" }),
 
+  // ── Подтверждение ника ─────────────────────────────────────────────────
+  nicknameVerification: (profileId: string) =>
+    request<NicknameVerificationDto>(`/v1/me/game-profiles/${encodeURIComponent(profileId)}/verification`),
+  sendNicknameScreenshot: (profileId: string, file: Blob, name = "stats.png") => {
+    const form = new FormData();
+    form.append("file", file, name);
+    return request<NicknameVerificationDto>(`/v1/me/game-profiles/${encodeURIComponent(profileId)}/verification`, { method: "POST", body: form });
+  },
+
   // ── Настройки, шаблоны ответов, чёрный список ───────────────────────────
   updateSettings: (body: { showOnline: boolean }) => request<MeDto>("/v1/me/settings", { method: "PATCH", body }),
   chatTemplates: () => request<{ items: string[] }>("/v1/me/chat-templates"),
@@ -430,6 +444,11 @@ export const adminApi = {
   clearMessage: (id: string) => request<{ ok: true }>(`/v1/admin/messages/${encodeURIComponent(id)}/clear`, { method: "POST" }),
   hideReview: (id: string) => request<{ ok: true }>(`/v1/admin/reviews/${encodeURIComponent(id)}/hide`, { method: "POST" }),
   conversation: (id: string) => request<ModeratorConversationDto>(`/v1/admin/conversations/${encodeURIComponent(id)}`),
+  verifications: () => request<{ items: VerificationQueueItemDto[] }>("/v1/admin/verifications"),
+  verificationImage: (id: string) => request<Blob>(`/v1/admin/verifications/${encodeURIComponent(id)}/image`, { blob: true }),
+  approveVerification: (id: string) => request<{ ok: true }>(`/v1/admin/verifications/${encodeURIComponent(id)}/approve`, { method: "POST" }),
+  rejectVerification: (id: string, reason: string) =>
+    request<{ ok: true }>(`/v1/admin/verifications/${encodeURIComponent(id)}/reject`, { method: "POST", body: { reason } }),
   stopWords: () => request<{ items: StopWordDto[] }>("/v1/admin/stop-words"),
   createStopWord: (body: { phrase: string; isRegex: boolean; note: string | null }) =>
     request<StopWordDto>("/v1/admin/stop-words", { method: "POST", body }),

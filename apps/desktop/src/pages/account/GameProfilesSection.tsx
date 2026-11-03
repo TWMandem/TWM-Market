@@ -10,6 +10,7 @@ import { Alert, Button, Card, Field } from "../../components/ui";
 import { ApiError, api } from "../../lib/api";
 import { useServers } from "../../lib/server-context";
 import { useForm } from "../../lib/use-form";
+import { VerifyNicknameDialog } from "./VerifyNicknameDialog";
 
 export function GameProfilesSection() {
   const [profiles, setProfiles] = useState<GameProfileDto[] | null>(null);
@@ -126,6 +127,7 @@ function ProfileRow({ profile, onUpdated, onDeleted }: ProfileRowProps) {
   const [mode, setMode] = useState<"view" | "edit" | "confirm-delete">("view");
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [verifying, setVerifying] = useState(false);
 
   const form = useForm(updateGameProfileSchema, { nickname: profile.nickname }, async ({ nickname }) => {
     onUpdated(await api.renameGameProfile(profile.id, nickname));
@@ -156,9 +158,18 @@ function ProfileRow({ profile, onUpdated, onDeleted }: ProfileRowProps) {
         <span className="text-sm text-muted">
           {profile.server.number} · {profile.server.name}
         </span>
-        <span className="rounded-md border border-dashed border-[#3a404c] px-2 py-0.5 text-xs text-muted">
-          {profile.verified ? "подтверждён" : "не подтверждён"}
-        </span>
+        {profile.verified ? (
+          <span className="rounded-md border border-[#24503a] px-2 py-0.5 text-xs font-bold text-success">✔ подтверждён</span>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setVerifying(true)}
+            className="rounded-md border border-dashed border-[#3a404c] px-2 py-0.5 text-xs text-muted hover:border-accent hover:text-ink"
+          >
+            не подтверждён · подтвердить
+          </button>
+        )}
+        {verifying && <VerifyNicknameDialog profile={profile} onClose={() => setVerifying(false)} />}
         <div className="ml-auto flex gap-1">
           {mode === "view" && (
             <>

@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, normalize, sep } from "node:path";
 import sharp from "sharp";
 import { AppError } from "./errors.js";
@@ -231,4 +231,17 @@ export async function saveChatImage(
   const path = join("chats", conversationId, `${randomUUID()}.webp`);
   await save(root, path, out.data);
   return { path, width: out.info.width, height: out.info.height };
+}
+
+/** Скриншот для подтверждения ника: в закрытую папку, WebP до 1600 точек. */
+export async function saveVerificationImage(privateRoot: string, buffer: Buffer): Promise<string> {
+  const image = await readImage(buffer);
+  const out = await image.resize({ width: 1600, height: 1600, fit: "inside", withoutEnlargement: true }).webp({ quality: 82 }).toBuffer();
+  const path = join("verifications", `${randomUUID()}.webp`);
+  await save(privateRoot, path, out);
+  return path;
+}
+
+export async function readPrivate(privateRoot: string, relative: string): Promise<Buffer> {
+  return readFile(resolveInside(privateRoot, relative));
 }

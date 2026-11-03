@@ -26,8 +26,9 @@ import { adminModerationRoutes } from "./modules/admin/moderation.js";
 import { adminStatsRoutes } from "./modules/admin/stats.js";
 import { priceRoutes } from "./modules/stats/prices.js";
 import { savedSearchRoutes } from "./modules/saved-searches/routes.js";
+import { verificationRoutes } from "./modules/game-profiles/verification.js";
 
-export const API_VERSION = "0.8.0";
+export const API_VERSION = "0.9.0";
 
 export interface BuildOptions {
   config: Config;
@@ -62,7 +63,9 @@ export async function buildApp({ config, sql, mailer }: BuildOptions): Promise<F
 
   const uploadDir = resolve(config.UPLOAD_DIR);
   await mkdir(uploadDir, { recursive: true });
-  const ctx: AppContext = { config, sql, mailer: mailer ?? new ConsoleMailer(app.log), uploadDir };
+  const privateDir = resolve(config.PRIVATE_DIR ?? `${uploadDir}-private`);
+  await mkdir(privateDir, { recursive: true, mode: 0o700 });
+  const ctx: AppContext = { config, sql, mailer: mailer ?? new ConsoleMailer(app.log), uploadDir, privateDir };
 
   registerErrorHandler(app);
 
@@ -116,6 +119,7 @@ export async function buildApp({ config, sql, mailer }: BuildOptions): Promise<F
   await adminStatsRoutes(app, ctx);
   await priceRoutes(app, ctx);
   await savedSearchRoutes(app, ctx);
+  await verificationRoutes(app, ctx);
 
   return app;
 }

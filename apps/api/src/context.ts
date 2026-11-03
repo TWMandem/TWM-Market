@@ -10,6 +10,8 @@ export interface AppContext {
   mailer: Mailer;
   /** Абсолютный путь к хранилищу загруженных файлов. */
   uploadDir: string;
+  /** Закрытые файлы — не раздаются по /media. */
+  privateDir: string;
 }
 
 export interface AuthState {

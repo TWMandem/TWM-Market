@@ -3,6 +3,8 @@ import { Link, useNavigate, useParams } from "react-router";
 import {
   DEAL_PLACE_LABELS,
   LISTING_STATUS_LABELS,
+  SAFE_DEAL_TIPS,
+  TRUSTED_SELLER,
   SURCHARGE_DIRECTION_LABELS,
   TRANSFER_MODE_LABELS,
   formatAttributeValue,
@@ -121,6 +123,16 @@ export function ListingPage() {
 
         <aside aria-label="Цена и продавец" className="flex min-w-0 flex-[1_1_340px] flex-col gap-4 lg:max-w-[420px]">
           <PriceCard listing={listing} onChange={setData} />
+          {listing.warnings.length > 0 && (
+            <div role="note" className="flex flex-col gap-2 rounded-[var(--radius-card)] border border-[#5a2e2e] bg-[#1f1414] p-4 text-sm leading-snug text-[#ffc4c4]">
+              <span className="font-extrabold">Будьте внимательны</span>
+              <ul className="m-0 flex list-disc flex-col gap-1 pl-5">
+                {listing.warnings.map((w) => (
+                  <li key={w}>{w}</li>
+                ))}
+              </ul>
+            </div>
+          )}
           {listing.isOwner && listing.publishedAt && <OwnerStatsCard listing={listing} />}
           <SellerCard listing={listing} />
         </aside>
@@ -478,11 +490,19 @@ function SellerCard({ listing }: { listing: ListingDetailDto }) {
             {seller.login}
           </Link>
           <span className="text-[13px] text-muted">
-            На площадке {memberFor(seller.memberSince)} · активных объявлений: {seller.activeListings}
+            На площадке {memberFor(seller.memberSince)} · сделок: {seller.deals} · активных объявлений: {seller.activeListings}
           </span>
           <LastSeen at={seller.lastSeenAt} />
         </div>
       </div>
+      {seller.trusted && (
+        <span
+          className="self-start rounded-lg bg-[#4cd48a]/10 px-2.5 py-1 text-[13px] font-bold text-[#9eebc0]"
+          title={`Не меньше ${TRUSTED_SELLER.minDeals} подтверждённых сделок, ${Math.round(TRUSTED_SELLER.minPositiveShare * 100)}% положительных отзывов, на площадке больше ${TRUSTED_SELLER.minAccountDays} дней`}
+        >
+          ★ Надёжный продавец
+        </span>
+      )}
       <Link
         to={`/user/${encodeURIComponent(seller.login)}`}
         className="flex items-center gap-3 rounded-xl bg-surface-2 px-3.5 py-2.5 text-sm text-ink-2 no-underline hover:text-ink"
@@ -493,8 +513,10 @@ function SellerCard({ listing }: { listing: ListingDetailDto }) {
           {seller.reviews.positive + seller.reviews.negative > 0 ? "Все отзывы →" : "Отзывов пока нет"}
         </span>
       </Link>
-      <div className="flex flex-col gap-1 rounded-xl border border-dashed border-[#3a404c] px-3.5 py-3">
-        <span className="text-xs text-muted">Ник в игре · {seller.nicknameVerified ? "подтверждён" : "указан продавцом"}</span>
+      <div className={`flex flex-col gap-1 rounded-xl border px-3.5 py-3 ${seller.nicknameVerified ? "border-[#24503a]" : "border-dashed border-[#3a404c]"}`}>
+        <span className={`text-xs ${seller.nicknameVerified ? "font-bold text-success" : "text-muted"}`}>
+          {seller.nicknameVerified ? "✔ Ник в игре подтверждён модератором" : "Ник в игре · указан продавцом, не проверен"}
+        </span>
         <span className="select-all font-mono font-bold">{seller.nickname}</span>
       </div>
       {seller.sameNicknameCount > 0 && (
@@ -508,6 +530,14 @@ function SellerCard({ listing }: { listing: ListingDetailDto }) {
           </span>
         </div>
       )}
+      <details className="group rounded-xl bg-surface-2 px-3.5 py-2.5 text-sm text-ink-2">
+        <summary className="cursor-pointer font-bold text-ink">Как не попасться мошенникам</summary>
+        <ul className="m-0 mt-2 flex list-disc flex-col gap-1.5 pl-5 leading-snug">
+          {SAFE_DEAL_TIPS.map((tip) => (
+            <li key={tip}>{tip}</li>
+          ))}
+        </ul>
+      </details>
       <p className="m-0 text-[13px] leading-relaxed text-faint">
         Площадка не участвует в сделке и не гарантирует передачу имущества. Торговля за реальные деньги запрещена.
       </p>

@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   CHAT_TEMPLATE_LIMIT,
   chatTemplatesSchema,
+  isTrustedSeller,
   messageSchema,
   reviewSchema,
   type BlockedUserDto,
@@ -295,6 +296,10 @@ export async function chatRoutes(app: FastifyInstance, ctx: AppContext): Promise
       ${reviewSelect(sql)} WHERE r.target_id = ${user.id} AND r.hidden_at IS NULL
       ORDER BY r.created_at DESC LIMIT 30`;
     const viewer = request.auth?.user ?? null;
+    const verified = await sql<{ nickname: string; number: number; name: string; color: string }[]>`
+      SELECT gp.nickname, s.number, s.name, s.color FROM game_profiles gp JOIN servers s ON s.id = gp.server_id
+      WHERE gp.user_id = ${user.id} AND gp.verified_at IS NOT NULL AND gp.archived_at IS NULL
+      ORDER BY s.number`;
     const [blocked] = viewer
       ? await sql`SELECT 1 FROM user_blocks WHERE user_id = ${viewer.id} AND blocked_id = ${user.id}`
       : [];
@@ -303,6 +308,13 @@ export async function chatRoutes(app: FastifyInstance, ctx: AppContext): Promise
       memberSince: user.createdAt.toISOString(),
       lastSeenAt: user.status === "blocked" ? null : visibleLastSeen(user),
       blockedByMe: Boolean(blocked),
+      trusted: isTrustedSeller({
+        deals: stats?.deals ?? 0,
+        positive: stats?.positive ?? 0,
+        negative: stats?.negative ?? 0,
+        accountDays: (Date.now() - user.createdAt.getTime()) / 86_400_000,
+      }),
+      verifiedNicknames: verified.map((v) => ({ nickname: v.nickname, server: { number: v.number, name: v.name, color: v.color } })),
       reviews: { positive: stats?.positive ?? 0, negative: stats?.negative ?? 0 },
       deals: stats?.deals ?? 0,
       activeListings: user.status === "blocked" ? 0 : stats?.activeListings ?? 0,

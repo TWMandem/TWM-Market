@@ -113,6 +113,11 @@ export function ListingCard({
             <span className="flex min-w-0 items-center gap-1.5">
               <ServerDot color={listing.server.color} />
               <span className="truncate">{listing.sellerNickname}</span>
+              {listing.sellerVerified && (
+                <span title="Ник подтверждён модератором" aria-label="ник подтверждён" className="shrink-0 font-bold text-success">
+                  ✔
+                </span>
+              )}
             </span>
             <span className="shrink-0">{timeAgo(listing.publishedAt)}</span>
           </div>

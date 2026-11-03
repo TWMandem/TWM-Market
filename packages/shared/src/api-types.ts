@@ -227,6 +227,8 @@ export interface ListingCardDto {
   server: ServerRefDto;
   transferMode: "none" | "seller_moves" | "buyer_moves";
   sellerNickname: string;
+  /** Ник продавца подтверждён модератором. */
+  sellerVerified: boolean;
   /** Главное фото или иконка предмета из справочника. */
   image: MediaDto | null;
   publishedAt: string | null;
@@ -280,7 +282,13 @@ export interface ListingDetailDto extends ListingCardDto {
     reviews: { positive: number; negative: number };
     /** Когда продавец был в сети; null — скрыл это или давно не заходил. */
     lastSeenAt: string | null;
+    /** Подтверждённых сделок. */
+    deals: number;
+    /** «Надёжный продавец»: см. TRUSTED_SELLER. */
+    trusted: boolean;
   };
+  /** Предупреждения покупателю (автору объявления не показываются). */
+  warnings: string[];
   expiresAt: string | null;
   createdAt: string;
   updatedAt: string;

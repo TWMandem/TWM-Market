@@ -45,8 +45,9 @@ export async function adminModerationRoutes(app: FastifyInstance, ctx: AppContex
       SELECT
         (SELECT count(*)::int FROM listings WHERE status = 'moderation') AS listings,
         (SELECT count(*)::int FROM reports WHERE status = 'open') AS reports,
-        (SELECT count(*)::int FROM messages WHERE flagged AND hidden_at IS NULL) AS messages`;
-    return row ?? { listings: 0, reports: 0, messages: 0 };
+        (SELECT count(*)::int FROM messages WHERE flagged AND hidden_at IS NULL) AS messages,
+        (SELECT count(*)::int FROM nickname_verifications WHERE status = 'pending') AS verifications`;
+    return row ?? { listings: 0, reports: 0, messages: 0, verifications: 0 };
   });
 
   // ── Объявления на проверке ────────────────────────────────────────────────

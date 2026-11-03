@@ -49,6 +49,20 @@ export function UserPage() {
             На площадке с {date(p.memberSince)} · сделок: {p.deals} · активных объявлений: {p.activeListings}
           </span>
           <LastSeen at={p.lastSeenAt} />
+          {(p.trusted || p.verifiedNicknames.length > 0) && (
+            <span className="mt-1 flex flex-wrap gap-1.5">
+              {p.trusted && <span className="rounded-lg bg-[#4cd48a]/10 px-2.5 py-1 text-[13px] font-bold text-[#9eebc0]">★ Надёжный продавец</span>}
+              {p.verifiedNicknames.map((v) => (
+                <span
+                  key={`${v.server.number}-${v.nickname}`}
+                  title={`Сервер ${v.server.name}: ник подтверждён модератором`}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-[#24503a] px-2.5 py-1 font-mono text-[13px] font-bold text-ink-2"
+                >
+                  <span aria-hidden="true" className="size-2 rounded-full" style={{ background: v.server.color }} />✔ {v.nickname}
+                </span>
+              ))}
+            </span>
+          )}
         </div>
         <div className="flex gap-3 font-mono text-lg font-bold">
           <span className="rounded-xl bg-[#4cd48a]/10 px-3.5 py-2 text-[#9eebc0]" title="Положительные отзывы">

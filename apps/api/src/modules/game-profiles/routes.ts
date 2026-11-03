@@ -11,6 +11,7 @@ import type { AppContext } from "../../context.js";
 import { uniqueViolation } from "../../db/client.js";
 import { AppError, errors, parseBody } from "../../lib/errors.js";
 import { authOf, requireAuth } from "../auth/guard.js";
+import { closeOpenVerifications } from "./verification.js";
 
 const idParam = z.object({ id: z.string().uuid() });
 
@@ -152,6 +153,7 @@ export async function gameProfileRoutes(app: FastifyInstance, ctx: AppContext): 
       if (uniqueViolation(error) === "game_profiles_user_nick_uq") throw duplicate();
       throw error;
     }
+    await closeOpenVerifications(ctx.sql, ctx.privateDir, current.id);
 
     const [row] = await loadProfiles(user.id, current.id);
     if (!row) throw errors.notFound("Профиль не найден");

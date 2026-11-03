@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router";
-import { REPORT_REASON_LABELS, formatPrice, type ReportDto } from "@twm/shared";
+import { REPORT_REASON_LABELS, formatPrice, type ReportDto, type VerificationQueueItemDto } from "@twm/shared";
 import { Media, ServerDot } from "../../components/listing";
 import { Modal } from "../../components/ReportDialog";
 import { Alert, Button, Card } from "../../components/ui";
@@ -8,7 +8,7 @@ import { adminApi, mediaSrc } from "../../lib/api";
 import { attempt, useLoad } from "../../lib/use-load";
 import { AdminTitle } from "./AdminLayout";
 
-type Tab = "listings" | "reports" | "messages";
+type Tab = "listings" | "reports" | "messages" | "verifications";
 
 const TARGET_LABELS: Record<ReportDto["targetType"], string> = {
   listing: "Объявление",
@@ -33,6 +33,7 @@ export function ModerationPage() {
     ["listings", "Объявления на проверке", counts?.listings],
     ["reports", "Жалобы", counts?.reports],
     ["messages", "Сообщения со стоп-словами", counts?.messages],
+    ["verifications", "Подтверждение ников", counts?.verifications],
   ];
 
   return (
@@ -59,6 +60,7 @@ export function ModerationPage() {
       {tab === "listings" && <ListingsQueue onChanged={() => void summary.reload()} />}
       {tab === "reports" && <ReportsQueue onChanged={() => void summary.reload()} onOpenConversation={setConversationId} />}
       {tab === "messages" && <MessagesQueue onChanged={() => void summary.reload()} onOpenConversation={setConversationId} />}
+      {tab === "verifications" && <VerificationsQueue onChanged={() => void summary.reload()} />}
       {conversationId && <ConversationViewer id={conversationId} onClose={() => setConversationId(null)} />}
     </>
   );
@@ -359,5 +361,132 @@ function ConversationViewer({ id, onClose }: { id: string; onClose: () => void }
         Закрыть
       </Button>
     </Modal>
+  );
+}
+
+/** Заявки на подтверждение ника: скриншот статистики, ник и код. */
+function VerificationsQueue({ onChanged }: { onChanged: () => void }) {
+  const queue = useLoad(() => adminApi.verifications(), []);
+  const [error, setError] = useState<string | null>(null);
+
+  const done = (id: string) => {
+    queue.setData((d) => (d ? { items: d.items.filter((x) => x.id !== id) } : d));
+    onChanged();
+  };
+
+  if (queue.error) return <Alert>{queue.error}</Alert>;
+  if (!queue.data) return <p className="text-muted">Загружаю…</p>;
+  if (queue.data.items.length === 0) return <Card>Заявок нет.</Card>;
+  return (
+    <div className="flex flex-col gap-3">
+      <p className="m-0 text-sm text-muted">
+        Сверьте ник на скриншоте с ником в заявке (с учётом сервера). Код в игровом чате — дополнительное подтверждение, его может не быть.
+        Скриншот удаляется после решения.
+      </p>
+      {error && <Alert>{error}</Alert>}
+      {queue.data.items.map((v) => (
+        <VerificationCard key={v.id} item={v} onError={setError} onDone={() => done(v.id)} />
+      ))}
+    </div>
+  );
+}
+
+function VerificationCard({ item: v, onError, onDone }: { item: VerificationQueueItemDto; onError: (e: string | null) => void; onDone: () => void }) {
+  const [image, setImage] = useState<string | null>(null);
+  const [zoom, setZoom] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
+  const [reason, setReason] = useState("");
+
+  useEffect(() => {
+    let url: string | null = null;
+    adminApi
+      .verificationImage(v.id)
+      .then((blob) => {
+        url = URL.createObjectURL(blob);
+        setImage(url);
+      })
+      .catch(() => onError("Не удалось загрузить скриншот"));
+    return () => {
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [v.id, onError]);
+
+  return (
+    <Card className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-start gap-4">
+        <button type="button" onClick={() => setZoom(true)} className="block w-full max-w-[420px] overflow-hidden rounded-lg bg-ground" aria-label="Открыть скриншот крупно">
+          {image ? <img src={image} alt={`Скриншот для ника ${v.nickname}`} className="w-full" /> : <span className="block p-6 text-sm text-muted">Загружаю скриншот…</span>}
+        </button>
+        <dl className="m-0 grid min-w-[240px] flex-1 grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
+          <dt className="text-muted">Ник</dt>
+          <dd className="m-0 select-all font-mono font-bold">{v.nickname}</dd>
+          <dt className="text-muted">Сервер</dt>
+          <dd className="m-0 flex items-center gap-1.5">
+            <ServerDot color={v.server.color} /> {v.server.number} · {v.server.name}
+          </dd>
+          <dt className="text-muted">Код</dt>
+          <dd className="m-0 font-mono font-bold text-accent">{v.code}</dd>
+          <dt className="text-muted">Аккаунт</dt>
+          <dd className="m-0">
+            <Link to={`/user/${encodeURIComponent(v.user.login)}`} className="font-bold text-ink hover:text-accent">
+              {v.user.login}
+            </Link>{" "}
+            <span className="text-muted">с {new Date(v.user.memberSince).toLocaleDateString("ru-RU")}</span>
+          </dd>
+          <dt className="text-muted">Отправлено</dt>
+          <dd className="m-0">{when(v.submittedAt)}</dd>
+        </dl>
+      </div>
+      {v.sameNicknameCount > 0 && (
+        <Alert tone="warning">Такой же ник на этом сервере указали ещё {v.sameNicknameCount} акк. — проверьте особенно внимательно.</Alert>
+      )}
+      {rejecting ? (
+        <form
+          className="flex flex-wrap items-end gap-2"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            const message = await attempt(() => adminApi.rejectVerification(v.id, reason.trim()));
+            onError(message);
+            if (!message) onDone();
+          }}
+        >
+          <input
+            autoFocus
+            value={reason}
+            maxLength={300}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="Причина — её увидит игрок (например, «ник не виден»)"
+            aria-label="Причина отказа"
+            className="h-11 min-w-[260px] flex-1 rounded-xl border border-line bg-ground px-3 text-ink outline-none focus:border-accent"
+          />
+          <Button type="submit" variant="danger" className="h-11">
+            Отказать
+          </Button>
+          <Button variant="ghost" className="h-11" onClick={() => setRejecting(false)}>
+            Отмена
+          </Button>
+        </form>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          <Button
+            onClick={async () => {
+              const message = await attempt(() => adminApi.approveVerification(v.id));
+              onError(message);
+              if (!message) onDone();
+            }}
+          >
+            ✔ Подтвердить ник
+          </Button>
+          <Button variant="danger" onClick={() => setRejecting(true)}>
+            Отказать
+          </Button>
+        </div>
+      )}
+      {zoom && image && (
+        <div role="dialog" aria-modal="true" aria-label="Скриншот" className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-6" onClick={() => setZoom(false)}>
+          <img src={image} alt="" className="max-h-full max-w-full object-contain" />
+        </div>
+      )}
+    </Card>
   );
 }

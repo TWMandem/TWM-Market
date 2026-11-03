@@ -88,6 +88,10 @@ export const reviewSchema = z.object({
 export interface PublicUserDto {
   login: string;
   memberSince: string;
+  /** «Надёжный продавец». */
+  trusted: boolean;
+  /** Подтверждённые ники в игре. */
+  verifiedNicknames: Array<{ nickname: string; server: { number: number; name: string; color: string } }>;
   lastSeenAt: string | null;
   /** Вы добавили игрока в чёрный список (для гостя — false). */
   blockedByMe: boolean;
@@ -109,7 +113,9 @@ export type NotificationKind =
   | "listing_approved"
   | "listing_rejected"
   | "report_resolved"
-  | "saved_search";
+  | "saved_search"
+  | "nickname_verified"
+  | "nickname_rejected";
 
 export interface NotificationDto {
   id: number;
@@ -224,6 +230,7 @@ export interface ModerationSummaryDto {
   listings: number;
   reports: number;
   messages: number;
+  verifications: number;
 }
 
 export interface ReportDto {
@@ -323,3 +330,52 @@ export function lastSeenText(iso: string | null, now = Date.now()): string | nul
   if (days < 30) return `был(а) ${days} дн. назад`;
   return "был(а) давно";
 }
+
+// ── Доверие ─────────────────────────────────────────────────────────────────
+
+/** «Надёжный продавец»: столько подтверждённых сделок, доля положительных отзывов и возраст аккаунта. */
+export const TRUSTED_SELLER = { minDeals: 5, minPositiveShare: 0.9, minAccountDays: 14 } as const;
+
+export function isTrustedSeller(input: { deals: number; positive: number; negative: number; accountDays: number }): boolean {
+  const reviews = input.positive + input.negative;
+  return (
+    input.deals >= TRUSTED_SELLER.minDeals &&
+    input.accountDays >= TRUSTED_SELLER.minAccountDays &&
+    reviews > 0 &&
+    input.positive / reviews >= TRUSTED_SELLER.minPositiveShare
+  );
+}
+
+/** Советы покупателю — в карточке объявления. */
+export const SAFE_DEAL_TIPS = [
+  "Передавайте имущество только в игре: через авторынок, нотариуса или лично. Площадка в сделке не участвует.",
+  "Сверьте ник продавца в игре с ником в объявлении. Отметка «ник подтверждён» значит, что модератор проверил скриншот.",
+  "Никогда не платите реальными деньгами и не переходите по ссылкам на сторонние сайты — это обман.",
+  "Слишком низкая цена и спешка («только сейчас», «отдам первому») — частые признаки мошенничества.",
+  "После сделки отметьте её в переписке и оставьте отзыв — это помогает другим игрокам.",
+] as const;
+
+export type NicknameVerificationStatus = "draft" | "pending" | "approved" | "rejected";
+
+export interface NicknameVerificationDto {
+  status: NicknameVerificationStatus | "verified";
+  /** Код, который можно написать в игровой чат на скриншоте. */
+  code: string | null;
+  rejectReason: string | null;
+  submittedAt: string | null;
+}
+
+export interface VerificationQueueItemDto {
+  id: string;
+  nickname: string;
+  server: { number: number; name: string; color: string };
+  user: { login: string; memberSince: string };
+  code: string;
+  submittedAt: string;
+  /** Сколько других аккаунтов указали такой же ник на этом сервере. */
+  sameNicknameCount: number;
+}
+
+export const rejectVerificationSchema = z.object({
+  reason: z.string().trim().min(3, "Укажите причину").max(300, "До 300 символов"),
+});

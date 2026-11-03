@@ -60,6 +60,11 @@ const baseSchema = z.object({
 
   /** Папка для загруженных файлов (фото объявлений, иконки предметов). */
   UPLOAD_DIR: z.string().min(1).default("./data/uploads"),
+  /**
+   * Закрытые файлы (скриншоты для подтверждения ника): их не раздаёт nginx,
+   * только сервер — модераторам. По умолчанию — папка рядом с UPLOAD_DIR.
+   */
+  PRIVATE_DIR: z.string().min(1).optional(),
   /** Максимальный размер одного загружаемого файла, МБ. */
   MAX_UPLOAD_MB: z.coerce.number().int().min(1).max(50).default(10),
 

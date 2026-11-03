@@ -1,5 +1,7 @@
 import {
   BUMP_INTERVAL_HOURS,
+  formatPriceShort,
+  isTrustedSeller,
   buildAttributesSchema,
   definitionsForCategory,
   fieldErrors,
@@ -64,6 +66,7 @@ export interface ListingRow {
   serverName: string;
   serverColor: string;
   sellerNickname: string;
+  sellerVerified: boolean;
   mainThumb: string | null;
   itemName: string | null;
   itemIconPath: string | null;
@@ -88,7 +91,7 @@ export function listingSelect(sql: Sql, viewerId: string | null): Fragment {
       l.status, l.rejection_reason, l.moderation_reason, l.views, l.published_at, l.bumped_at, l.expires_at, l.created_at, l.updated_at,
       s.code AS section_code, t.code AS type_code, t.name AS type_name,
       sv.number AS server_number, sv.name AS server_name, sv.color AS server_color,
-      gp.nickname AS seller_nickname,
+      gp.nickname AS seller_nickname, (gp.verified_at IS NOT NULL) AS seller_verified,
       mi.thumb_path AS main_thumb,
       ci.name AS item_name, ci.icon_path AS item_icon_path, ci.icon_kind AS item_icon_kind,
       c.name AS category_name,
@@ -135,6 +138,7 @@ export function toCard(row: ListingRow): ListingCardDto {
     server: { number: row.serverNumber, name: row.serverName, color: row.serverColor },
     transferMode: row.transferMode,
     sellerNickname: row.sellerNickname,
+    sellerVerified: row.sellerVerified,
     image: row.mainThumb ? { url: mediaUrl(row.mainThumb), kind: "image" } : icon(row),
     publishedAt: row.publishedAt?.toISOString() ?? null,
     bumpedAt: row.bumpedAt?.toISOString() ?? null,
@@ -340,6 +344,30 @@ async function priceStats(sql: Sql, row: ListingRow): Promise<PriceStatsDto | nu
   };
 }
 
+/**
+ * Предупреждения покупателю. Это подсказки, а не обвинения: решение
+ * остаётся за игроком.
+ */
+function buyerWarnings(
+  row: ListingRow,
+  seller: { createdAt: Date; positive: number; negative: number },
+  stats: PriceStatsDto | null,
+): string[] {
+  const out: string[] = [];
+  const price = row.price === null ? null : Number(row.price);
+  if (row.operation === "sell" && price !== null && stats && stats.count >= 3 && price < stats.median * 0.5) {
+    out.push(
+      `Цена более чем вдвое ниже обычной на сервере (медиана ${formatPriceShort(stats.median)}). Так часто выглядит обман — не платите вперёд.`,
+    );
+  }
+  const days = Math.floor((Date.now() - seller.createdAt.getTime()) / 86_400_000);
+  if (days < 3) out.push(days === 0 ? "Аккаунт продавца создан сегодня." : `Аккаунт продавца создан ${days} дн. назад.`);
+  if (seller.negative >= 2 && seller.negative >= seller.positive) {
+    out.push("У продавца отрицательных отзывов не меньше, чем положительных. Прочитайте их перед сделкой.");
+  }
+  return out;
+}
+
 export async function toDetail(ctx: AppContext, row: ListingRow, viewerId: string | null): Promise<ListingDetailDto> {
   const sql = ctx.sql;
   const definitions = await loadDefinitions(sql, row.listingTypeId);
@@ -354,6 +382,7 @@ export async function toDetail(ctx: AppContext, row: ListingRow, viewerId: strin
       activeListings: number;
       positive: number;
       negative: number;
+      deals: number;
     }[]
   >`
     SELECT u.login, u.created_at, u.last_seen_at, u.show_online, gp.verified_at,
@@ -362,10 +391,13 @@ export async function toDetail(ctx: AppContext, row: ListingRow, viewerId: strin
       (SELECT count(DISTINCT o.user_id)::int FROM game_profiles o
         WHERE o.server_id = gp.server_id AND lower(o.nickname) = lower(gp.nickname) AND o.user_id <> gp.user_id) AS same_nick,
       (SELECT count(*)::int FROM listings a
-        WHERE a.user_id = u.id AND a.status = 'active' AND a.expires_at > now()) AS active_listings
+        WHERE a.user_id = u.id AND a.status = 'active' AND a.expires_at > now()) AS active_listings,
+      (SELECT count(*)::int FROM deals d
+        WHERE (d.buyer_id = u.id OR d.seller_id = u.id) AND d.status = 'confirmed') AS deals
     FROM users u JOIN game_profiles gp ON gp.id = ${row.gameProfileId}
     WHERE u.id = ${row.userId}`;
 
+  const stats = await priceStats(sql, row);
   let wantTypeName: string | null = null;
   if (row.wantListingTypeId !== null) {
     const [wantType] = await sql<{ name: string }[]>`SELECT name FROM listing_types WHERE id = ${row.wantListingTypeId}`;
@@ -400,12 +432,22 @@ export async function toDetail(ctx: AppContext, row: ListingRow, viewerId: strin
       activeListings: seller?.activeListings ?? 0,
       reviews: { positive: seller?.positive ?? 0, negative: seller?.negative ?? 0 },
       lastSeenAt: seller ? visibleLastSeen(seller) : null,
+      deals: seller?.deals ?? 0,
+      trusted: seller
+        ? isTrustedSeller({
+            deals: seller.deals,
+            positive: seller.positive,
+            negative: seller.negative,
+            accountDays: (Date.now() - seller.createdAt.getTime()) / 86_400_000,
+          })
+        : false,
     },
+    warnings: viewerId === row.userId || !seller ? [] : buyerWarnings(row, seller, stats),
     expiresAt: row.expiresAt?.toISOString() ?? null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
     isOwner: viewerId === row.userId,
-    priceStats: await priceStats(sql, row),
+    priceStats: stats,
     rejectionReason: row.rejectionReason,
     // Причину проверки видит только автор (и модераторы в админке).
     moderationReason: viewerId === row.userId ? row.moderationReason : null,

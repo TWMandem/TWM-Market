@@ -42,3 +42,12 @@ test("последний раз в сети", async () => {
   assert.equal(lastSeenText(new Date(2026, 9, 31, 10, 0).toISOString(), now), "был(а) 4 дн. назад");
   assert.equal(lastSeenText(new Date(2026, 5, 1).toISOString(), now), "был(а) давно");
 });
+
+test("надёжный продавец", async () => {
+  const { isTrustedSeller } = await import("./chat.js");
+  assert.equal(isTrustedSeller({ deals: 5, positive: 9, negative: 1, accountDays: 14 }), true);
+  assert.equal(isTrustedSeller({ deals: 4, positive: 9, negative: 0, accountDays: 30 }), false, "мало сделок");
+  assert.equal(isTrustedSeller({ deals: 10, positive: 8, negative: 2, accountDays: 30 }), false, "80% положительных");
+  assert.equal(isTrustedSeller({ deals: 10, positive: 10, negative: 0, accountDays: 5 }), false, "новый аккаунт");
+  assert.equal(isTrustedSeller({ deals: 10, positive: 0, negative: 0, accountDays: 30 }), false, "без отзывов");
+});
