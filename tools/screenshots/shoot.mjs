@@ -1,0 +1,164 @@
+/**
+ * Снимки экранов приложения (интерфейс в браузере, без оболочки Tauri).
+ * Нужны запущенные сервер API с тестовыми данными (seed.mjs) и интерфейс
+ * (vite preview). Каждый экран снимается отдельно: если один не открылся,
+ * остальные всё равно снимаются, а ошибка попадает в отчёт.
+ *
+ *   UI_URL=http://localhost:4173 node shoot.mjs
+ */
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { chromium } from "playwright";
+import { OUT, UI, totp } from "./lib.mjs";
+
+const seed = JSON.parse(await readFile(`${OUT}seed.json`, "utf8"));
+const SCREENS = `${OUT}screens/`;
+await mkdir(SCREENS, { recursive: true });
+
+const browser = await chromium.launch();
+const results = [];
+let counter = 0;
+
+/** Ждёт, пока страница догрузится: нет запросов и пропали «Загружаю…». */
+async function settle(page) {
+  await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => {});
+  await page
+    .waitForFunction(() => !document.body.innerText.includes("Загружаю…"), null, { timeout: 8_000 })
+    .catch(() => {});
+  await page.waitForTimeout(400);
+}
+
+async function session(role, login) {
+  const context = await browser.newContext({ viewport: { width: 1366, height: 860 }, locale: "ru-RU", timezoneId: "Europe/Moscow" });
+  await context.addInitScript(() => {
+    try {
+      window.localStorage.setItem("twm:server", "1");
+    } catch {}
+  });
+  const page = await context.newPage();
+  const problems = [];
+  page.on("console", (m) => {
+    if (m.type() === "error") problems.push(`console: ${m.text()}`);
+  });
+  page.on("pageerror", (e) => problems.push(`ошибка страницы: ${e.message}`));
+  if (login) {
+    await page.goto(`${UI}/#/login`);
+    await page.getByLabel("Логин или email").fill(login);
+    await page.getByLabel("Пароль", { exact: true }).fill(seed.password);
+    await page.getByRole("button", { name: "Войти" }).click();
+    await page.waitForURL((url) => !url.hash.startsWith("#/login"), { timeout: 15_000 });
+    await settle(page);
+  }
+  return { role, page, context, problems };
+}
+
+/** Код 2FA: ждём новый 30-секундный шаг, чтобы код не совпал с уже использованным. */
+async function freshTotp(secret) {
+  const step = Math.floor(Date.now() / 30_000);
+  while (Math.floor(Date.now() / 30_000) === step) await new Promise((r) => setTimeout(r, 500));
+  return totp(secret);
+}
+
+async function shot(s, name, title, path, act) {
+  counter += 1;
+  const file = `${String(counter).padStart(2, "0")}-${name}.png`;
+  const before = s.problems.length;
+  const entry = { file, title, role: s.role, path, ok: true, problems: [] };
+  try {
+    if (path !== null) {
+      await s.page.goto(`${UI}/#${path}`);
+      await settle(s.page);
+    }
+    if (act) {
+      await act(s.page);
+      await settle(s.page);
+    }
+    await s.page.screenshot({ path: SCREENS + file, fullPage: true });
+  } catch (error) {
+    entry.ok = false;
+    entry.problems.push(`не снят: ${error.message.split("\n")[0]}`);
+    await s.page.screenshot({ path: SCREENS + file, fullPage: true }).catch(() => {});
+  }
+  entry.problems.push(...s.problems.slice(before));
+  results.push(entry);
+  console.log(`${entry.ok ? "✓" : "✗"} ${file} ${title}`);
+}
+
+const L = seed.listings;
+
+// ── Гость ─────────────────────────────────────────────────────────────────
+const guest = await session("гость");
+await shot(guest, "home", "Главная", "/");
+await shot(guest, "items", "Предметы", "/items");
+await shot(guest, "cars", "Транспорт", "/cars");
+await shot(guest, "listing", "Объявление", `/listing/${L.ivanDeadpool}`);
+await shot(guest, "listing-car", "Объявление: транспорт", `/listing/${L.ivanCar}`);
+await shot(guest, "user", "Профиль продавца", `/user/${seed.ivan.login}`);
+await shot(guest, "login", "Вход", "/login");
+await shot(guest, "register", "Регистрация", "/register");
+await guest.context.close();
+
+// ── Покупатель ────────────────────────────────────────────────────────────
+const buyer = await session("покупатель", seed.maks.login);
+await shot(buyer, "listing-warning", "Подозрительно дешёвое объявление", `/listing/${L.fastDeadpool}`);
+await shot(buyer, "chats", "Переписка", `/chats/${seed.conversation}`);
+await shot(buyer, "searches", "Подписки на поиск", "/my/searches");
+await shot(buyer, "favorites", "Избранное", "/favorites");
+await shot(buyer, "account", "Личный кабинет", "/account");
+await buyer.context.close();
+
+// ── Продавец ──────────────────────────────────────────────────────────────
+const seller = await session("продавец", seed.ivan.login);
+await shot(seller, "my-listings", "Мои объявления", "/my/listings");
+await shot(seller, "own-listing", "Своё объявление со статистикой", `/listing/${L.ivanDeadpool}`);
+await shot(seller, "edit-listing", "Редактирование объявления", `/listings/${L.ivanCar}/edit`);
+await shot(seller, "new-listing", "Новое объявление", "/listings/new");
+await shot(seller, "chat-templates", "Шаблоны ответов в переписке", `/chats/${seed.conversation}`, async (page) => {
+  await page.getByRole("button", { name: "Шаблоны ответов" }).click();
+});
+await seller.context.close();
+
+// ── Администратор ─────────────────────────────────────────────────────────
+const admin = await session("администратор", seed.admin.login);
+await shot(admin, "admin-2fa", "Код подтверждения для админ-панели", "/admin");
+await shot(admin, "admin-dashboard", "Админ-панель: сводка", null, async (page) => {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    await page.getByLabel("Код из приложения").fill(await freshTotp(seed.admin.totpSecret));
+    await page.getByRole("button", { name: "Открыть админ-панель" }).click();
+    const opened = await page
+      .getByLabel("Код из приложения")
+      .waitFor({ state: "detached", timeout: 5_000 })
+      .then(() => true)
+      .catch(() => false);
+    if (opened) return;
+  }
+  throw new Error("Код 2FA не принят");
+});
+for (const tab of ["Объявления на проверке", "Жалобы", "Подтверждение ников"]) {
+  await shot(admin, "admin-moderation", `Модерация: ${tab}`, "/admin/moderation", async (page) => {
+    await page.getByRole("tab", { name: new RegExp(tab) }).click();
+  });
+}
+await shot(admin, "admin-listings", "Все объявления", "/admin/listings");
+await shot(admin, "admin-users", "Пользователи", "/admin/users");
+await shot(admin, "admin-user", "Игрок: активность", `/admin/users/${seed.ivan.id}`);
+await shot(admin, "admin-errors", "Ошибки", "/admin/errors");
+await admin.context.close();
+
+await browser.close();
+
+// ── Отчёт ─────────────────────────────────────────────────────────────────
+const failed = results.filter((r) => !r.ok);
+const noisy = results.filter((r) => r.problems.length > 0);
+const lines = [
+  `## Снимки экранов: ${results.length - failed.length} из ${results.length}`,
+  "",
+  failed.length ? `Не сняты: ${failed.map((r) => r.file).join(", ")}` : "Все экраны сняты.",
+  noisy.length ? `Экранов с ошибками в консоли: ${noisy.length}` : "Ошибок в консоли нет.",
+  "",
+  "| Файл | Экран | Кто | Замечания |",
+  "|---|---|---|---|",
+  ...results.map((r) => `| ${r.file} | ${r.title} | ${r.role} | ${r.problems.map((p) => p.replace(/\|/g, "\\|").slice(0, 200)).join("<br>") || "—"} |`),
+];
+await writeFile(`${OUT}report.md`, lines.join("\n") + "\n");
+await writeFile(`${OUT}report.json`, JSON.stringify(results, null, 2));
+console.log(lines.slice(0, 4).join("\n"));

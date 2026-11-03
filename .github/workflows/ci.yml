@@ -95,6 +95,104 @@ jobs:
       - name: Сборка интерфейса
         run: pnpm --filter @twm/desktop build
 
+  # Снимки экранов: сервер с тестовыми данными, интерфейс в браузере Chromium.
+  # Картинки — в артефакте screenshots-<коммит>, сводка — на странице запуска.
+  screens:
+    name: Снимки экранов
+    needs: check
+    if: ${{ !failure() && !cancelled() }}
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: twm
+          POSTGRES_PASSWORD: twm
+          POSTGRES_DB: twm_screens
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U twm"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://twm:twm@localhost:5432/twm_screens
+      API_URL: http://localhost:3000
+      UI_URL: http://localhost:4173
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'push' && github.ref || '' }}
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Установка зависимостей
+        run: pnpm install --frozen-lockfile
+
+      - name: Сборка сервера и интерфейса
+        env:
+          VITE_API_URL: http://localhost:3000
+        run: |
+          pnpm --filter @twm/api build
+          pnpm --filter @twm/desktop exec vite build
+
+      - name: Запуск сервера
+        working-directory: apps/api
+        env:
+          NODE_ENV: development
+          # Только для этой проверки: база и сервер живут несколько минут.
+          JWT_SECRET: screenshots-jwt-secret-0123456789abcdef0123456789
+          CODE_SECRET: screenshots-code-secret-0123456789abcdef012345678
+          CORS_ORIGINS: http://localhost:4173
+          MAIL_TRANSPORT: console
+          RATE_LIMIT: "false"
+          UPLOAD_DIR: ${{ runner.temp }}/uploads
+        run: |
+          node dist/db/migrate-cli.js
+          nohup node dist/index.js > "$RUNNER_TEMP/api.log" 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://localhost:3000/health && exit 0; sleep 1; done
+          cat "$RUNNER_TEMP/api.log"; exit 1
+
+      - name: Запуск интерфейса
+        working-directory: apps/desktop
+        run: |
+          nohup pnpm exec vite preview --port 4173 --strictPort > "$RUNNER_TEMP/ui.log" 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://localhost:4173/ > /dev/null && exit 0; sleep 1; done
+          cat "$RUNNER_TEMP/ui.log"; exit 1
+
+      - name: Браузер Chromium
+        run: pnpm --filter @twm/screenshots exec playwright install --with-deps chromium
+
+      - name: Тестовые данные
+        run: pnpm --filter @twm/screenshots seed
+
+      - name: Снимки
+        run: |
+          pnpm --filter @twm/screenshots shoot
+          cat tools/screenshots/out/report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Журнал сервера
+        if: always()
+        run: tail -n 200 "$RUNNER_TEMP/api.log" || true
+
+      - name: Сохранить снимки
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots-${{ github.sha }}
+          path: |
+            tools/screenshots/out/screens/
+            tools/screenshots/out/report.md
+            tools/screenshots/out/report.json
+          if-no-files-found: warn
+          retention-days: 14
+
   windows:
     name: Сборка установщика Windows
     needs: check

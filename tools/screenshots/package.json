@@ -1,0 +1,16 @@
+{
+  "name": "@twm/screenshots",
+  "private": true,
+  "version": "0.10.0",
+  "description": "Снимки экранов интерфейса с тестовыми данными — для проверки перед выпуском",
+  "type": "module",
+  "scripts": {
+    "seed": "node seed.mjs",
+    "shoot": "node shoot.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.49.0",
+    "postgres": "^3.4.5",
+    "sharp": "^0.34.1"
+  }
+}
