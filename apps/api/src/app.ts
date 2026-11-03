@@ -27,7 +27,7 @@ import { adminStatsRoutes } from "./modules/admin/stats.js";
 import { priceRoutes } from "./modules/stats/prices.js";
 import { savedSearchRoutes } from "./modules/saved-searches/routes.js";
 
-export const API_VERSION = "0.6.0";
+export const API_VERSION = "0.7.0";
 
 export interface BuildOptions {
   config: Config;

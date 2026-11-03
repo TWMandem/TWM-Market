@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Права главного окна: базовые, всплывающие уведомления, проверка обновлений и перезапуск после обновления. Новые возможности добавляются сюда явно, по одной.",
+  "description": "Права главного окна: базовые, уведомления, проверка обновлений и перезапуск после обновления, выбор папки с игрой. Новые возможности добавляются сюда явно, по одной.",
   "windows": [
     "main"
   ],
@@ -9,6 +9,7 @@
     "core:default",
     "notification:default",
     "updater:default",
-    "process:allow-restart"
+    "process:allow-restart",
+    "dialog:allow-open"
   ]
 }

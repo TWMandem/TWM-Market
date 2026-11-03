@@ -20,6 +20,7 @@ import { ApiError, api, mediaSrc } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
 import { useLoad } from "../../lib/use-load";
 import { OwnerStatsCard, PriceHistoryCard, SimilarListings } from "./ListingInsights";
+import { PedModelCard } from "./PedModelCard";
 
 const SECTION_LINKS = { items: ["/items", "Рынок предметов"], cars: ["/cars", "Авторынок"], notary: ["/notary", "Нотариус"] } as const;
 
@@ -80,6 +81,11 @@ export function ListingPage() {
           <Gallery listing={listing} />
 
           {listing.catalogItem && <ItemPreviewCard item={listing.catalogItem} />}
+
+          {/* Одежда в игре — это скин персонажа: ID одежды = номер модели персонажа. */}
+          {listing.catalogItem?.gameCode && /одежд/i.test(listing.category?.name ?? "") && (
+            <PedModelCard gameCode={listing.catalogItem.gameCode} name={listing.catalogItem.name} />
+          )}
 
           {listing.attributes.length > 0 && (
             <Card className="flex flex-col gap-4">

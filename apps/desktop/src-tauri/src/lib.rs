@@ -1,4 +1,5 @@
 mod credentials;
+mod game_models;
 
 use tauri::{
     menu::{Menu, MenuItem},
@@ -27,6 +28,7 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let open = MenuItem::with_id(app, "open", "Открыть TWM Market", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Выход", true, None::<&str>)?;
@@ -69,6 +71,9 @@ pub fn run() {
             credentials::auth_token_get,
             credentials::auth_token_set,
             credentials::auth_token_clear,
+            game_models::game_detect,
+            game_models::game_check,
+            game_models::game_ped_model,
         ])
         .run(tauri::generate_context!())
         .expect("не удалось запустить приложение TWM Market");
