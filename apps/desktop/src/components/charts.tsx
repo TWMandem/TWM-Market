@@ -29,7 +29,6 @@ interface TimeChartProps {
   bandLabel?: [string, string];
 }
 
-const ACCENT = "var(--color-accent)";
 const fmtDefault = (n: number) => n.toLocaleString("ru-RU");
 export const dayLabel = (date: string) =>
   new Date(`${date}T00:00:00`).toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
@@ -116,8 +115,8 @@ export function TimeChart({ points, kind, label, format = fmtDefault, axisFormat
         <svg width={width} height={height} role="img" aria-label={label} aria-describedby={tableId} className="block overflow-visible">
           {ticks.map((t) => (
             <g key={t}>
-              <line x1={pad.left} x2={width - pad.right} y1={y(t)} y2={y(t)} stroke="var(--color-line-soft)" strokeWidth={1} />
-              <text x={pad.left - 8} y={y(t)} dy="0.32em" textAnchor="end" fontSize={11} fill="var(--color-faint)" className="tabular">
+              <line x1={pad.left} x2={width - pad.right} y1={y(t)} y2={y(t)} className="stroke-line-soft" strokeWidth={1} />
+              <text x={pad.left - 8} y={y(t)} dy="0.32em" textAnchor="end" fontSize={11} className="fill-faint tabular">
                 {axis(t)}
               </text>
             </g>
@@ -133,7 +132,7 @@ export function TimeChart({ points, kind, label, format = fmtDefault, axisFormat
               const bottom = y(yMin);
               // Скругляем только верх столбца.
               const d = `M${left},${bottom} V${bottom - h + r} Q${left},${bottom - h} ${left + r},${bottom - h} H${left + barW - r} Q${left + barW},${bottom - h} ${left + barW},${bottom - h + r} V${bottom} Z`;
-              return <path key={p.date} d={d} fill={ACCENT} opacity={hover === null || hover === i ? 1 : 0.55} />;
+              return <path key={p.date} d={d} className="fill-accent" opacity={hover === null || hover === i ? 1 : 0.55} />;
             })}
 
           {kind === "line" && band.length > 0 && (
@@ -147,7 +146,7 @@ export function TimeChart({ points, kind, label, format = fmtDefault, axisFormat
                     x2={x(run[0]!.i)}
                     y1={y(run[0]!.low)}
                     y2={y(run[0]!.high)}
-                    stroke={ACCENT}
+                    className="stroke-accent"
                     strokeOpacity={0.3}
                     strokeWidth={6}
                     strokeLinecap="round"
@@ -156,7 +155,7 @@ export function TimeChart({ points, kind, label, format = fmtDefault, axisFormat
                   <path
                     key={k}
                     d={`M${run.map((b) => `${x(b.i)},${y(b.high)}`).join(" L")} L${[...run].reverse().map((b) => `${x(b.i)},${y(b.low)}`).join(" L")} Z`}
-                    fill={ACCENT}
+                    className="fill-accent"
                     fillOpacity={0.14}
                   />
                 ),
@@ -167,22 +166,22 @@ export function TimeChart({ points, kind, label, format = fmtDefault, axisFormat
           {kind === "line" &&
             segments.map((seg, k) =>
               seg.length === 1 ? (
-                <circle key={k} cx={seg[0]![0]} cy={seg[0]![1]} r={4} fill={ACCENT} stroke="var(--color-surface)" strokeWidth={2} />
+                <circle key={k} cx={seg[0]![0]} cy={seg[0]![1]} r={4} className="fill-accent stroke-surface" strokeWidth={2} />
               ) : (
-                <polyline key={k} points={seg.map(([a, b]) => `${a},${b}`).join(" ")} fill="none" stroke={ACCENT} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+                <polyline key={k} points={seg.map(([a, b]) => `${a},${b}`).join(" ")} fill="none" className="stroke-accent" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
               ),
             )}
 
           {hovered && hover !== null && (
             <>
-              <line x1={x(hover)} x2={x(hover)} y1={pad.top} y2={pad.top + plotH} stroke="var(--color-faint)" strokeWidth={1} strokeDasharray="3 3" />
+              <line x1={x(hover)} x2={x(hover)} y1={pad.top} y2={pad.top + plotH} className="stroke-faint" strokeWidth={1} strokeDasharray="3 3" />
               {kind === "line" && hovered.value !== null && (
-                <circle cx={x(hover)} cy={y(hovered.value)} r={5} fill={ACCENT} stroke="var(--color-surface)" strokeWidth={2} />
+                <circle cx={x(hover)} cy={y(hovered.value)} r={5} className="fill-accent stroke-surface" strokeWidth={2} />
               )}
             </>
           )}
 
-          <line x1={pad.left} x2={width - pad.right} y1={pad.top + plotH} y2={pad.top + plotH} stroke="var(--color-line)" strokeWidth={1} />
+          <line x1={pad.left} x2={width - pad.right} y1={pad.top + plotH} y2={pad.top + plotH} className="stroke-line" strokeWidth={1} />
           {xLabels.map((i, k) => (
             <text
               key={i}
@@ -190,7 +189,7 @@ export function TimeChart({ points, kind, label, format = fmtDefault, axisFormat
               y={height - 6}
               textAnchor={k === 0 && xLabels.length > 1 ? "start" : k === xLabels.length - 1 && xLabels.length > 1 ? "end" : "middle"}
               fontSize={11}
-              fill="var(--color-faint)"
+              className="fill-faint"
             >
               {dayLabel(points[i]!.date)}
             </text>
@@ -211,9 +210,8 @@ export function TimeChart({ points, kind, label, format = fmtDefault, axisFormat
         {hovered && hover !== null && (
           <div
             className="pointer-events-none absolute top-0 z-10 flex flex-col gap-0.5 whitespace-nowrap rounded-lg border border-line bg-ground px-2.5 py-1.5 text-xs shadow-lg"
-            style={{
-              left: Math.min(Math.max(0, x(hover) - 70), Math.max(0, width - 160)),
-            }}
+            // Подсказка сбоку от линии наведения, чтобы не закрывать точку.
+            style={x(hover) < width / 2 ? { left: x(hover) + 12 } : { right: width - x(hover) + 12 }}
           >
             <span className="text-muted">{dayLabel(hovered.date)}</span>
             <span className="font-mono font-bold text-ink tabular">{hovered.value === null ? "нет данных" : format(hovered.value)}</span>
@@ -227,7 +225,9 @@ export function TimeChart({ points, kind, label, format = fmtDefault, axisFormat
         )}
       </div>
 
-      <table id={tableId} className="sr-only">
+      {/* Таблица не умеет сжиматься до 1px, поэтому прячем обёртку. */}
+      <div id={tableId} className="sr-only">
+      <table>
         <caption>{label}</caption>
         <tbody>
           {points.map((p) => (
@@ -238,6 +238,7 @@ export function TimeChart({ points, kind, label, format = fmtDefault, axisFormat
           ))}
         </tbody>
       </table>
+      </div>
     </figure>
   );
 }
