@@ -237,16 +237,20 @@ case "$cmd" in
     [ -f "$ROOT/current/deploy/nginx-site.conf" ] || fail "в текущей сборке нет настроек сайта — сначала: sudo twm update"
     ip="$(curl -fsS4 --max-time 10 https://api.ipify.org 2>/dev/null || true)"
     names=""
+    # Записи кешируются: сервер мог запомнить старый адрес — сбросим кеш перед проверкой.
+    command -v resolvectl >/dev/null 2>&1 && resolvectl flush-caches 2>/dev/null || true
     for name in "$site" "www.$site"; do
-      resolved="$(getent ahostsv4 "$name" | awk 'NR==1 {print $1}' || true)"
-      if [ -z "$resolved" ]; then
+      # Все адреса домена, а не только первый: лишняя A-запись ломает получение сертификата.
+      addrs="$(getent ahostsv4 "$name" | awk '{print $1}' | sort -u | tr '\n' ' ' | sed 's/ $//' || true)"
+      if [ -z "$addrs" ]; then
         [ "$name" = "$site" ] && fail "домен $name пока не находится в DNS. Добавьте A-запись с адресом ${ip:-сервера} и подождите (до нескольких часов)"
         echo "www.$site не настроен в DNS — сайт будет только на $site"
         continue
       fi
-      if [ -n "$ip" ] && [ "$resolved" != "$ip" ]; then
-        [ "$name" = "$site" ] && fail "домен $name указывает на $resolved, а у этого сервера адрес $ip. Исправьте A-запись"
-        echo "www.$site указывает на $resolved, а не на этот сервер — пропускаю"
+      if [ -n "$ip" ] && [ "$addrs" != "$ip" ]; then
+        hint="Оставьте у $name одну A-запись с адресом $ip. Если лишние записи уже удалены, старые адреса ещё хранятся в кеше DNS — подождите час-другой (иногда до суток) и повторите команду"
+        [ "$name" = "$site" ] && fail "у $name адреса: $addrs, а у этого сервера — $ip. $hint"
+        echo "у www.$site адреса: $addrs, а не только $ip — пока пропускаю (повторите команду позже)"
         continue
       fi
       names="$names $name"
