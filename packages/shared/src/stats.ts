@@ -162,3 +162,17 @@ export interface SavedSearchDto {
   /** Подходящих объявлений, опубликованных после последнего просмотра (не больше 100). */
   newCount: number;
 }
+
+/** Цифры площадки для сайта (GET /v1/public/stats). */
+export interface PublicStatsDto {
+  /** Активных объявлений всего. */
+  listings: number;
+  sections: { items: number; cars: number; notary: number };
+  /** Игроков с активными объявлениями. */
+  sellers: number;
+  /** Игровых серверов на площадке. */
+  servers: number;
+  /** Подтверждённых сделок за 30 дней. */
+  dealsMonth: number;
+  updatedAt: string;
+}

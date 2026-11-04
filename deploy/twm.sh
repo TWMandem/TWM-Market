@@ -13,6 +13,8 @@
 #   sudo twm backup-passphrase — показать пароль шифрования копий (сохраните его вне сервера)
 #   sudo twm admin-create --login ЛОГИН --email EMAIL
 #   sudo twm reset-2fa --login ЛОГИН
+#   sudo twm delete-user --login ЛОГИН — удалить аккаунт по просьбе игрока
+#   sudo twm set-site twm-market.ru — сайт площадки на основном домене (и www)
 #   sudo twm mail-test ВАШ@EMAIL — отправить тестовое письмо по настройкам почты
 #   sudo twm set-domain api.example.ru — перейти на свой домен (старый адрес продолжит работать)
 set -euo pipefail
@@ -226,6 +228,46 @@ case "$cmd" in
       fail "сертификат получен, но https://${new}/health не ответил. Журнал: sudo twm logs"
     fi
     ;;
+  set-site)
+    need_root set-site
+    site="${1:-twm-market.ru}"
+    site="${site,,}"
+    [[ "$site" =~ ^[a-z0-9.-]+\.[a-z]{2,}$ ]] || fail "укажите домен: sudo twm set-site twm-market.ru"
+    [ -f "$ROOT/current/site/index.html" ] || fail "в текущей сборке нет сайта — сначала: sudo twm update"
+    [ -f "$ROOT/current/deploy/nginx-site.conf" ] || fail "в текущей сборке нет настроек сайта — сначала: sudo twm update"
+    ip="$(curl -fsS4 --max-time 10 https://api.ipify.org 2>/dev/null || true)"
+    names=""
+    for name in "$site" "www.$site"; do
+      resolved="$(getent ahostsv4 "$name" | awk 'NR==1 {print $1}' || true)"
+      if [ -z "$resolved" ]; then
+        [ "$name" = "$site" ] && fail "домен $name пока не находится в DNS. Добавьте A-запись с адресом ${ip:-сервера} и подождите (до нескольких часов)"
+        echo "www.$site не настроен в DNS — сайт будет только на $site"
+        continue
+      fi
+      if [ -n "$ip" ] && [ "$resolved" != "$ip" ]; then
+        [ "$name" = "$site" ] && fail "домен $name указывает на $resolved, а у этого сервера адрес $ip. Исправьте A-запись"
+        echo "www.$site указывает на $resolved, а не на этот сервер — пропускаю"
+        continue
+      fi
+      names="$names $name"
+    done
+    names="${names# }"
+    sed "s/__SITE__/${names}/g" "$ROOT/current/deploy/nginx-site.conf" >/etc/nginx/sites-available/twm-site
+    ln -sf /etc/nginx/sites-available/twm-site /etc/nginx/sites-enabled/twm-site
+    nginx -t
+    systemctl reload nginx
+    cert_args=()
+    for name in $names; do cert_args+=(-d "$name"); done
+    certbot --nginx --cert-name twm-site "${cert_args[@]}" --non-interactive --agree-tos \
+      --register-unsafely-without-email --redirect --expand
+    sed -i '/^SITE_DOMAIN=/d' "$ENV_FILE"
+    printf 'SITE_DOMAIN=%s\n' "$site" >>"$ENV_FILE"
+    if curl -fsS -o /dev/null "https://${site}/"; then
+      echo "Готово: сайт открывается на https://${site}"
+    else
+      fail "сертификат получен, но https://${site}/ не открылся. Проверьте: sudo nginx -t"
+    fi
+    ;;
   admin-create)
     need_root admin-create
     run_cli create-admin "$@"
@@ -233,6 +275,10 @@ case "$cmd" in
   reset-2fa)
     need_root reset-2fa
     run_cli reset-2fa "$@"
+    ;;
+  delete-user)
+    need_root delete-user
+    run_cli delete-user "$@"
     ;;
   version)
     cat "$ROOT/current/VERSION"

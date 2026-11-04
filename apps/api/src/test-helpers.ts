@@ -23,6 +23,8 @@ export interface TestEnv {
   app: FastifyInstance;
   mailer: MemoryMailer;
   database: Database;
+  /** Папки загрузок этого теста (как ctx.uploadDir и ctx.privateDir сервера). */
+  dirs: { uploadDir: string; privateDir: string };
   close: () => Promise<void>;
 }
 
@@ -53,6 +55,7 @@ export async function setupTestEnv(env: Record<string, string> = {}): Promise<Te
     app,
     mailer,
     database,
+    dirs: { uploadDir, privateDir: `${uploadDir}-private` },
     close: async () => {
       await app.close();
       await database.close();

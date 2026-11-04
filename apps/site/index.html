@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>TWM Market — торговая площадка игроков Amazing Online</title>
+    <meta
+      name="description"
+      content="Предметы, транспорт и имущество у нотариуса в одном приложении для Windows. История цен, переписка с продавцом, отзывы после сделки. Неофициальная площадка игроков Amazing Online."
+    />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="canonical" href="https://twm-market.ru/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="TWM Market" />
+    <meta property="og:title" content="TWM Market — торговая площадка игроков Amazing Online" />
+    <meta property="og:description" content="Рынок предметов, авторынок и нотариус в одном поиске. История цен, переписка и отзывы. Сделка — в игре." />
+    <meta property="og:url" content="https://twm-market.ru/" />
+    <meta property="og:image" content="https://twm-market.ru/img/og.jpg" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="theme-color" content="#0e1014" />
+    <link rel="stylesheet" href="/src/styles.css" />
+    <script type="module" src="/src/main.js"></script>
+  </head>
+  <body>
+    <!-- include:header -->
+
+    <main id="main">
+      <!-- Первый экран -->
+      <section class="relative overflow-hidden">
+        <div
+          aria-hidden="true"
+          class="pointer-events-none absolute -top-40 right-[-10%] h-[520px] w-[720px] rounded-full bg-accent/10 blur-[120px]"
+        ></div>
+        <div class="relative mx-auto grid max-w-[1180px] items-center gap-12 px-5 pb-16 pt-14 sm:px-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] lg:pt-20">
+          <div class="flex flex-col gap-6">
+            <span class="w-fit rounded-full border border-line px-3 py-1.5 text-[13px] font-bold text-ink-2">Неофициальная площадка игроков Amazing Online</span>
+            <h1 class="m-0 font-display text-[clamp(34px,5vw,56px)] font-bold leading-[1.05] tracking-[-0.02em]">
+              Рынок, авторынок и нотариус — <span class="text-accent">в одном поиске</span>
+            </h1>
+            <p class="m-0 max-w-[540px] text-[17px] leading-relaxed text-ink-2">
+              Приложение для Windows, где игроки размещают предметы, транспорт и имущество. Сравнивайте цены с историей сделок, договаривайтесь с продавцом в
+              переписке. Сама сделка проходит в игре.
+            </p>
+            <div class="flex flex-wrap items-center gap-3">
+              <a
+                data-download
+                href="https://github.com/TWMandem/TWM-Market/releases/latest"
+                class="flex h-[54px] items-center gap-2.5 rounded-xl bg-accent px-6 text-[17px] font-extrabold text-on-accent no-underline hover:bg-accent-soft"
+              >
+                <svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 20h14" /></svg>
+                Скачать для Windows
+              </a>
+              <a href="#start" class="flex h-[54px] items-center rounded-xl border border-line px-5 font-bold text-ink no-underline hover:border-faint">Как начать</a>
+            </div>
+            <p class="m-0 text-sm text-muted">
+              <span data-version>Бесплатно · Windows 10 и 11</span> · обновляется само
+            </p>
+          </div>
+
+          <figure class="m-0">
+            <div class="overflow-hidden rounded-[14px] border border-line bg-surface shadow-[0_40px_120px_-40px_rgba(0,0,0,0.8)]">
+              <div aria-hidden="true" class="flex items-center gap-2 border-b border-line-soft px-3.5 py-2.5">
+                <span class="size-2.5 rounded-full bg-line"></span><span class="size-2.5 rounded-full bg-line"></span><span class="size-2.5 rounded-full bg-line"></span>
+                <span class="ml-2 text-xs text-faint">TWM Market</span>
+              </div>
+              <img
+                src="/img/app-listing.webp"
+                width="1280"
+                height="820"
+                alt="Окно приложения: объявление «Одежда Дедпул» с ценой, историей цены и карточкой продавца"
+                class="block h-auto w-full"
+                fetchpriority="high"
+              />
+            </div>
+            <figcaption class="mt-3 text-center text-[13px] text-faint">Снимок окна приложения. Объявления на снимках — тестовые.</figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <!-- Цифры с сервера: показываются, когда объявлений уже заметно много -->
+      <section data-stats hidden aria-label="Площадка сейчас" class="mx-auto max-w-[1180px] px-5 sm:px-8">
+        <dl class="m-0 grid grid-cols-2 gap-3 rounded-[var(--radius-card)] border border-line bg-surface p-5 sm:grid-cols-4">
+          <div class="flex flex-col gap-1"><dt class="text-[13px] text-muted">Объявлений сейчас</dt><dd data-stat="listings" class="m-0 font-display text-[26px] font-bold">—</dd></div>
+          <div class="flex flex-col gap-1"><dt class="text-[13px] text-muted">Продавцов</dt><dd data-stat="sellers" class="m-0 font-display text-[26px] font-bold">—</dd></div>
+          <div class="flex flex-col gap-1"><dt class="text-[13px] text-muted">Сделок за 30 дней</dt><dd data-stat="dealsMonth" class="m-0 font-display text-[26px] font-bold">—</dd></div>
+          <div class="flex flex-col gap-1"><dt class="text-[13px] text-muted">Серверов игры</dt><dd data-stat="servers" class="m-0 font-display text-[26px] font-bold">—</dd></div>
+        </dl>
+      </section>
+
+      <!-- Возможности -->
+      <section id="features" class="mx-auto max-w-[1180px] scroll-mt-6 px-5 pt-20 sm:px-8">
+        <h2 class="m-0 max-w-[640px] font-display text-[clamp(26px,3.4vw,36px)] font-bold leading-tight">Всё, что нужно, чтобы купить или продать в игре</h2>
+        <div class="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <article class="flex flex-col gap-2.5 rounded-[var(--radius-card)] border border-line bg-surface p-6">
+            <h3 class="m-0 text-[17px] font-extrabold">Три рынка в одном поиске</h3>
+            <p class="m-0 text-[15px] leading-relaxed text-ink-2">
+              Рынок предметов: аксессуары, одежда, кейсы, крафт. Авторынок — весь транспорт. Нотариальная контора — дома, квартиры, бизнесы, SIM-карты. Фильтры по
+              серверу, цене, категории и нику продавца.
+            </p>
+          </article>
+          <article class="flex flex-col gap-2.5 rounded-[var(--radius-card)] border border-line bg-surface p-6">
+            <h3 class="m-0 text-[17px] font-extrabold">История цен</h3>
+            <p class="m-0 text-[15px] leading-relaxed text-ink-2">
+              По каждому предмету и модели — цены предложений по дням и цены подтверждённых сделок. Сразу видно, дорого просят или дёшево.
+            </p>
+          </article>
+          <article class="flex flex-col gap-2.5 rounded-[var(--radius-card)] border border-line bg-surface p-6">
+            <h3 class="m-0 text-[17px] font-extrabold">Переписка и торг</h3>
+            <p class="m-0 text-[15px] leading-relaxed text-ink-2">
+              Сообщения и скриншоты, шаблоны ответов. Предложите свою цену — продавец примет, откажется или назовёт свою.
+            </p>
+          </article>
+          <article class="flex flex-col gap-2.5 rounded-[var(--radius-card)] border border-line bg-surface p-6">
+            <h3 class="m-0 text-[17px] font-extrabold">Отзывы только после сделки</h3>
+            <p class="m-0 text-[15px] leading-relaxed text-ink-2">
+              Сделку отмечают обе стороны, и только после этого можно оставить отзыв. Ник в игре можно подтвердить у модератора, у опытных продавцов — отметка «Надёжный
+              продавец».
+            </p>
+          </article>
+          <article class="flex flex-col gap-2.5 rounded-[var(--radius-card)] border border-line bg-surface p-6">
+            <h3 class="m-0 text-[17px] font-extrabold">Подписки на поиск</h3>
+            <p class="m-0 text-[15px] leading-relaxed text-ink-2">
+              Сохраните фильтры — например, «одежда до 3 млн на своём сервере» — и приложение сообщит, когда появится подходящее объявление.
+            </p>
+          </article>
+          <article class="flex flex-col gap-2.5 rounded-[var(--radius-card)] border border-line bg-surface p-6">
+            <h3 class="m-0 text-[17px] font-extrabold">Одежда в 3D</h3>
+            <p class="m-0 text-[15px] leading-relaxed text-ink-2">
+              Если игра установлена на компьютере, приложение покажет модель персонажа в выбранной одежде и её расцветки. Файлы игры только читаются и никуда не
+              отправляются.
+            </p>
+          </article>
+        </div>
+
+        <div class="mt-12 grid items-start gap-6 lg:grid-cols-2">
+          <figure class="m-0 flex flex-col gap-3">
+            <img
+              src="/img/app-chat.webp"
+              width="1280"
+              height="820"
+              loading="lazy"
+              alt="Переписка с покупателем: предложение цены 17 000 000 ₽ с кнопками «Принять», «Своя цена» и «Отклонить»"
+              class="block h-auto w-full rounded-[14px] border border-line"
+            />
+            <figcaption class="text-sm text-muted">Покупатель предложил свою цену — продавец решает прямо в переписке.</figcaption>
+          </figure>
+          <figure class="m-0 flex flex-col gap-3">
+            <img
+              src="/img/app-history.webp"
+              width="880"
+              height="545"
+              loading="lazy"
+              alt="История цены предмета: медиана, разброс, график по дням и последние сделки"
+              class="block h-auto w-full rounded-[14px] border border-line"
+            />
+            <figcaption class="text-sm text-muted">История цены: медиана предложений по дням и последние сделки.</figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <!-- Как начать -->
+      <section id="start" class="mx-auto max-w-[1180px] scroll-mt-6 px-5 pt-24 sm:px-8">
+        <h2 class="m-0 font-display text-[clamp(26px,3.4vw,36px)] font-bold leading-tight">Как начать</h2>
+        <ol class="m-0 mt-10 grid list-none gap-4 p-0 md:grid-cols-3">
+          <li class="flex flex-col gap-3 rounded-[var(--radius-card)] border border-line bg-surface p-6">
+            <span class="flex size-10 items-center justify-center rounded-xl bg-accent/15 font-display font-bold text-accent">1</span>
+            <h3 class="m-0 text-[17px] font-extrabold">Установите приложение</h3>
+            <p class="m-0 text-[15px] leading-relaxed text-ink-2">
+              Скачайте установщик и запустите. Новые версии приложение предложит установить само.
+            </p>
+          </li>
+          <li class="flex flex-col gap-3 rounded-[var(--radius-card)] border border-line bg-surface p-6">
+            <span class="flex size-10 items-center justify-center rounded-xl bg-accent/15 font-display font-bold text-accent">2</span>
+            <h3 class="m-0 text-[17px] font-extrabold">Создайте аккаунт</h3>
+            <p class="m-0 text-[15px] leading-relaxed text-ink-2">
+              Логин, email и пароль — не от игры. Добавьте игровой профиль: ник персонажа и сервер.
+            </p>
+          </li>
+          <li class="flex flex-col gap-3 rounded-[var(--radius-card)] border border-line bg-surface p-6">
+            <span class="flex size-10 items-center justify-center rounded-xl bg-accent/15 font-display font-bold text-accent">3</span>
+            <h3 class="m-0 text-[17px] font-extrabold">Найдите или разместите</h3>
+            <p class="m-0 text-[15px] leading-relaxed text-ink-2">
+              Договоритесь в переписке, встретьтесь в игре и обменяйтесь. Потом отметьте сделку и оставьте отзыв.
+            </p>
+          </li>
+        </ol>
+      </section>
+
+      <!-- Безопасность -->
+      <section class="mx-auto max-w-[1180px] px-5 pt-24 sm:px-8">
+        <div class="flex flex-col gap-5 rounded-[var(--radius-card)] border border-accent/30 bg-accent/[0.06] p-7 sm:p-9">
+          <h2 class="m-0 font-display text-[clamp(22px,2.6vw,28px)] font-bold">Площадка помогает найти друг друга, но не участвует в сделке</h2>
+          <ul class="m-0 grid gap-3 p-0 text-[15px] leading-relaxed text-ink-2 md:grid-cols-3">
+            <li class="list-none">Имущество передаётся только в игре: на авторынке, у нотариуса или лично.</li>
+            <li class="list-none">Торговля за реальные деньги запрещена — просьба перевести деньги на карту почти всегда обман.</li>
+            <li class="list-none">Сверьте ник собеседника в игре с ником в объявлении и посмотрите его отзывы.</li>
+          </ul>
+          <a href="/safety/" class="w-fit font-bold text-accent no-underline hover:text-accent-soft">Как не попасться мошенникам →</a>
+        </div>
+      </section>
+
+      <!-- Вопросы -->
+      <section id="faq" class="mx-auto max-w-[860px] scroll-mt-6 px-5 pt-24 sm:px-8">
+        <h2 class="m-0 font-display text-[clamp(26px,3.4vw,36px)] font-bold leading-tight">Вопросы</h2>
+        <div class="mt-8 flex flex-col gap-3">
+          <details class="group rounded-2xl border border-line bg-surface px-5 py-4 open:pb-5">
+            <summary class="cursor-pointer list-none text-[16px] font-extrabold marker:hidden">Это официальное приложение игры?</summary>
+            <p class="mb-0 mt-3 leading-relaxed text-ink-2">
+              Нет. TWM Market сделан игроками и не связан с разработчиками Amazing Online. Площадка только помогает найти покупателя или продавца — передача имущества
+              проходит в игре по её правилам.
+            </p>
+          </details>
+          <details class="group rounded-2xl border border-line bg-surface px-5 py-4 open:pb-5">
+            <summary class="cursor-pointer list-none text-[16px] font-extrabold marker:hidden">Сколько это стоит?</summary>
+            <p class="mb-0 mt-3 leading-relaxed text-ink-2">Нисколько. Приложение бесплатное, платных функций и рекламы нет.</p>
+          </details>
+          <details class="group rounded-2xl border border-line bg-surface px-5 py-4 open:pb-5">
+            <summary class="cursor-pointer list-none text-[16px] font-extrabold marker:hidden">Windows пишет «Система Windows защитила ваш компьютер». Что делать?</summary>
+            <div class="mt-3 flex flex-col gap-2 leading-relaxed text-ink-2">
+              <p class="m-0">
+                Так фильтр SmartScreen встречает программы, установщик которых не подписан платным сертификатом разработчика. Нажмите «Подробнее», затем «Выполнить в
+                любом случае».
+              </p>
+              <p class="m-0">
+                Если хотите убедиться, что файл не подменён, сверьте его SHA-256 с файлом SHA256SUMS.txt на
+                <a href="https://github.com/TWMandem/TWM-Market/releases/latest" class="text-accent">странице версии</a>: в PowerShell —
+                <code class="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-[13px] text-ink">Get-FileHash .\TWM-Market_…_x64-setup.exe</code>. Установщик собирается
+                автоматически на серверах GitHub из открытого кода.
+              </p>
+            </div>
+          </details>
+          <details class="group rounded-2xl border border-line bg-surface px-5 py-4 open:pb-5">
+            <summary class="cursor-pointer list-none text-[16px] font-extrabold marker:hidden">Нужна ли установленная игра?</summary>
+            <p class="mb-0 mt-3 leading-relaxed text-ink-2">
+              Нет. Игра нужна только для 3D-предпросмотра одежды: приложение читает модели персонажей из её папки и ничего в ней не меняет.
+            </p>
+          </details>
+          <details class="group rounded-2xl border border-line bg-surface px-5 py-4 open:pb-5">
+            <summary class="cursor-pointer list-none text-[16px] font-extrabold marker:hidden">Можно продать за реальные деньги?</summary>
+            <p class="mb-0 mt-3 leading-relaxed text-ink-2">
+              Нет, это запрещено <a href="/rules/" class="text-accent">правилами площадки</a>. Объявления и сообщения с такими предложениями проверяют модераторы.
+            </p>
+          </details>
+          <details class="group rounded-2xl border border-line bg-surface px-5 py-4 open:pb-5">
+            <summary class="cursor-pointer list-none text-[16px] font-extrabold marker:hidden">Что площадка знает обо мне?</summary>
+            <p class="mb-0 mt-3 leading-relaxed text-ink-2">
+              Логин, email, игровые ники и то, что вы сами разместили. Пароль хранится только в виде хеша. Подробно — на странице
+              <a href="/privacy/" class="text-accent">«Конфиденциальность»</a>.
+            </p>
+          </details>
+        </div>
+      </section>
+
+      <!-- Скачать -->
+      <section class="mx-auto max-w-[1180px] px-5 pt-24 sm:px-8">
+        <div class="flex flex-col items-center gap-5 rounded-[var(--radius-card)] border border-line bg-surface px-6 py-12 text-center">
+          <img src="/favicon.svg" alt="" width="64" height="64" class="size-16 rounded-2xl" />
+          <h2 class="m-0 font-display text-[clamp(24px,3vw,32px)] font-bold">Скачайте TWM Market</h2>
+          <p class="m-0 max-w-[480px] leading-relaxed text-ink-2">Установка занимает минуту. Приложение само сообщит о новой версии.</p>
+          <a
+            data-download
+            href="https://github.com/TWMandem/TWM-Market/releases/latest"
+            class="flex h-[54px] items-center gap-2.5 rounded-xl bg-accent px-6 text-[17px] font-extrabold text-on-accent no-underline hover:bg-accent-soft"
+          >
+            Скачать для Windows
+          </a>
+          <span data-version class="text-sm text-muted">Бесплатно · Windows 10 и 11</span>
+        </div>
+      </section>
+    </main>
+
+    <!-- include:footer -->
+  </body>
+</html>

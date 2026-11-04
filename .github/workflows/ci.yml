@@ -95,6 +95,9 @@ jobs:
       - name: Сборка интерфейса
         run: pnpm --filter @twm/desktop build
 
+      - name: Сборка сайта
+        run: pnpm --filter @twm/site build
+
   # Снимки экранов: сервер с тестовыми данными, интерфейс в браузере Chromium.
   # Картинки — в артефакте screenshots-<коммит>, сводка — на странице запуска.
   screens:

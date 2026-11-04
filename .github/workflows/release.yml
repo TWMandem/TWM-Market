@@ -87,8 +87,12 @@ jobs:
           New-Item -ItemType Directory -Force out | Out-Null
           Copy-Item $exe.FullName "out/$name"
           Copy-Item $sig.FullName "out/$name.sig"
+          # Та же программа под постоянным именем: ссылка с сайта
+          # …/releases/latest/download/TWM-Market-setup.exe всегда ведёт на последнюю версию.
+          $stable = "TWM-Market-setup.exe"
+          Copy-Item $exe.FullName "out/$stable"
           $hash = (Get-FileHash "out/$name" -Algorithm SHA256).Hash.ToLower()
-          "$hash  $name" | Set-Content -Encoding utf8 out/SHA256SUMS.txt
+          @("$hash  $name", "$hash  $stable") | Set-Content -Encoding utf8 out/SHA256SUMS.txt
           $manifest = [ordered]@{
             version   = $env:VERSION
             notes     = (Get-Content RELEASE_NOTES.md -Raw -Encoding utf8).Trim()

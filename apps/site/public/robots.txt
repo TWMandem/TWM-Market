@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /stats.json
+
+Sitemap: https://twm-market.ru/sitemap.xml
