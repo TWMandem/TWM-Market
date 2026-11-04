@@ -25,7 +25,18 @@ export function ChatsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [version]);
 
-  const items = list.data?.items ?? [];
+  const all = list.data?.items ?? [];
+  const [filter, setFilter] = useState("");
+  const [onlyUnread, setOnlyUnread] = useState(false);
+  const needle = filter.trim().toLowerCase();
+  const items = all.filter(
+    (c) =>
+      (!onlyUnread || c.unread > 0 || (c.offer && !c.offer.mine)) &&
+      (!needle ||
+        c.listing.title.toLowerCase().includes(needle) ||
+        c.counterpart.login.toLowerCase().includes(needle) ||
+        (c.counterpart.nickname ?? "").toLowerCase().includes(needle)),
+  );
   const setList = list.setData;
   const update = useCallback(
     (c: ConversationDto) => setList((d) => (d ? { items: d.items.map((x) => (x.id === c.id ? c : x)) } : d)),
@@ -41,11 +52,45 @@ export function ChatsPage() {
           aria-label="Переписки"
           className={`flex min-w-0 flex-[1_1_300px] flex-col overflow-hidden rounded-[var(--radius-card)] border border-line bg-surface lg:max-w-[360px] ${id ? "max-lg:hidden" : ""}`}
         >
-          {list.data && items.length === 0 && (
+          {all.length > 0 && (
+            <div className="flex flex-col gap-2 border-b border-line-soft p-2.5">
+              <label htmlFor="chat-filter" className="sr-only">
+                Найти переписку
+              </label>
+              <input
+                id="chat-filter"
+                type="search"
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                placeholder="Предмет или ник"
+                className="h-10 rounded-xl border border-line bg-ground px-3 text-sm text-ink outline-none placeholder:text-faint focus:border-accent"
+              />
+              <div role="group" aria-label="Показать" className="flex gap-1">
+                {(
+                  [
+                    [false, "Все"],
+                    [true, "Ждут ответа"],
+                  ] as const
+                ).map(([v, text]) => (
+                  <button
+                    key={text}
+                    type="button"
+                    aria-pressed={onlyUnread === v}
+                    onClick={() => setOnlyUnread(v)}
+                    className={`h-8 rounded-lg px-3 text-[13px] font-bold transition-colors ${onlyUnread === v ? "bg-line text-ink" : "text-muted hover:text-ink"}`}
+                  >
+                    {text}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {list.data && all.length === 0 && (
             <p className="m-0 p-5 text-sm leading-relaxed text-muted">
               Переписок пока нет. Откройте объявление и нажмите «Написать продавцу».
             </p>
           )}
+          {all.length > 0 && items.length === 0 && <p className="m-0 p-5 text-sm text-muted">Ничего не нашлось.</p>}
           <ul className="m-0 flex list-none flex-col overflow-y-auto p-1.5">
             {items.map((c) => (
               <li key={c.id}>

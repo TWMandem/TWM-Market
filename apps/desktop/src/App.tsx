@@ -4,6 +4,7 @@ import { RequireAuth } from "./components/RequireAuth";
 import { AppUpdateProvider } from "./lib/app-update";
 import { AuthProvider } from "./lib/auth-context";
 import { ServerProvider } from "./lib/server-context";
+import { ToastProvider } from "./lib/toast";
 import { UpdatesProvider } from "./lib/updates-context";
 import { ChatsPage } from "./pages/chat/ChatsPage";
 import { UserPage } from "./pages/user/UserPage";
@@ -155,7 +156,9 @@ export function App() {
       <ServerProvider>
         <AuthProvider>
           <UpdatesProvider>
-            <RouterProvider router={router} />
+            <ToastProvider>
+              <RouterProvider router={router} />
+            </ToastProvider>
           </UpdatesProvider>
         </AuthProvider>
       </ServerProvider>

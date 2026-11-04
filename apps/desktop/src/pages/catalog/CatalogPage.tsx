@@ -208,7 +208,7 @@ export function CatalogPage({ section }: { section: SectionCode | "search" }) {
         <div className="flex flex-wrap items-center gap-2.5">
           {status === "authed" && (
             <Button variant="secondary" onClick={() => setSubscribing(true)}>
-              <span aria-hidden="true">🔔</span> Подписаться на поиск
+              <Icon name="bookmark" size={17} /> Подписаться на поиск
             </Button>
           )}
           <Segmented
@@ -217,6 +217,24 @@ export function CatalogPage({ section }: { section: SectionCode | "search" }) {
             options={OPERATIONS_BY_SECTION[section].map((op) => [op, op ? OPERATION_LABELS[op] : "Все"])}
             onChange={(operation) => set({ operation })}
           />
+            <div role="group" aria-label="Вид" className="flex rounded-xl border border-line bg-surface p-1">
+              {(
+                [
+                  ["grid", "Плиткой"],
+                  ["list", "Списком"],
+                ] as const
+              ).map(([v, text]) => (
+                <button
+                  key={v}
+                  type="button"
+                  aria-pressed={view === v}
+                  onClick={() => setView(v)}
+                  className={`h-9 rounded-[9px] px-3 text-[13px] font-bold transition-colors ${view === v ? "bg-line text-ink" : "text-muted hover:text-ink"}`}
+                >
+                  {text}
+                </button>
+              ))}
+            </div>
           <label className="sr-only" htmlFor="sort">
             Сортировка
           </label>
@@ -368,6 +386,7 @@ export function CatalogPage({ section }: { section: SectionCode | "search" }) {
         </aside>
 
         <section aria-label="Результаты" aria-busy={loading} className="flex min-w-0 flex-[999_1_560px] flex-col gap-4">
+          {chips.length > 0 && (
           <div className="flex flex-wrap items-center gap-2">
             {chips.map((chip) => (
               <button
@@ -390,25 +409,8 @@ export function CatalogPage({ section }: { section: SectionCode | "search" }) {
                 Сбросить все
               </button>
             )}
-            <div role="group" aria-label="Вид" className="ml-auto flex rounded-xl border border-line bg-surface p-1">
-              {(
-                [
-                  ["grid", "Плиткой"],
-                  ["list", "Списком"],
-                ] as const
-              ).map(([v, text]) => (
-                <button
-                  key={v}
-                  type="button"
-                  aria-pressed={view === v}
-                  onClick={() => setView(v)}
-                  className={`h-8 rounded-[9px] px-3 text-[13px] font-bold transition-colors ${view === v ? "bg-line text-ink" : "text-muted hover:text-ink"}`}
-                >
-                  {text}
-                </button>
-              ))}
-            </div>
           </div>
+          )}
           {error && <Alert>{error}</Alert>}
           {result && result.items.length === 0 && !loading && (
             <div className="flex flex-col items-center gap-3 rounded-[var(--radius-card)] border border-dashed border-line px-6 py-16 text-center">
@@ -588,7 +590,7 @@ function PriceRange({ min, max, onChange }: { min: string; max: string; onChange
           value={from}
           onChange={(e) => setFrom(e.target.value)}
           onBlur={apply}
-          className="h-11 min-w-0 rounded-[10px] border border-line bg-ground px-3 font-mono text-ink placeholder:font-sans placeholder:text-faint"
+          className="h-11 min-w-0 rounded-[10px] border border-line bg-ground px-2.5 font-mono text-sm text-ink placeholder:font-sans placeholder:text-faint"
         />
         <input
           aria-label="Цена до"
@@ -596,7 +598,7 @@ function PriceRange({ min, max, onChange }: { min: string; max: string; onChange
           value={to}
           onChange={(e) => setTo(e.target.value)}
           onBlur={apply}
-          className="h-11 min-w-0 rounded-[10px] border border-line bg-ground px-3 font-mono text-ink placeholder:font-sans placeholder:text-faint"
+          className="h-11 min-w-0 rounded-[10px] border border-line bg-ground px-2.5 font-mono text-sm text-ink placeholder:font-sans placeholder:text-faint"
         />
       </div>
       {error && <span className="text-[13px] text-danger">{error}</span>}

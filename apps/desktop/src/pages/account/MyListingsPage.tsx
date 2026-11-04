@@ -6,6 +6,7 @@ import { Icon } from "../../components/Icon";
 import { Media, OperationBadge, ServerDot, priceText } from "../../components/listing";
 import { Alert, Button } from "../../components/ui";
 import { api } from "../../lib/api";
+import { useToast } from "../../lib/toast";
 import { attempt, useLoad } from "../../lib/use-load";
 
 const TABS: ListingStatus[] = ["active", "draft", "moderation", "rejected", "withdrawn", "archived", "sold"];
@@ -34,10 +35,21 @@ export function MyListingsPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const navigate = useNavigate();
 
+  const toast = useToast();
+  const DONE: Record<string, string> = {
+    extend: "Объявление продлено на 14 дней",
+    bump: "Объявление поднято вверх «Новых»",
+    sold: "Отмечено как проданное",
+    withdraw: "Объявление снято с публикации",
+    publish: "Объявление опубликовано",
+    delete: "Черновик удалён",
+  };
   const run = async (key: string, action: () => Promise<unknown>) => {
     setBusy(key);
-    setActionError(await attempt(action));
+    const failed = await attempt(action);
+    setActionError(failed);
     setBusy(null);
+    if (!failed) toast(DONE[key.split(":")[1] ?? ""] ?? "Готово");
     await reload();
   };
 

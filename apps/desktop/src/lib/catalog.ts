@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import type { AttributeDefinitionDto, CategoryDto, ListingCardDto, ListingTypeDto, SectionDto } from "@twm/shared";
 import { ApiError, api } from "./api";
+import { useToast } from "./toast";
 import { useAuth } from "./auth-context";
 
 export interface CatalogStructure {
@@ -65,6 +66,7 @@ export function useAttributes(listingTypeId: number | null) {
 export function useFavoriteToggle(update: (id: string, favorite: boolean) => void) {
   const { status } = useAuth();
   const navigate = useNavigate();
+  const toast = useToast();
   return useCallback(
     async (listing: ListingCardDto) => {
       if (status !== "authed") {
@@ -75,10 +77,12 @@ export function useFavoriteToggle(update: (id: string, favorite: boolean) => voi
       update(listing.id, next);
       try {
         await api.favorite(listing.id, next);
+        toast(next ? "Добавлено в избранное" : "Убрано из избранного");
       } catch {
         update(listing.id, !next);
+        toast("Не удалось изменить избранное", "error");
       }
     },
-    [status, navigate, update],
+    [status, navigate, update, toast],
   );
 }
