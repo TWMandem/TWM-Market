@@ -28,11 +28,12 @@ import { adminStatsRoutes } from "./modules/admin/stats.js";
 import { adminActivityRoutes } from "./modules/admin/activity.js";
 import { priceRoutes } from "./modules/stats/prices.js";
 import { publicStatsRoutes } from "./modules/stats/public.js";
+import { shareRoutes } from "./modules/share/routes.js";
 import { savedSearchRoutes } from "./modules/saved-searches/routes.js";
 import { verificationRoutes } from "./modules/game-profiles/verification.js";
 import { errorRoutes } from "./modules/errors/routes.js";
 
-export const API_VERSION = "0.13.0";
+export const API_VERSION = "0.14.0";
 
 export interface BuildOptions {
   config: Config;
@@ -138,6 +139,7 @@ export async function buildApp({ config, sql, mailer }: BuildOptions): Promise<F
   await adminActivityRoutes(app, ctx);
   await priceRoutes(app, ctx);
   await publicStatsRoutes(app, ctx);
+  await shareRoutes(app, ctx);
   await savedSearchRoutes(app, ctx);
   await verificationRoutes(app, ctx);
   await errorRoutes(app, ctx);

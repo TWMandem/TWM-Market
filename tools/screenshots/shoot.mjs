@@ -8,7 +8,7 @@
  */
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { chromium } from "playwright";
-import { OUT, UI, totp } from "./lib.mjs";
+import { API, OUT, UI, totp } from "./lib.mjs";
 
 const seed = JSON.parse(await readFile(`${OUT}seed.json`, "utf8"));
 const SCREENS = `${OUT}screens/`;
@@ -27,13 +27,15 @@ async function settle(page) {
   await page.waitForTimeout(400);
 }
 
-async function session(role, login) {
+async function session(role, login, { server = true } = {}) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 820 }, locale: "ru-RU", timezoneId: "Europe/Moscow" });
-  await context.addInitScript(() => {
-    try {
-      window.localStorage.setItem("twm:server", "1");
-    } catch {}
-  });
+  if (server) {
+    await context.addInitScript(() => {
+      try {
+        window.localStorage.setItem("twm:server", "1");
+      } catch {}
+    });
+  }
   const page = await context.newPage();
   const problems = [];
   page.on("console", (m) => {
@@ -56,6 +58,13 @@ async function freshTotp(secret) {
   const step = Math.floor(Date.now() / 30_000);
   while (Math.floor(Date.now() / 30_000) === step) await new Promise((r) => setTimeout(r, 500));
   return totp(secret);
+}
+
+/** Страница не из интерфейса (например, страница-ссылка с сервера API). */
+async function rawShot(s, name, title, url) {
+  return shot(s, name, title, null, async (page) => {
+    await page.goto(url);
+  });
 }
 
 async function shot(s, name, title, path, act) {
@@ -93,9 +102,27 @@ await shot(guest, "cars", "Транспорт", "/cars");
 await shot(guest, "listing", "Объявление", `/listing/${L.ivanDeadpool}`);
 await shot(guest, "listing-car", "Объявление: транспорт", `/listing/${L.ivanCar}`);
 await shot(guest, "user", "Профиль продавца", `/user/${seed.ivan.login}`);
+await rawShot(guest, "share-page", "Ссылка на объявление (twm-market.ru/l/ID)", `${API}/share/l/${L.ivanDeadpool}`);
 await shot(guest, "login", "Вход", "/login");
 await shot(guest, "register", "Регистрация", "/register");
 await guest.context.close();
+
+// ── Первый запуск: сервер не выбран, у новичка нет игрового профиля ────────
+const fresh = await session("гость, первый запуск", null, { server: false });
+await shot(fresh, "home-first-run", "Главная: выбор сервера при первом запуске", "/");
+await fresh.context.close();
+const novice = await session("новичок", seed.novice, { server: false });
+await shot(novice, "welcome-server", "Добро пожаловать: сервер", null);
+await shot(novice, "welcome-nick", "Добро пожаловать: ник", null, async (page) => {
+  await page.getByRole("radio", { name: /RED/ }).click();
+  await page.getByRole("button", { name: "Дальше" }).click();
+  await page.getByPlaceholder("Например, Ivan_Petrov").fill("Novichok_Igrok");
+});
+await shot(novice, "welcome-done", "Добро пожаловать: готово", null, async (page) => {
+  await page.getByRole("button", { name: "Сохранить ник" }).click();
+  await page.getByRole("heading", { name: "Всё готово" }).waitFor();
+});
+await novice.context.close();
 
 // ── Покупатель ────────────────────────────────────────────────────────────
 const buyer = await session("покупатель", seed.maks.login);

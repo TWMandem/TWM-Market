@@ -2,11 +2,12 @@ import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router";
 import { formatPrice, type ConversationDto, type ListingCardDto, type SavedSearchDto } from "@twm/shared";
 import { Icon, type IconName } from "../components/Icon";
-import { ListingGrid, Media } from "../components/listing";
+import { ListingGrid, Media, ServerDot } from "../components/listing";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth-context";
 import { useFavoriteToggle } from "../lib/catalog";
 import { useServers } from "../lib/server-context";
+import { readSetting, writeSetting } from "../lib/storage";
 import { useUpdates } from "../lib/updates-context";
 import { SECTIONS, type SectionKey } from "./sections";
 
@@ -89,6 +90,8 @@ export function HomePage() {
           ))}
         </div>
       </section>
+
+      <ServerPrompt />
 
       {status === "authed" && <Attention />}
 
@@ -276,6 +279,48 @@ function Attention() {
           </li>
         ))}
       </ul>
+    </section>
+  );
+}
+
+/** Сервер не выбран: предложить выбрать — каталог станет точнее. Можно скрыть. */
+function ServerPrompt() {
+  const { servers, current, select } = useServers();
+  const [hidden, setHidden] = useState(() => readSetting("serverPrompt") === "hidden");
+  if (current || hidden) return null;
+  return (
+    <section aria-labelledby="server-prompt-title" className="flex flex-col gap-4 rounded-[var(--radius-card)] border border-accent/30 bg-accent/[0.06] p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex flex-col gap-1">
+          <h2 id="server-prompt-title" className="m-0 text-[17px] font-extrabold">
+            На каком сервере вы играете?
+          </h2>
+          <p className="m-0 text-sm text-ink-2">Каталог и новые объявления будут показывать ваш сервер. Поменять можно в шапке.</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            writeSetting("serverPrompt", "hidden");
+            setHidden(true);
+          }}
+          className="h-9 rounded-lg px-3 text-sm font-bold text-muted hover:bg-surface-2 hover:text-ink"
+        >
+          Смотреть все серверы
+        </button>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {servers.map((s) => (
+          <button
+            key={s.number}
+            type="button"
+            onClick={() => select(s.number)}
+            className="flex h-10 items-center gap-2 rounded-xl border border-line bg-surface px-3.5 text-sm font-bold text-ink-2 transition-colors hover:border-accent hover:text-ink"
+          >
+            <ServerDot color={s.color} size={9} />
+            {s.name}
+          </button>
+        ))}
+      </div>
     </section>
   );
 }

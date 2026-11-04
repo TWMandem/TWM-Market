@@ -28,3 +28,7 @@ export const API_URL = normalizeApiUrl(
   import.meta.env?.VITE_API_URL as string | undefined,
   isProductionBuild ? PRODUCTION_API_URL : DEV_API_URL,
 );
+
+/** Сайт площадки: ссылки «Поделиться» ведут на него (twm-market.ru/l/ID). */
+export const SITE_URL = "https://twm-market.ru";
+export const shareUrl = (listingId: string) => `${SITE_URL}/l/${listingId}`;

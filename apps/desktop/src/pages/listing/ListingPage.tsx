@@ -14,6 +14,7 @@ import {
   type ListingAttributeDto,
   type ListingDetailDto,
 } from "@twm/shared";
+import { CopyButton, copyText } from "../../components/CopyButton";
 import { Icon } from "../../components/Icon";
 import { LastSeen } from "../../components/LastSeen";
 import { Media, OperationBadge, ServerDot, priceText } from "../../components/listing";
@@ -21,6 +22,8 @@ import { ReportDialog } from "../../components/ReportDialog";
 import { Alert, Button, Card } from "../../components/ui";
 import { ApiError, api, mediaSrc } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
+import { shareUrl } from "../../lib/config";
+import { useToast } from "../../lib/toast";
 import { useLoad } from "../../lib/use-load";
 import { OwnerStatsCard, PriceHistoryCard, SimilarListings } from "./ListingInsights";
 import { PedModelCard } from "./PedModelCard";
@@ -123,6 +126,7 @@ export function ListingPage() {
 
         <aside aria-label="Цена и продавец" className="flex min-w-0 flex-[1_1_340px] flex-col gap-4 lg:max-w-[420px]">
           <PriceCard listing={listing} onChange={setData} />
+          <StickyBar listing={listing} />
           {listing.warnings.length > 0 && (
             <div role="note" className="flex flex-col gap-2 rounded-[var(--radius-card)] border border-[#5a2e2e] bg-[#1f1414] p-4 text-sm leading-snug text-[#ffc4c4]">
               <span className="font-extrabold">Будьте внимательны</span>
@@ -324,19 +328,39 @@ function Gallery({ listing }: { listing: ListingDetailDto }) {
           onClick={() => setZoom(false)}
         >
           <img
+            key={current.id}
             src={mediaSrc(current.fullUrl)}
             alt={`${listing.title} — изображение ${index + 1}`}
-            className="max-h-full max-w-full object-contain"
+            className="zoom-in max-h-[calc(100%-96px)] max-w-full object-contain"
             onClick={(e) => e.stopPropagation()}
           />
+          <span className="absolute left-5 top-6 font-mono text-sm font-bold text-ink-2">
+            {index + 1} / {images.length}
+          </span>
           <button
             type="button"
             autoFocus
             onClick={() => setZoom(false)}
-            className="absolute right-5 top-5 h-11 rounded-xl bg-surface px-4 font-bold text-ink"
+            className="absolute right-5 top-5 flex h-11 items-center gap-2 rounded-xl bg-surface px-4 font-bold text-ink"
           >
-            Закрыть (Esc)
+            <Icon name="close" size={16} strokeWidth={2.6} /> Закрыть
           </button>
+          {images.length > 1 && (
+            <div className="absolute inset-x-0 bottom-5 flex justify-center gap-2" onClick={(e) => e.stopPropagation()}>
+              {images.map((image, i) => (
+                <button
+                  key={image.id}
+                  type="button"
+                  aria-label={`Изображение ${i + 1}`}
+                  aria-pressed={i === index}
+                  onClick={() => setIndex(i)}
+                  className={`h-14 w-20 overflow-hidden rounded-lg border-2 transition-opacity ${i === index ? "border-accent" : "border-transparent opacity-60 hover:opacity-100"}`}
+                >
+                  <img src={mediaSrc(image.thumbUrl)} alt="" className="size-full object-cover" />
+                </button>
+              ))}
+            </div>
+          )}
           {images.length > 1 && (
             <>
               <GalleryArrow side="left" onClick={(e) => (e.stopPropagation(), step(-1))} />
@@ -359,7 +383,7 @@ function GalleryArrow({ side, onClick }: { side: "left" | "right"; onClick: (e: 
         side === "left" ? "left-3" : "right-3"
       }`}
     >
-      <span aria-hidden="true">{side === "left" ? "‹" : "›"}</span>
+      <Icon name={side === "left" ? "chevronLeft" : "chevronRight"} size={22} strokeWidth={2.4} />
     </button>
   );
 }
@@ -407,11 +431,12 @@ function PriceCard({ listing, onChange }: { listing: ListingDetailDto; onChange:
   const diff = stats && listing.price !== null ? Math.round(((listing.price - stats.average) / stats.average) * 100) : null;
 
   return (
-    <Card className="flex flex-col gap-4">
-      <div className="flex flex-wrap gap-2">
+    <Card id="price-card" className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-center gap-2">
         <OperationBadge operation={listing.operation} />
         <span className="rounded-lg bg-surface-2 px-2.5 py-1 text-xs font-bold text-ink-2">{listing.listingType.name}</span>
         {listing.category && <span className="rounded-lg bg-surface-2 px-2.5 py-1 text-xs font-bold text-ink-2">{listing.category.name}</span>}
+        {listing.status === "active" && <ShareButton listingId={listing.id} />}
       </div>
       <h1 className="m-0 font-display text-[26px] font-bold leading-tight">{listing.title}</h1>
       <div className="font-mono text-[32px] font-bold leading-none text-accent-soft tabular">{priceText(listing.price, listing.operation)}</div>
@@ -517,7 +542,10 @@ function SellerCard({ listing }: { listing: ListingDetailDto }) {
         <span className={`text-xs ${seller.nicknameVerified ? "font-bold text-success" : "text-muted"}`}>
           {seller.nicknameVerified ? "✔ Ник в игре подтверждён модератором" : "Ник в игре · указан продавцом, не проверен"}
         </span>
-        <span className="select-all font-mono font-bold">{seller.nickname}</span>
+        <span className="flex items-center justify-between gap-2">
+          <span className="select-all font-mono font-bold">{seller.nickname}</span>
+          <CopyButton text={seller.nickname} label="Скопировать ник" done={`Ник ${seller.nickname} скопирован — вставьте его в игре`} className="-my-1.5 -mr-1.5" />
+        </span>
       </div>
       {seller.sameNicknameCount > 0 && (
         <div role="note" className="flex gap-2.5 rounded-xl bg-accent/10 px-3.5 py-3 text-[13px] leading-snug text-[#e8d3a6]">
@@ -542,5 +570,81 @@ function SellerCard({ listing }: { listing: ListingDetailDto }) {
         Площадка не участвует в сделке и не гарантирует передачу имущества. Торговля за реальные деньги запрещена.
       </p>
     </Card>
+  );
+}
+
+/** «Поделиться»: ссылка на сайт площадки, в мессенджере она покажет карточку с ценой. */
+function ShareButton({ listingId }: { listingId: string }) {
+  const toast = useToast();
+  return (
+    <button
+      type="button"
+      onClick={() =>
+        void copyText(shareUrl(listingId)).then((ok) =>
+          toast(ok ? "Ссылка скопирована — отправьте её в Discord, VK или Telegram" : "Не удалось скопировать ссылку", ok ? "ok" : "error"),
+        )
+      }
+      className="ml-auto flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[13px] font-bold text-muted transition-colors hover:bg-surface-2 hover:text-ink"
+    >
+      <Icon name="link" size={15} /> Поделиться
+    </button>
+  );
+}
+
+/**
+ * Когда карточка с ценой уходит за край экрана, сверху появляется полоса
+ * с названием, ценой и кнопкой «Написать» — не нужно прокручивать назад.
+ */
+function StickyBar({ listing }: { listing: ListingDetailDto }) {
+  const [visible, setVisible] = useState(false);
+  const { status } = useAuth();
+  const navigate = useNavigate();
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    const card = document.getElementById("price-card");
+    if (!card) return;
+    const observer = new IntersectionObserver(([entry]) => setVisible(!entry!.isIntersecting && entry!.boundingClientRect.top < 0), {
+      rootMargin: "-72px 0px 0px 0px",
+    });
+    observer.observe(card);
+    return () => observer.disconnect();
+  }, []);
+
+  if (listing.isOwner || listing.status !== "active") return null;
+
+  const write = async () => {
+    if (status !== "authed") {
+      navigate("/login", { state: { from: `/listing/${listing.id}` } });
+      return;
+    }
+    setBusy(true);
+    try {
+      const conversation = await api.startConversation(listing.id);
+      navigate(`/chats/${conversation.id}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div
+      aria-hidden={!visible}
+      className={`fixed inset-x-0 top-[69px] z-20 border-b border-line-soft bg-ground/95 backdrop-blur-md transition-all duration-200 ${
+        visible ? "translate-y-0 opacity-100" : "pointer-events-none -translate-y-2 opacity-0"
+      }`}
+    >
+      <div className="mx-auto flex max-w-[1280px] items-center gap-4 px-6 py-2.5">
+        <span className="min-w-0 flex-1 truncate font-bold">{listing.title}</span>
+        <span className="flex items-center gap-1.5 text-[13px] text-muted">
+          <ServerDot color={listing.server.color} /> {listing.server.name}
+        </span>
+        <span className="font-mono text-lg font-bold text-accent-soft tabular">{priceText(listing.price, listing.operation)}</span>
+        <Button loading={busy} tabIndex={visible ? 0 : -1} onClick={() => void write()} className="h-10">
+          <Icon name="chat" size={17} />
+          {listing.operation === "buy" ? "Написать покупателю" : "Написать продавцу"}
+        </Button>
+      </div>
+    </div>
   );
 }

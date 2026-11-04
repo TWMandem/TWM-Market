@@ -1,6 +1,6 @@
 [package]
 name = "twm-market"
-version = "0.13.0"
+version = "0.14.0"
 description = "TWM Market — торговая площадка игроков Amazing Online"
 authors = ["TWM Market contributors"]
 license = "MIT"
@@ -20,7 +20,10 @@ tauri = { version = "2", features = ["tray-icon"] }
 # Всплывающие уведомления Windows о новых сообщениях и сделках.
 tauri-plugin-notification = "2"
 # Второй запуск не открывает новое окно, а показывает уже запущенное (оно может быть в трее).
-tauri-plugin-single-instance = "2"
+# С deep-link ссылка twm-market://… из браузера передаётся уже запущенному приложению.
+tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }
+# Ссылки twm-market://listing/ID со страницы объявления на сайте открывают его в приложении.
+tauri-plugin-deep-link = "2"
 # Автообновление: проверка подписанного выпуска на GitHub и установка поверх.
 tauri-plugin-updater = "2"
 # Перезапуск приложения после установки обновления.

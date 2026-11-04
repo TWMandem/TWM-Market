@@ -1,18 +1,29 @@
-import { Link, Outlet, useLocation } from "react-router";
+import { useEffect } from "react";
+import { Link, Outlet, useLocation, useNavigate } from "react-router";
 import { useAuth } from "../lib/auth-context";
+import { installDeepLinks } from "../lib/deep-link";
 import { AppHeader } from "./AppHeader";
 import { ConnectionStatus } from "./ConnectionStatus";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { UpdateBanner, VersionInfo } from "./UpdateBanner";
+import { WelcomeDialog } from "./WelcomeDialog";
 
 export function Layout() {
   const { user } = useAuth();
   const { pathname } = useLocation();
   const showVerifyBanner = user && !user.emailVerified && pathname !== "/verify-email";
+  const navigate = useNavigate();
+
+  // Ссылки «Открыть в приложении» с сайта (twm-market://listing/ID).
+  useEffect(() => {
+    void installDeepLinks((path) => navigate(path)).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="flex min-h-full flex-col">
       <AppHeader />
+      <WelcomeDialog />
       <UpdateBanner />
       {showVerifyBanner && (
         <div className="border-b border-[#3a3220] bg-[#17140d]">

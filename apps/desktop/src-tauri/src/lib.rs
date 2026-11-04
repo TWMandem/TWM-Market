@@ -25,11 +25,20 @@ pub fn run() {
     tauri::Builder::default()
         // Должен регистрироваться первым: второй запуск просто показывает окно.
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| show_main(app)))
+        // Ссылки twm-market://listing/ID: интерфейс получает их и открывает объявление.
+        .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
+            // Схема twm-market:// прописывается установщиком; на всякий случай — и при запуске
+            // (для текущего пользователя Windows). Ошибка здесь не мешает работе приложения.
+            #[cfg(any(windows, target_os = "linux"))]
+            {
+                use tauri_plugin_deep_link::DeepLinkExt;
+                let _ = app.deep_link().register_all();
+            }
             let open = MenuItem::with_id(app, "open", "Открыть TWM Market", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Выход", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&open, &quit])?;

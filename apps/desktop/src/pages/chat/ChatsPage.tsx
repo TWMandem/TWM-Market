@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { DEFAULT_CHAT_TEMPLATES, MESSAGE_MAX, formatPrice, parsePrice, type ConversationDto, type MessageDto } from "@twm/shared";
+import { CopyButton } from "../../components/CopyButton";
 import { Icon } from "../../components/Icon";
 import { LastSeen } from "../../components/LastSeen";
 import { Media, ServerDot, timeAgo } from "../../components/listing";
@@ -319,7 +320,12 @@ function Thread({ id, onChange }: { id: string; onChange: (c: ConversationDto) =
           <Link to={`/user/${encodeURIComponent(c.counterpart.login)}`} className="text-sm font-bold text-ink hover:text-accent">
             {c.counterpart.login}
           </Link>
-          {c.counterpart.nickname && <span className="select-all font-mono text-xs text-muted">{c.counterpart.nickname}</span>}
+          {c.counterpart.nickname && (
+            <span className="flex items-center gap-0.5">
+              <CopyButton text={c.counterpart.nickname} label="Скопировать ник" done={`Ник ${c.counterpart.nickname} скопирован`} className="!size-7" />
+              <span className="select-all font-mono text-xs text-muted">{c.counterpart.nickname}</span>
+            </span>
+          )}
           <LastSeen at={c.counterpart.lastSeenAt} className="text-xs" />
         </div>
         <div className="flex flex-col items-end gap-1">

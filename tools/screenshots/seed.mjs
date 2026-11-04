@@ -96,6 +96,9 @@ const kirill = await player("kirill", "Kirill_Smirnov", 1, 60);
 const maks = await player("maks", "Maks_Volkov", 1, 30);
 const fast = await player("fast_money", "Fast_Money", 1, 0);
 await sql`UPDATE game_profiles SET verified_at = now() WHERE id = ${ivan.profile.id}`;
+// Новичок без игрового профиля — для окна «Добро пожаловать».
+const novice = await api("POST", "/v1/auth/register", null, { login: "novichok", email: "novichok@example.com", password: PASSWORD, rulesAccepted: true });
+await sql`UPDATE users SET email_verified_at = now() WHERE id = ${novice.user.id}`;
 
 // ── Объявления ────────────────────────────────────────────────────────────
 const deadpool = await item("Одежда Дедпул");
@@ -184,6 +187,7 @@ await writeFile(
       fast: { login: fast.login, id: fast.id },
       listings: { ivanDeadpool: ivanDeadpool.id, ivanCar: ivanCar.id, fastDeadpool: fastDeadpool.id },
       conversation: conv.id,
+      novice: "novichok",
       offerConversation: conv2.id,
     },
     null,

@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Права главного окна: базовые, уведомления, проверка обновлений и перезапуск после обновления, выбор папки с игрой. Новые возможности добавляются сюда явно, по одной.",
+  "description": "Права главного окна: базовые, уведомления, проверка обновлений и перезапуск после обновления, выбор папки с игрой, ссылки twm-market:// с сайта. Новые возможности добавляются сюда явно, по одной.",
   "windows": [
     "main"
   ],
@@ -10,6 +10,7 @@
     "notification:default",
     "updater:default",
     "process:allow-restart",
-    "dialog:allow-open"
+    "dialog:allow-open",
+    "deep-link:default"
   ]
 }

@@ -70,6 +70,9 @@ const baseSchema = z.object({
 
   /** Ограничение частоты запросов к входу и регистрации. */
   RATE_LIMIT: bool.default("true"),
+
+  /** Адрес сайта площадки: на нём страницы-ссылки на объявления (twm-market.ru/l/ID). */
+  SITE_URL: z.string().url().default("https://twm-market.ru").transform((v) => v.replace(/\/+$/, "")),
 });
 
 export type Config = Omit<z.infer<typeof baseSchema>, "JWT_SECRET" | "CODE_SECRET"> & {

@@ -156,6 +156,8 @@ jobs:
           MAIL_TRANSPORT: console
           RATE_LIMIT: "false"
           UPLOAD_DIR: ${{ runner.temp }}/uploads
+          # Страница-ссылка берёт картинки с адреса сайта; здесь это сам сервер API.
+          SITE_URL: http://localhost:3000
         run: |
           node dist/db/migrate-cli.js
           nohup node dist/index.js > "$RUNNER_TEMP/api.log" 2>&1 &
