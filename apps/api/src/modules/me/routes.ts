@@ -1,8 +1,9 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { changePasswordSchema, meSettingsSchema, type MeDto, type SessionDto } from "@twm/shared";
+import { changePasswordSchema, deleteAccountSchema, meSettingsSchema, type MeDto, type SessionDto } from "@twm/shared";
 import type { AppContext } from "../../context.js";
 import type { SessionRow } from "../../db/types.js";
+import { deleteAccount } from "../../lib/account-deletion.js";
 import { AppError, errors, parseBody } from "../../lib/errors.js";
 import { hashPassword, verifyPassword } from "../../lib/passwords.js";
 import { authOf, requireAuth } from "../auth/guard.js";
@@ -78,6 +79,25 @@ export async function meRoutes(app: FastifyInstance, ctx: AppContext): Promise<v
       const passwordHash = await hashPassword(input.newPassword);
       await ctx.sql`UPDATE users SET password_hash = ${passwordHash}, updated_at = now() WHERE id = ${user.id}`;
       await revokeAllSessions(ctx, user.id, sessionId);
+      return reply.code(204).send();
+    },
+  );
+
+  // Удаление аккаунта самим игроком (политика конфиденциальности, «Ваши возможности»).
+  // Личное удаляется, история собеседников остаётся без логина и email — lib/account-deletion.ts.
+  app.post(
+    "/v1/me/delete",
+    { preHandler: auth, config: { rateLimit: { max: 5, timeWindow: "15 minutes" } } },
+    async (request, reply) => {
+      const { user } = authOf(request);
+      const input = parseBody(deleteAccountSchema, request.body);
+      if (user.role !== "user") {
+        throw new AppError(403, "staff_account", "Аккаунт сотрудника площадки так не удалить — сначала администратор снимает роль");
+      }
+      if (!(await verifyPassword(user.passwordHash, input.password))) {
+        throw new AppError(400, "invalid_password", "Пароль указан неверно", { password: "Неверный пароль" });
+      }
+      await deleteAccount(ctx.sql, user.id, { uploadDir: ctx.uploadDir, privateDir: ctx.privateDir }, "self");
       return reply.code(204).send();
     },
   );

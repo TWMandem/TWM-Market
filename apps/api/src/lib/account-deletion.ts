@@ -16,7 +16,12 @@ export interface DeletionResult {
  * То, без чего непонятна история другого игрока (переписка, сделки, отзывы),
  * остаётся, но без логина и email: аккаунт обезличивается и блокируется.
  */
-export async function deleteAccount(sql: Sql, userId: string, dirs: { uploadDir: string; privateDir: string }): Promise<DeletionResult> {
+export async function deleteAccount(
+  sql: Sql,
+  userId: string,
+  dirs: { uploadDir: string; privateDir: string },
+  source: "cli" | "self" = "cli",
+): Promise<DeletionResult> {
   const files: string[] = [];
   const listingDirs: string[] = [];
   const tag = randomBytes(4).toString("hex");
@@ -83,7 +88,7 @@ export async function deleteAccount(sql: Sql, userId: string, dirs: { uploadDir:
     await tx`
       INSERT INTO audit_log (actor_id, action, target_type, target_id, details)
       VALUES (NULL, 'user.deleted_on_request', 'user', ${userId},
-              ${tx.json({ listingsDeleted: removable.length, listingsWithdrawn: kept.length })})`;
+              ${tx.json({ source, listingsDeleted: removable.length, listingsWithdrawn: kept.length })})`;
 
     return {
       login: user.login,

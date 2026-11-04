@@ -353,6 +353,7 @@ export const api = {
   },
 
   // ── Настройки, шаблоны ответов, чёрный список ───────────────────────────
+  deleteAccount: (password: string) => request<void>("/v1/me/delete", { method: "POST", body: { password, confirm: true } }),
   updateSettings: (body: { showOnline: boolean }) => request<MeDto>("/v1/me/settings", { method: "PATCH", body }),
   chatTemplates: () => request<{ items: string[] }>("/v1/me/chat-templates"),
   saveChatTemplates: (items: string[]) => request<{ items: string[] }>("/v1/me/chat-templates", { method: "PUT", body: { items } }),

@@ -89,6 +89,12 @@ export const resetPasswordSchema = z.object({
 });
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 
+/** Удаление аккаунта самим игроком: пароль и явное согласие. */
+export const deleteAccountSchema = z.object({
+  password: z.string({ required_error: "Введите пароль" }).min(1, "Введите пароль").max(PASSWORD_MAX),
+  confirm: z.literal(true, { errorMap: () => ({ message: "Подтвердите, что понимаете последствия" }) }),
+});
+
 export const changePasswordSchema = z
   .object({
     currentPassword: z.string().min(1, "Введите текущий пароль").max(PASSWORD_MAX),

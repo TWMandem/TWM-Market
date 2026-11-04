@@ -135,6 +135,10 @@ await shot(buyer, "catalog-list", "Каталог списком, с фильт�
 await shot(buyer, "searches", "Подписки на поиск", "/my/searches");
 await shot(buyer, "favorites", "Избранное", "/favorites");
 await shot(buyer, "account", "Личный кабинет", "/account");
+await shot(buyer, "account-delete", "Удаление аккаунта (форма, без отправки)", "/account", async (page) => {
+  await page.getByRole("button", { name: "Удалить аккаунт…" }).click();
+  await page.getByRole("button", { name: "Удалить аккаунт навсегда" }).scrollIntoViewIfNeeded();
+});
 await buyer.context.close();
 
 // ── Продавец ──────────────────────────────────────────────────────────────

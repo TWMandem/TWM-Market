@@ -93,4 +93,27 @@ describe("удаление аккаунта по просьбе владельц
     assert.equal(profileOfBuyer.deals, 1);
     assert.equal(JSON.stringify(profileOfBuyer).includes(seller.user.login), false);
   });
+
+  test("игрок удаляет аккаунт сам: нужен пароль и согласие, сотрудникам нельзя", async () => {
+    const player = await registerUser(env);
+    const del = (token: string, body: unknown) => call("POST", "/v1/me/delete", token, body);
+
+    assert.equal((await del(player.accessToken, { password: player.password })).statusCode, 400, "без согласия");
+    const wrong = await del(player.accessToken, { password: "не тот пароль", confirm: true });
+    assert.equal(wrong.statusCode, 400);
+    assert.equal((wrong.json() as { fields: Record<string, string> }).fields.password, "Неверный пароль");
+    assert.equal((await del(admin.accessToken, { password: "что угодно", confirm: true })).statusCode, 403, "сотрудник");
+
+    const ok = await del(player.accessToken, { password: player.password, confirm: true });
+    assert.equal(ok.statusCode, 204, ok.body);
+    assert.equal((await call("GET", "/v1/me", player.accessToken)).statusCode, 401, "сеанс закрыт");
+    const login = await call("POST", "/v1/auth/login", undefined, { identifier: player.user.login, password: player.password });
+    assert.equal(login.statusCode, 401, "войти по старому логину нельзя");
+    const [row] = await env.database.sql<{ status: string; email: string }[]>`SELECT status, email FROM users WHERE id = ${player.user.id}`;
+    assert.equal(row?.status, "blocked");
+    assert.match(row!.email, /@deleted\.invalid$/);
+    const [audit] = await env.database.sql<{ details: { source: string } }[]>`
+      SELECT details FROM audit_log WHERE action = 'user.deleted_on_request' AND target_id = ${player.user.id}`;
+    assert.equal(audit?.details.source, "self");
+  });
 });

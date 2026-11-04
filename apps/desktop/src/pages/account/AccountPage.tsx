@@ -4,6 +4,7 @@ import { Icon } from "../../components/Icon";
 import { Alert, Card } from "../../components/ui";
 import { useAuth } from "../../lib/auth-context";
 import { ChatSettingsSection } from "./ChatSettingsSection";
+import { DeleteAccountSection } from "./DeleteAccountSection";
 import { GameProfilesSection } from "./GameProfilesSection";
 import { SecuritySection } from "./SecuritySection";
 
@@ -17,6 +18,7 @@ const SECTIONS = [
   { id: "templates", label: "Шаблоны ответов" },
   { id: "blocks", label: "Чёрный список" },
   { id: "security", label: "Безопасность и входы" },
+  { id: "delete", label: "Удаление аккаунта" },
 ];
 
 /** Подсвечивает в меню раздел, который сейчас на экране. */
@@ -131,6 +133,7 @@ export function AccountPage() {
         <GameProfilesSection />
         <ChatSettingsSection />
         <SecuritySection />
+        <DeleteAccountSection />
       </div>
     </div>
   );
