@@ -1,8 +1,11 @@
 import "@fontsource-variable/manrope";
 import "@fontsource-variable/unbounded";
+import "@fontsource-variable/jetbrains-mono";
+import { initBoard } from "./board.js";
+import { initTour } from "./tour.js";
 
 const REPO = "TWMandem/TWM-Market";
-/** Постоянное имя установщика в каждом выпуске (с v0.11.0). */
+/** Постоянное имя установщика в каждом выпуске (после v0.11.0). */
 const STABLE_ASSET = "TWM-Market-setup.exe";
 
 for (const el of document.querySelectorAll("[data-year]")) el.textContent = String(new Date().getFullYear());
@@ -28,31 +31,13 @@ async function resolveDownload() {
     for (const link of links) link.href = asset.browser_download_url;
     const version = String(release.tag_name ?? "").replace(/^v/, "");
     for (const el of document.querySelectorAll("[data-version]")) {
-      el.textContent = `Версия ${version} · ${mb(asset.size)} · Windows 10 и 11 · бесплатно`;
+      el.textContent = `Версия ${version}, ${mb(asset.size)}. Бесплатно, для Windows 10 и 11`;
     }
   } catch {
     // GitHub недоступен — остаётся ссылка на страницу версии.
   }
 }
 
-/** Цифры площадки (nginx отдаёт их с сервера API). Показываются, когда объявлений уже много. */
-async function loadStats() {
-  const block = document.querySelector("[data-stats]");
-  if (!block) return;
-  try {
-    const response = await fetch("/stats.json");
-    if (!response.ok) return;
-    const stats = await response.json();
-    if (typeof stats.listings !== "number" || stats.listings < 30) return;
-    for (const el of block.querySelectorAll("[data-stat]")) {
-      const value = stats[el.dataset.stat];
-      if (typeof value === "number") el.textContent = value.toLocaleString("ru-RU");
-    }
-    block.hidden = false;
-  } catch {
-    // Нет цифр — блок просто не показывается.
-  }
-}
-
 void resolveDownload();
-void loadStats();
+initBoard();
+initTour();

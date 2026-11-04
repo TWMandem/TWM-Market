@@ -40,13 +40,17 @@ describe("цифры площадки для сайта", { skip: skipWithoutDb 
 
     const response = await call("GET", "/v1/public/stats");
     assert.equal(response.statusCode, 200, response.body);
-    assert.match(String(response.headers["cache-control"]), /max-age=300/);
+    assert.match(String(response.headers["cache-control"]), /max-age=60/);
     const stats = response.json() as PublicStatsDto;
     assert.ok(stats.servers > 0, "серверы создаются миграциями");
     assert.equal(stats.listings, 2);
     assert.deepEqual(stats.sections, { items: 2, cars: 0, notary: 0 });
     assert.equal(stats.sellers, 1);
     assert.equal(stats.dealsMonth, 0);
+    assert.equal(stats.latest.length, 2);
+    assert.deepEqual(stats.latest.map((l) => l.title).sort(), ["Очки", "Шляпа"]);
+    assert.equal(stats.latest[0]?.price, 1000);
+    assert.equal(stats.latest[0]?.section, "items");
     assert.equal(JSON.stringify(stats).includes("Site_Seller"), false, "без ников и логинов");
   });
 });

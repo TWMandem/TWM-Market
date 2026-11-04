@@ -174,5 +174,17 @@ export interface PublicStatsDto {
   servers: number;
   /** Подтверждённых сделок за 30 дней. */
   dealsMonth: number;
+  /** Свежие объявления для табло на сайте (без ников и логинов). */
+  latest: PublicTickerItemDto[];
   updatedAt: string;
+}
+
+export interface PublicTickerItemDto {
+  title: string;
+  price: number | null;
+  operation: "sell" | "buy" | "exchange";
+  section: "items" | "cars" | "notary";
+  server: { name: string; color: string };
+  /** Публикация или последнее поднятие. */
+  at: string;
 }

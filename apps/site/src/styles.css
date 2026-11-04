@@ -124,3 +124,490 @@
     font-size: 13px;
   }
 }
+
+/* ── Главная ─────────────────────────────────────────────────────────────── */
+
+@layer components {
+  .btn-primary {
+    display: inline-flex;
+    height: 54px;
+    align-items: center;
+    gap: 10px;
+    border-radius: 14px;
+    background: var(--color-accent);
+    padding: 0 24px;
+    font-size: 17px;
+    font-weight: 800;
+    color: var(--color-on-accent);
+    text-decoration: none;
+    transition: background-color 0.15s, transform 0.15s;
+  }
+  .btn-primary:hover {
+    background: var(--color-accent-soft);
+  }
+  .btn-primary:active {
+    transform: translateY(1px);
+  }
+
+  /* Ссылка со стрелкой, которая сдвигается при наведении. */
+  .link-arrow {
+    display: inline-flex;
+    width: fit-content;
+    align-items: center;
+    gap: 8px;
+    font-weight: 800;
+    color: var(--color-accent);
+    text-decoration: none;
+  }
+  .link-arrow::after {
+    content: "";
+    width: 18px;
+    height: 12px;
+    background: currentColor;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 12'%3E%3Cpath d='M0 6h16M11 1l5 5-5 5' fill='none' stroke='black' stroke-width='2'/%3E%3C/svg%3E") no-repeat center / contain;
+    transition: transform 0.2s;
+  }
+  .link-arrow:hover::after {
+    transform: translateX(4px);
+  }
+
+  .hero::before {
+    content: "";
+    pointer-events: none;
+    position: absolute;
+    inset: -30% -10% auto 30%;
+    height: 620px;
+    background: radial-gradient(closest-side, rgb(255 178 36 / 0.13), transparent);
+  }
+
+  /* ── Табло ─────────────────────────────────────────────────────────────── */
+  .board {
+    --cw: 20px;
+    --ch: 30px;
+    --gap: 2px;
+    --col-gap: 18px;
+    position: relative;
+    border-radius: 22px;
+    border: 1px solid #2b303b;
+    background:
+      linear-gradient(180deg, rgb(255 255 255 / 0.025), transparent 40%),
+      #12151b;
+    padding: 18px 20px 16px;
+    box-shadow:
+      0 1px 0 rgb(255 255 255 / 0.04) inset,
+      0 50px 120px -60px rgb(0 0 0 / 0.9);
+  }
+  .board-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 6px 16px;
+    padding: 0 2px 14px;
+  }
+  .board-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--color-muted);
+  }
+  .board-status[data-live]::before {
+    content: "";
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--color-success);
+    animation: live 2.4s ease-in-out infinite;
+  }
+  @keyframes live {
+    50% {
+      opacity: 0.35;
+    }
+  }
+  .board-cols,
+  .board-row {
+    display: grid;
+    grid-template-columns: var(--board-grid);
+    column-gap: var(--col-gap);
+    align-items: center;
+  }
+  .board-cols {
+    padding: 0 2px 8px 14px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--color-faint);
+  }
+  .board-cols [data-col-label="price"],
+  .board-cols [data-col-label="when"] {
+    text-align: right;
+  }
+  .board-rows {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .board-row {
+    position: relative;
+    padding: 6px 2px 6px 14px;
+    border-radius: 8px;
+    background: rgb(255 255 255 / 0.015);
+  }
+  /* Цвет сервера — полоска слева. */
+  .board-row::before {
+    content: "";
+    position: absolute;
+    left: 4px;
+    top: 8px;
+    bottom: 8px;
+    width: 3px;
+    border-radius: 2px;
+    background: var(--server, var(--color-line));
+  }
+  .board-row [data-col="price"],
+  .board-row [data-col="when"] {
+    justify-self: end;
+  }
+  .board[data-stacked] .board-cols {
+    display: none;
+  }
+  .board[data-stacked] .board-row {
+    row-gap: 4px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+  .flaps {
+    display: inline-flex;
+    gap: var(--gap);
+  }
+  .flap {
+    position: relative;
+    display: inline-grid;
+    width: var(--cw);
+    height: var(--ch);
+    place-items: center;
+    overflow: hidden;
+    border-radius: 3px;
+    background: linear-gradient(180deg, #232832 0 50%, #1b1f27 50% 100%);
+    box-shadow: 0 1px 0 rgb(0 0 0 / 0.5);
+    color: #f1e6cc;
+    font: 600 calc(var(--ch) * 0.6) / 1 "JetBrains Mono Variable", var(--font-mono);
+  }
+  .flap::after {
+    content: "";
+    position: absolute;
+    inset: 50% 0 auto;
+    height: 1px;
+    background: #0b0d11;
+  }
+  .flap-ch {
+    display: block;
+    transform-origin: 50% 50%;
+  }
+  .flap.tick .flap-ch {
+    animation: flap 70ms linear;
+  }
+  @keyframes flap {
+    50% {
+      transform: scaleY(0.12);
+      filter: brightness(0.55);
+    }
+  }
+  [data-col="price"] .flap {
+    color: var(--color-accent);
+  }
+  .board-row[data-op="buy"] [data-col="price"] .flap {
+    color: var(--color-buy);
+  }
+  .board-row[data-op="exchange"] [data-col="price"] .flap {
+    color: var(--color-exchange);
+  }
+  [data-col="when"] .flap {
+    color: var(--color-muted);
+  }
+  .board-foot {
+    padding: 14px 2px 0;
+    font-size: 13px;
+    color: var(--color-muted);
+  }
+  .board-foot:empty {
+    display: none;
+  }
+
+  /* ── Камера по окну приложения ─────────────────────────────────────────── */
+  .tour {
+    display: grid;
+    gap: 28px;
+  }
+  .tour-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .tour-step {
+    cursor: pointer;
+    border-radius: 16px;
+    border: 1px solid transparent;
+    padding: 18px 20px;
+    outline-offset: 3px;
+    transition:
+      background-color 0.25s,
+      border-color 0.25s;
+  }
+  .tour-step h3 {
+    margin: 0 0 6px;
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--color-muted);
+    transition: color 0.25s;
+  }
+  .tour-step p {
+    margin: 0;
+    font-size: 15px;
+    line-height: 1.6;
+    color: var(--color-faint);
+    transition: color 0.25s;
+  }
+  .tour-step[aria-current="true"] {
+    border-color: var(--color-line);
+    background: var(--color-surface);
+  }
+  .tour-step[aria-current="true"] h3 {
+    color: var(--color-ink);
+  }
+  .tour-step[aria-current="true"] p {
+    color: var(--color-ink-2);
+  }
+  /* На узком экране снимок прилипает к верху, шаги прокручиваются под ним. */
+  .tour-stage {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    order: -1;
+    min-width: 0;
+    margin: 0 -4px;
+    padding: 10px 4px 14px;
+    background: var(--color-ground);
+  }
+  .tour-steps {
+    padding-bottom: 30vh;
+  }
+  .tour-step {
+    min-height: 30vh;
+  }
+  .tour-frame {
+    position: relative;
+    aspect-ratio: 16 / 11;
+    overflow: hidden;
+    border-radius: 18px;
+    border: 1px solid var(--color-line);
+    background: var(--color-ground);
+  }
+  .tour-shot {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: auto;
+    max-width: none;
+    transform-origin: 0 0;
+    opacity: 0;
+    transition:
+      transform 0.9s cubic-bezier(0.65, 0, 0.25, 1),
+      opacity 0.45s ease;
+  }
+  .tour-shot[data-active] {
+    opacity: 1;
+  }
+  .tour-spot {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 0;
+    height: 0;
+    border-radius: 14px;
+    box-shadow:
+      0 0 0 2px var(--color-accent),
+      0 0 0 9999px rgb(8 9 12 / 0.55);
+    transition:
+      transform 0.9s cubic-bezier(0.65, 0, 0.25, 1),
+      width 0.9s cubic-bezier(0.65, 0, 0.25, 1),
+      height 0.9s cubic-bezier(0.65, 0, 0.25, 1);
+  }
+
+  @media (min-width: 1024px) {
+    .tour {
+      grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+      gap: 56px;
+      align-items: start;
+    }
+    /* На широком экране шаги переключаются прокруткой, снимок стоит на месте. */
+    .tour-steps {
+      gap: 0;
+      padding: 8vh 0 28vh;
+    }
+    .tour-step {
+      min-height: 36vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    .tour-stage {
+      top: 12vh;
+      order: 2;
+      margin: 0;
+      padding: 0;
+      background: none;
+    }
+  }
+
+  /* ── Как начать ────────────────────────────────────────────────────────── */
+  .steps {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    counter-reset: step;
+    display: grid;
+    gap: 32px;
+  }
+  .steps li {
+    counter-increment: step;
+    position: relative;
+    padding-top: 64px;
+  }
+  .steps li::before {
+    content: counter(step);
+    position: absolute;
+    top: 0;
+    left: 0;
+    font: 700 44px/1 var(--font-display);
+    color: transparent;
+    -webkit-text-stroke: 1.5px var(--color-accent);
+  }
+  .steps h3 {
+    margin: 0 0 8px;
+    font-size: 18px;
+    font-weight: 800;
+  }
+  .steps p {
+    margin: 0;
+    max-width: 340px;
+    font-size: 15px;
+    line-height: 1.6;
+    color: var(--color-ink-2);
+  }
+  @media (min-width: 768px) {
+    .steps {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+
+  .safety {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    border-radius: 24px;
+    border: 1px solid rgb(255 178 36 / 0.28);
+    background: rgb(255 178 36 / 0.05);
+    padding: 32px;
+  }
+
+  /* ── Вопросы: плавное раскрытие там, где браузер это умеет ─────────────── */
+  .faq {
+    display: flex;
+    flex-direction: column;
+    border-top: 1px solid var(--color-line-soft);
+  }
+  .faq details {
+    border-bottom: 1px solid var(--color-line-soft);
+  }
+  .faq summary {
+    display: flex;
+    cursor: pointer;
+    list-style: none;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 20px 0;
+    font-size: 17px;
+    font-weight: 800;
+  }
+  .faq summary::-webkit-details-marker {
+    display: none;
+  }
+  .faq summary::after {
+    content: "";
+    flex: none;
+    width: 14px;
+    height: 14px;
+    background:
+      linear-gradient(currentColor, currentColor) center / 14px 2px no-repeat,
+      linear-gradient(currentColor, currentColor) center / 2px 14px no-repeat;
+    color: var(--color-accent);
+    transition: transform 0.3s;
+  }
+  .faq details[open] summary::after {
+    transform: rotate(135deg);
+  }
+  .faq details p {
+    margin: 0 0 14px;
+    max-width: 700px;
+    line-height: 1.7;
+    color: var(--color-ink-2);
+  }
+  .faq details p:last-child {
+    margin-bottom: 22px;
+  }
+  .faq a {
+    color: var(--color-accent);
+  }
+  .faq code {
+    border-radius: 6px;
+    background: var(--color-surface-2);
+    padding: 2px 6px;
+    font: 13px var(--font-mono);
+    color: var(--color-ink);
+  }
+  @supports (interpolate-size: allow-keywords) {
+    :root {
+      interpolate-size: allow-keywords;
+    }
+    .faq details::details-content {
+      height: 0;
+      overflow: hidden;
+      transition:
+        height 0.35s ease,
+        content-visibility 0.35s allow-discrete;
+    }
+    .faq details[open]::details-content {
+      height: auto;
+    }
+  }
+
+  .cta {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 18px;
+    border-radius: 28px;
+    border: 1px solid var(--color-line);
+    background:
+      radial-gradient(60% 80% at 50% 0%, rgb(255 178 36 / 0.1), transparent),
+      var(--color-surface);
+    padding: 56px 24px;
+    text-align: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tour-shot,
+  .tour-spot,
+  .flap.tick .flap-ch,
+  .board-status[data-live]::before {
+    transition: none !important;
+    animation: none !important;
+  }
+}
