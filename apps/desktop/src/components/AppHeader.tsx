@@ -92,7 +92,7 @@ export function AppHeader() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             onKeyDown={(e) => e.key === "Escape" && input.current?.blur()}
-            placeholder="Предмет, авто или ник продавца"
+            placeholder="Предмет, авто или ник"
             className="min-w-0 flex-1 bg-transparent text-[15px] text-ink outline-none placeholder:text-faint"
           />
           <kbd
