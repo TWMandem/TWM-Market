@@ -17,6 +17,8 @@ import {
   type AttributeValue,
   type CatalogItemOptionDto,
   type DealPlace,
+  type ListingCardDto,
+  type MediaDto,
   type GameProfileDto,
   type ListingTypeDto,
   type MyListingDto,
@@ -26,7 +28,8 @@ import {
   type TransferMode,
 } from "@twm/shared";
 import { AttributeField } from "../../components/AttributeField";
-import { Media } from "../../components/listing";
+import { Icon } from "../../components/Icon";
+import { ListingCard, Media } from "../../components/listing";
 import { Alert, Button, Card, Field } from "../../components/ui";
 import { ApiError, api, mediaSrc } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
@@ -79,6 +82,8 @@ export function ListingFormPage() {
   const [description, setDescription] = useState("");
   const [images, setImages] = useState<ImageEntry[]>([]);
   const [mainKey, setMainKey] = useState<string | null>(null);
+  /** Выбранный предмет справочника — для предпросмотра карточки. */
+  const [picked, setPicked] = useState<{ name: string; icon: MediaDto | null } | null>(null);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
@@ -108,6 +113,7 @@ export function ListingFormPage() {
         setProfileId(l.gameProfileId);
         setCategoryId(l.categoryId);
         setItemId(l.catalogItem?.id ?? null);
+        setPicked(l.catalogItem ? { name: l.catalogItem.name, icon: l.catalogItem.icon } : null);
         setTitle(l.title);
         setPriceText(l.price !== null ? formatPrice(l.price).replace(/\s?₽$/, "") : "");
         setQuantity(String(l.quantity));
@@ -339,6 +345,9 @@ export function ListingFormPage() {
 
   const isEdit = Boolean(loaded);
   const parsedPrice = priceText.trim() ? parsePrice(priceText) : null;
+  const profile = profiles?.find((p) => p.id === profileId) ?? null;
+  const mainImage = images.find((i) => i.key === mainKey) ?? images[0];
+  const previewImage: MediaDto | null = mainImage ? { url: mainImage.url, kind: "image" } : (picked?.icon ?? null);
   const canPublish = !loaded || ["draft", "withdrawn", "archived", "rejected"].includes(loaded.status);
 
   return (
@@ -427,8 +436,10 @@ export function ListingFormPage() {
                 onCategory={(c) => {
                   setCategoryId(c);
                   setItemId(null);
+                  setPicked(null);
                 }}
                 onItem={setItemId}
+                onPicked={setPicked}
               />
             ) : (
               <Field label="Название" value={title} maxLength={80} onChange={(e) => setTitle(e.target.value)} error={errors.title} hint="Например: «Дом у моря» или «SIM 777-77-77»" />
@@ -569,16 +580,80 @@ export function ListingFormPage() {
           </div>
         </form>
 
-        <aside className="flex min-w-0 flex-[1_1_300px] flex-col gap-3 lg:max-w-[360px]">
-          <Card className="flex flex-col gap-2.5 text-sm leading-relaxed text-ink-2">
-            <h2 className="m-0 text-[15px] font-extrabold text-ink">Советы</h2>
-            <p className="m-0">Скриншот можно вставить сразу из буфера: сделайте снимок экрана в игре и нажмите Ctrl+V на этой странице.</p>
-            <p className="m-0">Объявления с фото и полными характеристиками находят чаще.</p>
-            <p className="m-0">Не указывайте в описании реквизиты и контакты для оплаты вне игры — такие объявления удаляются.</p>
-          </Card>
+        <aside className="flex min-w-0 flex-[1_1_300px] flex-col gap-4 lg:sticky lg:top-24 lg:max-w-[340px]">
+          <PreviewPanel
+            card={{
+              id: "preview",
+              sectionCode: section,
+              listingType: { id: typeId ?? 0, code: "", name: "" },
+              operation,
+              title: usesCatalog ? (picked?.name ?? "") : title.trim(),
+              price: operation === "exchange" ? null : parsedPrice,
+              quantity: Number(quantity) > 0 ? Number(quantity) : 1,
+              server: profile?.server ?? { number: 0, name: "", color: "#8b93a1" },
+              transferMode,
+              sellerNickname: profile?.nickname ?? "Ваш ник",
+              sellerVerified: profile?.verified ?? false,
+              image: previewImage,
+              publishedAt: new Date().toISOString(),
+              bumpedAt: null,
+              views: 0,
+              favorite: false,
+              belowAverage: false,
+            }}
+            checks={[
+              { done: usesCatalog ? Boolean(itemId) : title.trim().length >= 3, label: usesCatalog ? (section === "cars" ? "Модель выбрана" : "Предмет выбран") : "Название" },
+              { done: operation === "exchange" ? wantDescription.trim().length > 0 || wantTypeId !== null : parsedPrice !== null, label: operation === "exchange" ? "Что хотите взамен" : "Цена" },
+              { done: images.length > 0, label: "Фото или скриншот", optional: true },
+              { done: description.trim().length >= 20, label: "Описание", optional: true },
+            ]}
+          />
+          <div className="flex flex-col gap-2 px-1 text-[13px] leading-relaxed text-muted">
+            <p className="m-0">Скриншот можно вставить из буфера: сделайте снимок в игре и нажмите Ctrl+V на этой странице.</p>
+            <p className="m-0">Не указывайте реквизиты и контакты для оплаты вне игры — такие объявления удаляются.</p>
+          </div>
         </aside>
       </div>
     </div>
+  );
+}
+
+/** Карточка так, как её увидят в каталоге, и что ещё стоит заполнить. */
+function PreviewPanel({ card, checks }: { card: ListingCardDto; checks: Array<{ done: boolean; label: string; optional?: boolean }> }) {
+  const done = checks.filter((c) => c.done).length;
+  const filled = { ...card, title: card.title || "Название объявления" };
+  return (
+    <section aria-label="Предпросмотр" className="flex flex-col gap-4 rounded-[var(--radius-card)] border border-line bg-surface p-5">
+      <div className="flex items-baseline justify-between gap-3">
+        <h2 className="m-0 text-[15px] font-extrabold">Так увидят в каталоге</h2>
+        <span className="font-mono text-[13px] text-muted">
+          {done}/{checks.length}
+        </span>
+      </div>
+      <div inert aria-hidden="true" className={`pointer-events-none transition-opacity ${card.title ? "" : "opacity-60"}`}>
+        <ListingCard listing={filled} />
+      </div>
+      <div className="h-1.5 overflow-hidden rounded-full bg-surface-2" aria-hidden="true">
+        <div className="h-full rounded-full bg-accent transition-[width] duration-500" style={{ width: `${(done / checks.length) * 100}%` }} />
+      </div>
+      <ul className="m-0 flex list-none flex-col gap-1.5 p-0 text-sm">
+        {checks.map((c) => (
+          <li key={c.label} className={`flex items-center gap-2 ${c.done ? "text-ink-2" : "text-muted"}`}>
+            <span
+              aria-hidden="true"
+              className={`flex size-5 shrink-0 items-center justify-center rounded-full transition-colors ${c.done ? "bg-[#4cd48a]/20 text-success" : "border border-line"}`}
+            >
+              {c.done && <Icon name="check" size={12} strokeWidth={3} />}
+            </span>
+            <span>
+              {c.label}
+              {c.optional && !c.done && <span className="text-faint"> — найдут чаще</span>}
+              <span className="sr-only">{c.done ? ": готово" : ": не заполнено"}</span>
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
@@ -698,6 +773,7 @@ function ItemPicker({
   error,
   onCategory,
   onItem,
+  onPicked,
 }: {
   kind: keyof typeof PICKER_TEXT;
   categories: Array<{ id: number; name: string }>;
@@ -706,6 +782,7 @@ function ItemPicker({
   error?: string | undefined;
   onCategory: (id: number | null) => void;
   onItem: (id: number | null) => void;
+  onPicked?: (item: { name: string; icon: MediaDto | null } | null) => void;
 }) {
   const [items, setItems] = useState<CatalogItemOptionDto[] | null>(null);
   const [query, setQuery] = useState("");
@@ -730,6 +807,11 @@ function ItemPicker({
     (i) => !q || i.name.toLowerCase().includes(q) || i.gameCode === q || i.aliases.some((a) => a.toLowerCase().includes(q)),
   );
   const selected = items?.find((i) => i.id === itemId);
+  // Сообщаем форме, что выбрано (для предпросмотра), когда список уже загружен.
+  useEffect(() => {
+    if (items) onPicked?.(selected ? { name: selected.name, icon: selected.icon } : null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, selected?.id]);
   const text = PICKER_TEXT[kind];
   const compact = kind === "vehicle";
 

@@ -28,7 +28,7 @@ function PrivacyCard() {
     setBusy(false);
   };
   return (
-    <Card className="flex flex-col gap-3">
+    <Card id="privacy" className="flex flex-col gap-3">
       <h2 className="m-0 text-[17px] font-extrabold">Приватность</h2>
       <label className="flex items-start gap-3 text-[15px]">
         <input type="checkbox" checked={user.showOnline} disabled={busy} onChange={() => void toggle()} className="mt-1 size-4 accent-[var(--color-accent)]" />
@@ -117,7 +117,7 @@ function BlocksCard() {
     if (!failed) setData((d) => (d ? { items: d.items.filter((b) => b.login !== login) } : d));
   };
   return (
-    <Card className="flex flex-col gap-3">
+    <Card id="blocks" className="flex flex-col gap-3">
       <h2 className="m-0 text-[17px] font-extrabold">Чёрный список</h2>
       <p className="m-0 text-[13px] text-muted">
         Игроки из списка не могут писать вам и начинать переписку по вашим объявлениям. Добавить — в профиле игрока или в переписке.

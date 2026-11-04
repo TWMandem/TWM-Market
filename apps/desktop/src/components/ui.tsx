@@ -113,8 +113,10 @@ export function Alert({ tone = "error", children }: { tone?: "error" | "info" | 
   );
 }
 
-export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
+export function Card({ children, className = "", id }: { children: ReactNode; className?: string; id?: string }) {
   return (
-    <section className={`rounded-[var(--radius-card)] border border-line bg-surface p-6 ${className}`}>{children}</section>
+    <section id={id} className={`scroll-mt-24 rounded-[var(--radius-card)] border border-line bg-surface p-6 ${className}`}>
+      {children}
+    </section>
   );
 }

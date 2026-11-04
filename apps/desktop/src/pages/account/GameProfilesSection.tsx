@@ -33,7 +33,7 @@ export function GameProfilesSection() {
     setProfiles((list) => list?.map((p) => (p.id === updated.id ? updated : p)) ?? null);
 
   return (
-    <Card className="flex flex-col gap-5">
+    <Card id="profiles" className="flex flex-col gap-5">
       <div className="flex flex-col gap-1.5">
         <h2 className="m-0 text-[17px] font-extrabold">Игровые профили</h2>
         <p className="m-0 max-w-[640px] text-sm leading-relaxed text-muted">

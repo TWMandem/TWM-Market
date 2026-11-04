@@ -110,6 +110,12 @@ await buyer.context.close();
 // ── Продавец ──────────────────────────────────────────────────────────────
 const seller = await session("продавец", seed.ivan.login);
 await shot(seller, "my-listings", "Мои объявления", "/my/listings");
+await shot(seller, "my-listings-menu", "Мои объявления: меню действий", "/my/listings", async (page) => {
+  await page.getByRole("button", { name: /^Ещё действия/ }).first().click();
+});
+await shot(seller, "account-menu", "Меню аккаунта", "/", async (page) => {
+  await page.getByRole("button", { name: /^Аккаунт / }).click();
+});
 await shot(seller, "own-listing", "Своё объявление со статистикой", `/listing/${L.ivanDeadpool}`);
 await shot(seller, "edit-listing", "Редактирование объявления", `/listings/${L.ivanCar}/edit`);
 await shot(seller, "new-listing", "Новое объявление", "/listings/new");

@@ -78,3 +78,15 @@
 @utility placeholder-stripes {
   background: repeating-linear-gradient(135deg, #1b1f27 0 12px, #181b22 12px 24px);
 }
+
+/* Всплывающие меню: короткое появление от точки нажатия. */
+@utility menu-pop {
+  transform-origin: top right;
+  animation: menu-pop 0.14s ease-out;
+}
+@keyframes menu-pop {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.97);
+  }
+}

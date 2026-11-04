@@ -23,7 +23,7 @@ const formatDate = (iso: string) =>
 
 export function SecuritySection() {
   return (
-    <Card className="flex flex-col gap-6">
+    <Card id="security" className="flex flex-col gap-6">
       <h2 className="m-0 text-[17px] font-extrabold">Безопасность</h2>
       <ChangePasswordForm />
       <SessionsList />
