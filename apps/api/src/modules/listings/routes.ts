@@ -89,7 +89,19 @@ export async function listingRoutes(app: FastifyInstance, ctx: AppContext): Prom
       ${order()}
       LIMIT ${PAGE_SIZE}::int OFFSET ${(q.page - 1) * PAGE_SIZE}::int`;
 
-    return { items: rows.map(toCard), total: count?.total ?? 0, page: q.page, pageSize: PAGE_SIZE };
+    // Сколько объявлений в каждой категории раздела при остальных фильтрах — для списка категорий.
+    let categoryCounts: Record<string, number> | undefined;
+    if (q.section === "items" || q.section === "cars") {
+      const facet = await sql<{ id: number; count: number }[]>`
+        SELECT COALESCE(cat.parent_id, cat.id) AS id, count(*)::int AS count
+        ${searchFrom(sql)}
+        JOIN categories cat ON cat.id = l.category_id
+        ${whereOf(sql, searchConditions(sql, { ...q, category: undefined, item: undefined }, raw, definitions))}
+        GROUP BY 1`;
+      categoryCounts = Object.fromEntries(facet.map((f) => [String(f.id), f.count]));
+    }
+
+    return { items: rows.map(toCard), total: count?.total ?? 0, page: q.page, pageSize: PAGE_SIZE, ...(categoryCounts ? { categoryCounts } : {}) };
   });
 
   // ── Карточка объявления ───────────────────────────────────────────────────

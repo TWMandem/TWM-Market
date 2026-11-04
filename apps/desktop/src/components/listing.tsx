@@ -155,3 +155,65 @@ export function ListingGrid({
     </div>
   );
 }
+
+/** Список: одна строка на объявление — удобно сравнивать цены. */
+export function ListingList({
+  items,
+  onToggleFavorite,
+}: {
+  items: ListingCardDto[];
+  onToggleFavorite?: ((listing: ListingCardDto) => void) | undefined;
+}) {
+  return (
+    <ul className="m-0 flex list-none flex-col overflow-hidden rounded-[18px] border border-line bg-surface p-0">
+      {items.map((l) => {
+        const isItem = l.sectionCode === "items";
+        return (
+          <li key={l.id} className="group relative border-b border-line-soft last:border-b-0">
+            <Link
+              to={`/listing/${l.id}`}
+              className="grid grid-cols-[64px_minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 py-2.5 pl-2.5 pr-14 text-ink no-underline transition-colors hover:bg-surface-2/60 md:grid-cols-[64px_minmax(0,1fr)_170px_90px]"
+            >
+              <Media
+                media={l.image}
+                alt=""
+                fit={isItem && l.image?.kind !== "image" ? "contain" : "cover"}
+                className="h-12 w-16 rounded-lg bg-surface-2"
+              />
+              <span className="flex min-w-0 flex-col gap-1">
+                <span className="flex min-w-0 items-center gap-2">
+                  <span className="truncate text-[15px] font-bold">{l.title}</span>
+                  {isItem && l.quantity > 1 && <span className="shrink-0 text-[13px] text-muted">{l.quantity} шт.</span>}
+                  {l.belowAverage && (
+                    <span className="shrink-0 rounded-md bg-[#4cd48a]/15 px-1.5 py-0.5 text-[11px] font-bold text-success">ниже средней</span>
+                  )}
+                </span>
+                <span className="flex min-w-0 items-center gap-1.5 text-[13px] text-muted">
+                  <OperationBadge operation={l.operation} className="!px-1.5 !py-0 !text-[11px]" />
+                  <ServerDot color={l.server.color} />
+                  <span className="truncate">{l.sellerNickname}</span>
+                  {l.sellerVerified && <span className="shrink-0 font-bold text-success">✔</span>}
+                </span>
+              </span>
+              <span className="text-right font-mono text-[17px] font-bold text-accent-soft tabular" title={l.price ? formatPrice(l.price) : undefined}>
+                {priceText(l.price, l.operation)}
+              </span>
+              <span className="hidden text-right text-[13px] text-muted md:block">{timeAgo(l.publishedAt)}</span>
+            </Link>
+            {onToggleFavorite && (
+              <button
+                type="button"
+                aria-label={l.favorite ? "Убрать из избранного" : "В избранное"}
+                aria-pressed={l.favorite}
+                onClick={() => onToggleFavorite(l)}
+                className={`absolute right-1.5 top-1/2 flex size-10 -translate-y-1/2 items-center justify-center rounded-xl ${l.favorite ? "text-accent" : "text-faint hover:text-ink"} hover:bg-surface-2`}
+              >
+                <Icon name="heart" size={18} fill={l.favorite ? "currentColor" : "none"} />
+              </button>
+            )}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}

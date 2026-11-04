@@ -102,6 +102,9 @@ const buyer = await session("покупатель", seed.maks.login);
 await shot(buyer, "listing-warning", "Подозрительно дешёвое объявление", `/listing/${L.fastDeadpool}`);
 await shot(buyer, "chats", "Переписка", `/chats/${seed.conversation}`);
 await shot(buyer, "offer-waiting", "Своё предложение цены ждёт ответа", `/chats/${seed.offerConversation}`);
+await shot(buyer, "catalog-list", "Каталог списком, с фильтрами", "/items?priceMax=3000000&operation=sell", async (page) => {
+  await page.getByRole("button", { name: "Списком" }).click();
+});
 await shot(buyer, "searches", "Подписки на поиск", "/my/searches");
 await shot(buyer, "favorites", "Избранное", "/favorites");
 await shot(buyer, "account", "Личный кабинет", "/account");

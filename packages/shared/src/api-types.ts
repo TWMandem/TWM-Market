@@ -316,6 +316,8 @@ export interface ListingSearchResultDto {
   total: number;
   page: number;
   pageSize: number;
+  /** Рынок предметов и авторынок: объявлений в каждой категории верхнего уровня при остальных фильтрах. */
+  categoryCounts?: Record<string, number>;
 }
 
 export interface CatalogItemOptionDto {

@@ -52,5 +52,11 @@ describe("цифры площадки для сайта", { skip: skipWithoutDb 
     assert.equal(stats.latest[0]?.price, 1000);
     assert.equal(stats.latest[0]?.section, "items");
     assert.equal(JSON.stringify(stats).includes("Site_Seller"), false, "без ников и логинов");
+
+    // Каталог: число объявлений по категориям при остальных фильтрах.
+    const catalog = (await call("GET", `/v1/listings?section=items&category=${category.id}`)).json() as { categoryCounts?: Record<string, number> };
+    assert.equal(catalog.categoryCounts?.[String(category.id)], 2, "фильтр по самой категории в подсчёте не учитывается");
+    const cheap = (await call("GET", "/v1/listings?section=items&priceMax=500")).json() as { categoryCounts?: Record<string, number> };
+    assert.equal(cheap.categoryCounts?.[String(category.id)] ?? 0, 0, "остальные фильтры учитываются");
   });
 });

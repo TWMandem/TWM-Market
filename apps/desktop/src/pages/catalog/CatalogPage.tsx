@@ -14,13 +14,15 @@ import {
   type Operation,
   type SectionCode,
 } from "@twm/shared";
-import { ListingGrid } from "../../components/listing";
+import { Icon } from "../../components/Icon";
+import { ListingGrid, ListingList } from "../../components/listing";
 import { SaveSearchDialog } from "../../components/SaveSearchDialog";
 import { Alert, Button } from "../../components/ui";
 import { ApiError, api } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
 import { useAttributes, useCatalog, useFavoriteToggle } from "../../lib/catalog";
 import { useServers } from "../../lib/server-context";
+import { readSetting, writeSetting } from "../../lib/storage";
 
 const TITLES: Record<SectionCode | "search", string> = {
   items: "Рынок предметов",
@@ -50,6 +52,11 @@ export function CatalogPage({ section }: { section: SectionCode | "search" }) {
   const [loading, setLoading] = useState(true);
   const [subscribing, setSubscribing] = useState(false);
   const { status } = useAuth();
+  const [view, setViewState] = useState<"grid" | "list">(() => (readSetting("catalogView") === "list" ? "list" : "grid"));
+  const setView = (v: "grid" | "list") => {
+    setViewState(v);
+    writeSetting("catalogView", v);
+  };
 
   const get = (key: string) => params.get(key) ?? "";
   const set = useCallback(
@@ -126,6 +133,39 @@ export function CatalogPage({ section }: { section: SectionCode | "search" }) {
   const pages = result ? Math.max(1, Math.ceil(result.total / result.pageSize)) : 1;
   const page = Number(get("page")) || 1;
   const activeFilters = [...params.keys()].filter((k) => !["sort", "page", "q"].includes(k)).length;
+
+  // Выбранные фильтры — плашками над результатами, каждую можно убрать.
+  const chips: Array<{ label: string; clear: Record<string, null> }> = [];
+  {
+    const category = catalog?.categories.find((c) => c.id === categoryFilter);
+    if (category) chips.push({ label: category.name, clear: { category: null, item: null } });
+    if (section === "notary" && typeId) {
+      const type = sectionTypes.find((t) => t.id === typeId);
+      if (type) chips.push({ label: type.name, clear: { type: null } });
+    }
+    const op = get("operation") as Operation | "";
+    if (op) chips.push({ label: OPERATION_LABELS[op], clear: { operation: null } });
+    const pMin = Number(get("priceMin"));
+    const pMax = Number(get("priceMax"));
+    if (get("priceMin") && get("priceMax")) chips.push({ label: `${formatPrice(pMin)} – ${formatPrice(pMax)}`, clear: { priceMin: null, priceMax: null } });
+    else if (get("priceMin")) chips.push({ label: `от ${formatPrice(pMin)}`, clear: { priceMin: null } });
+    else if (get("priceMax")) chips.push({ label: `до ${formatPrice(pMax)}`, clear: { priceMax: null } });
+    if (params.get("allServers")) chips.push({ label: "Все серверы", clear: { allServers: null } });
+    if (params.get("transfer")) chips.push({ label: "С переводом с других серверов", clear: { transfer: null } });
+    if (get("item")) chips.push({ label: "Модель выбрана", clear: { item: null } });
+    if (get("dealPlace")) chips.push({ label: get("dealPlace") === "notary" ? "Через нотариуса" : "Через авторынок", clear: { dealPlace: null } });
+    const periods: Record<string, string> = { "1d": "За 24 часа", "7d": "За неделю", "30d": "За месяц" };
+    if (periods[get("period")]) chips.push({ label: periods[get("period")]!, clear: { period: null } });
+    if (get("nick")) chips.push({ label: `Ник: ${get("nick")}`, clear: { nick: null } });
+    for (const def of filterable) {
+      const key = `a.${def.key}`;
+      const min = get(`${key}.min`);
+      const max = get(`${key}.max`);
+      if (min || max) chips.push({ label: `${def.label}: ${min || "…"}–${max || "…"}`, clear: { [`${key}.min`]: null, [`${key}.max`]: null } });
+      const v = get(key);
+      if (v) chips.push({ label: `${def.label}: ${def.dataType === "boolean" ? (v === "true" ? "да" : "нет") : v}`, clear: { [key]: null } });
+    }
+  }
 
   // Подписка хранит параметры запроса к поиску (с разделом, типом и сервером).
   const subscriptionParams = () => {
@@ -216,9 +256,13 @@ export function CatalogPage({ section }: { section: SectionCode | "search" }) {
       )}
 
       <div className="flex flex-wrap items-start gap-6">
-        <aside aria-label="Фильтры" className="flex min-w-0 flex-[1_1_250px] flex-col gap-5 rounded-[var(--radius-card)] border border-line bg-surface p-5 lg:max-w-[290px]">
+        <aside
+          aria-label="Фильтры"
+          className="flex min-w-0 flex-[1_1_250px] flex-col gap-5 rounded-[var(--radius-card)] border border-line bg-surface p-5 lg:sticky lg:top-24 lg:max-h-[calc(100vh-112px)] lg:max-w-[290px] lg:overflow-y-auto"
+          style={{ scrollbarWidth: "thin" }}
+        >
           {categorySection && categories.length > 0 && (
-            <FilterGroup title={section === "cars" ? "ТИП ТРАНСПОРТА" : "КАТЕГОРИИ"}>
+            <FilterGroup title={section === "cars" ? "Тип транспорта" : "Категории"}>
               <CategoryButton
                 active={!get("category")}
                 label={section === "cars" ? "Весь транспорт" : "Все категории"}
@@ -229,14 +273,14 @@ export function CatalogPage({ section }: { section: SectionCode | "search" }) {
                   key={c.id}
                   active={get("category") === String(c.id)}
                   label={c.name}
-                  count={c.itemsCount}
+                  count={result?.categoryCounts ? (result.categoryCounts[String(c.id)] ?? 0) : undefined}
                   onClick={() => set({ category: String(c.id), item: null })}
                 />
               ))}
             </FilterGroup>
           )}
 
-          <FilterGroup title="ЦЕНА, ₽">
+          <FilterGroup title="Цена, ₽">
             <PriceRange
               min={get("priceMin")}
               max={get("priceMax")}
@@ -244,7 +288,7 @@ export function CatalogPage({ section }: { section: SectionCode | "search" }) {
             />
           </FilterGroup>
 
-          <FilterGroup title="СЕРВЕР">
+          <FilterGroup title="Сервер">
             <Check
               label={current ? `Только ${current.name}` : "Сервер не выбран"}
               checked={!!current && !params.get("allServers")}
@@ -261,13 +305,13 @@ export function CatalogPage({ section }: { section: SectionCode | "search" }) {
           </FilterGroup>
 
           {section === "cars" && (
-            <FilterGroup title="МОДЕЛЬ">
+            <FilterGroup title="Модель">
               <ModelFilter categoryId={categoryFilter} value={get("item")} onChange={(item) => set({ item })} />
             </FilterGroup>
           )}
 
           {section === "cars" && (
-            <FilterGroup title="СПОСОБ СДЕЛКИ">
+            <FilterGroup title="Способ сделки">
               <select
                 aria-label="Способ сделки"
                 value={get("dealPlace")}
@@ -282,14 +326,20 @@ export function CatalogPage({ section }: { section: SectionCode | "search" }) {
           )}
 
           {filterable.length > 0 && (
-            <FilterGroup title="ХАРАКТЕРИСТИКИ">
-              {filterable.map((def) => (
-                <AttributeFilter key={def.id} def={def} get={get} set={set} />
-              ))}
-            </FilterGroup>
+            <details className="group flex flex-col gap-2" open={filterable.length <= 3 || filterable.some((d) => [...params.keys()].some((k) => k.startsWith(`a.${d.key}`)))}>
+              <summary className="flex cursor-pointer list-none items-center justify-between text-[13px] font-extrabold text-ink-2 [&::-webkit-details-marker]:hidden">
+                Характеристики
+                <Icon name="chevronDown" size={16} className="text-muted transition-transform group-open:rotate-180" />
+              </summary>
+              <div className="mt-2 flex flex-col gap-3">
+                {filterable.map((def) => (
+                  <AttributeFilter key={def.id} def={def} get={get} set={set} />
+                ))}
+              </div>
+            </details>
           )}
 
-          <FilterGroup title="ДАТА ПУБЛИКАЦИИ">
+          <FilterGroup title="Дата публикации">
             <select
               aria-label="Дата публикации"
               value={get("period")}
@@ -303,7 +353,7 @@ export function CatalogPage({ section }: { section: SectionCode | "search" }) {
             </select>
           </FilterGroup>
 
-          <FilterGroup title="НИК ПРОДАВЦА">
+          <FilterGroup title="Ник продавца">
             <NickFilter value={get("nick")} onChange={(nick) => set({ nick })} />
           </FilterGroup>
 
@@ -318,6 +368,47 @@ export function CatalogPage({ section }: { section: SectionCode | "search" }) {
         </aside>
 
         <section aria-label="Результаты" aria-busy={loading} className="flex min-w-0 flex-[999_1_560px] flex-col gap-4">
+          <div className="flex flex-wrap items-center gap-2">
+            {chips.map((chip) => (
+              <button
+                key={chip.label}
+                type="button"
+                onClick={() => set(chip.clear)}
+                aria-label={`Убрать фильтр: ${chip.label}`}
+                className="flex h-9 items-center gap-1.5 rounded-full border border-line bg-surface pl-3.5 pr-2.5 text-sm font-semibold text-ink-2 transition-colors hover:border-faint hover:text-ink"
+              >
+                {chip.label}
+                <span aria-hidden="true" className="text-[17px] leading-none text-muted">×</span>
+              </button>
+            ))}
+            {chips.length > 1 && (
+              <button
+                type="button"
+                onClick={() => setParams(get("q") ? new URLSearchParams({ q: get("q") }) : new URLSearchParams(), { replace: true })}
+                className="h-9 px-2 text-sm font-bold text-accent hover:text-accent-soft"
+              >
+                Сбросить все
+              </button>
+            )}
+            <div role="group" aria-label="Вид" className="ml-auto flex rounded-xl border border-line bg-surface p-1">
+              {(
+                [
+                  ["grid", "Плиткой"],
+                  ["list", "Списком"],
+                ] as const
+              ).map(([v, text]) => (
+                <button
+                  key={v}
+                  type="button"
+                  aria-pressed={view === v}
+                  onClick={() => setView(v)}
+                  className={`h-8 rounded-[9px] px-3 text-[13px] font-bold transition-colors ${view === v ? "bg-line text-ink" : "text-muted hover:text-ink"}`}
+                >
+                  {text}
+                </button>
+              ))}
+            </div>
+          </div>
           {error && <Alert>{error}</Alert>}
           {result && result.items.length === 0 && !loading && (
             <div className="flex flex-col items-center gap-3 rounded-[var(--radius-card)] border border-dashed border-line px-6 py-16 text-center">
@@ -330,8 +421,28 @@ export function CatalogPage({ section }: { section: SectionCode | "search" }) {
               </Link>
             </div>
           )}
-          {result && result.items.length > 0 && <ListingGrid items={result.items} onToggleFavorite={(l) => void toggleFavorite(l)} />}
-          {!result && loading && <p className="text-muted">Загружаю…</p>}
+          {result && result.items.length > 0 && (
+            <div className={`transition-opacity ${loading ? "opacity-50" : ""}`}>
+              {view === "list" ? (
+                <ListingList items={result.items} onToggleFavorite={(l) => void toggleFavorite(l)} />
+              ) : (
+                <ListingGrid items={result.items} onToggleFavorite={(l) => void toggleFavorite(l)} />
+              )}
+            </div>
+          )}
+          {!result && loading && (
+            <div aria-hidden="true" className="grid grid-cols-[repeat(auto-fill,minmax(230px,1fr))] gap-4">
+              {Array.from({ length: 6 }, (_, i) => (
+                <div key={i} className="flex animate-pulse flex-col overflow-hidden rounded-[18px] border border-line bg-surface">
+                  <div className="h-[150px] bg-surface-2" />
+                  <div className="flex flex-col gap-2.5 p-4">
+                    <div className="h-4 w-3/4 rounded bg-surface-2" />
+                    <div className="h-5 w-1/2 rounded bg-surface-2" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
 
           {pages > 1 && (
             <div className="flex items-center justify-center gap-3">
@@ -355,7 +466,7 @@ export function CatalogPage({ section }: { section: SectionCode | "search" }) {
 function FilterGroup({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div className="flex flex-col gap-2">
-      <h2 className="m-0 text-xs font-extrabold tracking-[0.06em] text-muted">{title}</h2>
+      <h2 className="m-0 text-[13px] font-extrabold text-ink-2">{title}</h2>
       {children}
     </div>
   );
@@ -367,12 +478,12 @@ function CategoryButton({ active, label, count, onClick }: { active: boolean; la
       type="button"
       aria-pressed={active}
       onClick={onClick}
-      className={`flex min-h-10 items-center justify-between rounded-[10px] px-3 text-left text-[15px] font-semibold ${
-        active ? "bg-surface-2 text-ink" : "text-ink-2 hover:bg-surface-2"
+      className={`flex min-h-10 items-center justify-between gap-2 rounded-[10px] px-3 text-left text-[15px] font-semibold transition-colors ${
+        active ? "bg-surface-2 text-ink" : count === 0 ? "text-faint hover:bg-surface-2 hover:text-ink-2" : "text-ink-2 hover:bg-surface-2"
       }`}
     >
       <span>{label}</span>
-      {count !== undefined && <span className="font-mono text-xs text-faint">{count}</span>}
+      {count !== undefined && count > 0 && <span className="font-mono text-xs text-muted">{count}</span>}
     </button>
   );
 }
