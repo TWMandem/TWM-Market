@@ -2,6 +2,8 @@ import "@fontsource-variable/manrope";
 import "@fontsource-variable/unbounded";
 import "@fontsource-variable/jetbrains-mono";
 import { initBoard } from "./board.js";
+import { initDeal } from "./deal.js";
+import { initPrice } from "./price.js";
 import { initTour } from "./tour.js";
 
 const REPO = "TWMandem/TWM-Market";
@@ -41,3 +43,5 @@ async function resolveDownload() {
 void resolveDownload();
 initBoard();
 initTour();
+initPrice();
+initDeal();

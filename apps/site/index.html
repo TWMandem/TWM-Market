@@ -117,6 +117,61 @@
         </div>
       </section>
 
+      <!-- Суммы как в игре: тот же разбор, что в приложении (packages/shared/src/price.ts) -->
+      <section id="prices" class="mx-auto max-w-[1180px] scroll-mt-6 px-5 pt-24 sm:px-8">
+        <div class="grid grid-cols-[minmax(0,1fr)] items-center gap-10 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+          <div class="flex flex-col gap-4">
+            <h2 class="m-0 font-display text-[clamp(26px,3.2vw,36px)] font-bold leading-tight">Суммы пишутся как в игре</h2>
+            <p class="m-0 max-w-[460px] text-[16px] leading-relaxed text-ink-2">
+              500к, 2.5кк, 1,2ккк или «18 лямов» — приложение поймёт и покажет полную сумму. Так работает поле цены в объявлении, фильтры и предложение цены в
+              переписке.
+            </p>
+          </div>
+          <div data-price class="price-widget">
+            <label for="price-input" class="text-sm font-bold text-ink-2">Попробуйте ввести сумму</label>
+            <input id="price-input" data-price-input class="price-input" inputmode="text" autocomplete="off" spellcheck="false" placeholder="Например, 2.5кк" />
+            <div class="flex flex-wrap gap-2" role="group" aria-label="Примеры">
+              <button type="button" data-example="500к" class="chip">500к</button>
+              <button type="button" data-example="2.5кк" class="chip">2.5кк</button>
+              <button type="button" data-example="18 лямов" class="chip">18 лямов</button>
+              <button type="button" data-example="1,2ккк" class="chip">1,2ккк</button>
+              <button type="button" data-example="18.200.000" class="chip">18.200.000</button>
+            </div>
+            <div data-price-board class="price-board" aria-hidden="true"></div>
+            <p data-price-note class="m-0 min-h-6 text-sm text-muted" aria-live="polite"></p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Как проходит сделка: сцена переписки, синхронная с этапами слева -->
+      <section id="deal" class="mx-auto max-w-[1180px] scroll-mt-6 px-5 pt-24 sm:px-8">
+        <h2 class="m-0 max-w-[620px] font-display text-[clamp(26px,3.2vw,36px)] font-bold leading-tight">Как проходит сделка</h2>
+        <div data-deal class="deal mt-10">
+          <ol class="deal-stages">
+            <li><button type="button" data-stage="0"><span>Договориться</span><small>Напишите продавцу прямо из объявления</small></button></li>
+            <li><button type="button" data-stage="1"><span>Сторговаться</span><small>Предложите цену — продавец ответит своей</small></button></li>
+            <li><button type="button" data-stage="2"><span>Встретиться в игре</span><small>Обмен — на авторынке, у нотариуса или лично</small></button></li>
+            <li><button type="button" data-stage="3"><span>Отметить сделку</span><small>Её подтверждают обе стороны</small></button></li>
+            <li><button type="button" data-stage="4"><span>Оставить отзыв</span><small>Он появится в профиле продавца</small></button></li>
+          </ol>
+          <div class="deal-window">
+            <header class="deal-head">
+              <span class="deal-thumb" aria-hidden="true"></span>
+              <span class="flex min-w-0 flex-col">
+                <span class="truncate font-bold">Alfa Romeo Giulia</span>
+                <span class="text-[13px] text-muted"><b class="font-mono text-accent">18 200 000 ₽</b>, сервер RED</span>
+              </span>
+              <span class="ml-auto text-right text-[13px] leading-tight text-muted">Продавец<br /><b class="font-mono font-semibold text-ink-2">Ivan_Petrov</b></span>
+            </header>
+            <div data-deal-log class="deal-log" role="log" aria-label="Пример переписки"></div>
+            <footer class="deal-foot">
+              <span class="text-[13px] text-faint">Пример переписки в приложении</span>
+              <button type="button" data-deal-replay class="deal-replay">Показать снова</button>
+            </footer>
+          </div>
+        </div>
+      </section>
+
       <!-- Как начать: это действительно последовательность шагов -->
       <section id="start" class="mx-auto max-w-[1180px] scroll-mt-6 px-5 pt-24 sm:px-8">
         <h2 class="m-0 font-display text-[clamp(26px,3.2vw,36px)] font-bold leading-tight">Как начать</h2>

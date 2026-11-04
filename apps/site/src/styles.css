@@ -602,11 +602,336 @@
   }
 }
 
+/* ── Суммы как в игре ───────────────────────────────────────────────────── */
+@layer components {
+  .price-widget {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    border-radius: 22px;
+    border: 1px solid #2b303b;
+    background: #12151b;
+    padding: 24px;
+  }
+  .price-input {
+    height: 58px;
+    border-radius: 14px;
+    border: 1px solid var(--color-line);
+    background: var(--color-ground);
+    padding: 0 18px;
+    font: 600 22px "JetBrains Mono Variable", var(--font-mono);
+    color: var(--color-ink);
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .price-input:focus {
+    border-color: var(--color-accent);
+  }
+  .chip {
+    height: 34px;
+    cursor: pointer;
+    border-radius: 999px;
+    border: 1px solid var(--color-line);
+    background: transparent;
+    padding: 0 14px;
+    font: 600 14px "JetBrains Mono Variable", var(--font-mono);
+    color: var(--color-ink-2);
+    transition:
+      border-color 0.15s,
+      color 0.15s;
+  }
+  .chip:hover {
+    border-color: var(--color-accent);
+    color: var(--color-ink);
+  }
+  .price-board {
+    width: 100%;
+    overflow: hidden;
+    --cw: 24px;
+    --ch: 36px;
+    --gap: 3px;
+    padding: 10px 0 2px;
+  }
+  .price-board .flap {
+    color: var(--color-accent);
+  }
+  .price-widget {
+    min-width: 0;
+  }
+  [data-price-note][data-error] {
+    color: var(--color-danger);
+  }
+
+  /* ── Как проходит сделка ───────────────────────────────────────────────── */
+  .deal {
+    display: grid;
+    gap: 28px;
+  }
+  .deal-stages {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    counter-reset: stage;
+  }
+  .deal-stages button {
+    counter-increment: stage;
+    position: relative;
+    display: grid;
+    width: 100%;
+    cursor: pointer;
+    grid-template-columns: 34px minmax(0, 1fr);
+    column-gap: 14px;
+    border: 0;
+    border-radius: 14px;
+    background: transparent;
+    padding: 12px 14px;
+    text-align: left;
+    color: inherit;
+    font: inherit;
+    transition: background-color 0.25s;
+  }
+  .deal-stages button::before {
+    content: counter(stage);
+    grid-row: span 2;
+    display: grid;
+    width: 34px;
+    height: 34px;
+    place-items: center;
+    border-radius: 50%;
+    border: 1.5px solid var(--color-line);
+    font-weight: 800;
+    font-size: 14px;
+    color: var(--color-muted);
+    transition:
+      background-color 0.3s,
+      border-color 0.3s,
+      color 0.3s;
+  }
+  .deal-stages button span {
+    font-weight: 800;
+    color: var(--color-muted);
+    transition: color 0.3s;
+  }
+  .deal-stages small {
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--color-faint);
+  }
+  .deal-stages button:hover {
+    background: rgb(255 255 255 / 0.03);
+  }
+  .deal-stages button[data-done]::before {
+    content: "✓";
+    border-color: transparent;
+    background: rgb(123 227 168 / 0.15);
+    color: var(--color-success);
+  }
+  .deal-stages button[data-done] span {
+    color: var(--color-ink-2);
+  }
+  .deal-stages button[data-current] {
+    background: var(--color-surface);
+  }
+  .deal-stages button[data-current]::before {
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+  }
+  .deal-stages button[data-current] span {
+    color: var(--color-ink);
+  }
+  .deal-window {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    overflow: hidden;
+    border-radius: 22px;
+    border: 1px solid var(--color-line);
+    background: var(--color-surface);
+  }
+  .deal-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-bottom: 1px solid var(--color-line-soft);
+    padding: 14px 16px;
+  }
+  .deal-thumb {
+    width: 44px;
+    height: 44px;
+    flex: none;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #1d3b6a, #0e1014);
+  }
+  .deal-log {
+    display: flex;
+    height: 430px;
+    flex-direction: column;
+    gap: 10px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 18px 16px;
+    scrollbar-width: thin;
+  }
+  .deal-msg {
+    max-width: 78%;
+    align-self: flex-start;
+    border-radius: 18px 18px 18px 6px;
+    background: var(--color-surface-2);
+    padding: 10px 14px;
+    font-size: 15px;
+    line-height: 1.5;
+  }
+  .deal-msg.is-me {
+    align-self: flex-end;
+    border-radius: 18px 18px 6px 18px;
+    background: rgb(255 178 36 / 0.15);
+  }
+  .deal-offer {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .deal-offer small {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--color-muted);
+  }
+  .deal-offer b {
+    font: 700 20px "JetBrains Mono Variable", var(--font-mono);
+    color: var(--color-accent-soft);
+  }
+  .deal-offer span {
+    font-size: 12px;
+    color: var(--color-muted);
+  }
+  .deal-system {
+    align-self: center;
+    max-width: 90%;
+    border-radius: 12px;
+    background: rgb(255 178 36 / 0.1);
+    padding: 8px 14px;
+    text-align: center;
+    font-size: 13px;
+    line-height: 1.5;
+    color: #e8d3a6;
+  }
+  .deal-system.is-ok {
+    background: rgb(123 227 168 / 0.12);
+    color: var(--color-success);
+    font-weight: 700;
+  }
+  .deal-scene {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin: 6px 0;
+    border-radius: 14px;
+    border: 1px dashed var(--color-line);
+    padding: 14px 16px;
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--color-ink-2);
+  }
+  .deal-scene b {
+    font-family: var(--font-display);
+    font-size: 15px;
+    color: var(--color-ink);
+  }
+  .deal-review {
+    display: flex;
+    align-self: center;
+    align-items: center;
+    gap: 12px;
+    border-radius: 14px;
+    border: 1px solid rgb(123 227 168 / 0.3);
+    background: rgb(123 227 168 / 0.06);
+    padding: 12px 16px;
+    font-size: 14px;
+  }
+  .deal-review small {
+    display: block;
+    font-size: 12px;
+    color: var(--color-muted);
+  }
+  .deal-thumbs {
+    font-size: 22px;
+  }
+  .deal-typing {
+    display: flex;
+    gap: 4px;
+    padding: 14px 16px;
+  }
+  .deal-typing i {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--color-muted);
+    animation: typing 1s ease-in-out infinite;
+  }
+  .deal-typing i:nth-child(2) {
+    animation-delay: 0.15s;
+  }
+  .deal-typing i:nth-child(3) {
+    animation-delay: 0.3s;
+  }
+  @keyframes typing {
+    0%,
+    60%,
+    100% {
+      opacity: 0.3;
+      transform: translateY(0);
+    }
+    30% {
+      opacity: 1;
+      transform: translateY(-3px);
+    }
+  }
+  .is-new {
+    animation: pop 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+  }
+  @keyframes pop {
+    from {
+      opacity: 0;
+      transform: translateY(8px) scale(0.97);
+    }
+  }
+  .deal-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border-top: 1px solid var(--color-line-soft);
+    padding: 12px 16px;
+  }
+  .deal-replay {
+    cursor: pointer;
+    border: 0;
+    background: none;
+    padding: 6px 0;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--color-accent);
+  }
+  @media (min-width: 1024px) {
+    .deal {
+      grid-template-columns: minmax(0, 0.75fr) minmax(0, 1.25fr);
+      gap: 48px;
+      align-items: center;
+    }
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .tour-shot,
   .tour-spot,
   .flap.tick .flap-ch,
-  .board-status[data-live]::before {
+  .board-status[data-live]::before,
+  .deal-typing i,
+  .is-new {
     transition: none !important;
     animation: none !important;
   }
