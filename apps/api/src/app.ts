@@ -34,7 +34,7 @@ import { verificationRoutes } from "./modules/game-profiles/verification.js";
 import { errorRoutes } from "./modules/errors/routes.js";
 import { pushRoutes } from "./modules/push/routes.js";
 
-export const API_VERSION = "0.19.2";
+export const API_VERSION = "0.20.0";
 
 export interface BuildOptions {
   config: Config;
@@ -86,7 +86,9 @@ export async function buildApp({ config, sql, mailer }: BuildOptions): Promise<F
   });
 
   await app.register(cors, {
-    origin: config.CORS_ORIGINS,
+    // Веб-приложение (iPhone) открывается с адреса сайта: twm-market.ru/app/
+    // (и www.twm-market.ru/app/, если сайт открыли с www).
+    origin: [...config.CORS_ORIGINS, config.SITE_URL, config.SITE_URL.replace(/^https:\/\/(?!www\.)/, "https://www.")],
     credentials: false,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
   });

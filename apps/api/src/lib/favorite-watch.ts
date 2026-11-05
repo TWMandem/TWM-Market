@@ -1,5 +1,6 @@
 import { formatPrice } from "@twm/shared";
 import type { Sql } from "../db/client.js";
+import { sendWebPush } from "./web-push.js";
 
 /**
  * Слежение за избранным. Игрок добавил объявление в избранное — сообщаем ему,
@@ -41,7 +42,11 @@ interface Delivery {
 async function deliver(sql: Sql, items: Delivery[]): Promise<number> {
   if (items.length === 0) return 0;
   const rows = items.map((d) => ({ user_id: d.userId, kind: d.kind, title: d.title.slice(0, 120), body: d.body.slice(0, 300), link: d.link }));
-  await sql`INSERT INTO notifications ${sql(rows, "user_id", "kind", "title", "body", "link")}`;
+  const saved = await sql<{ id: string; userId: string; title: string; body: string; link: string | null }[]>`
+    INSERT INTO notifications ${sql(rows, "user_id", "kind", "title", "body", "link")}
+    RETURNING id, user_id, title, body, link`;
+  // Веб-приложению (iPhone) — сразу через Web Push, без ожидания.
+  for (const n of saved) void sendWebPush(sql, n.userId, { id: Number(n.id), title: n.title, body: n.body, link: n.link });
   return items.length;
 }
 

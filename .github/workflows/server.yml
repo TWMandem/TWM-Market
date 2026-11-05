@@ -12,6 +12,12 @@ on:
       - "packages/shared/**"
       - "deploy/**"
       - "apps/site/**"
+      # Веб-приложение (twm-market.ru/app/) собирается из кода приложения.
+      - "apps/desktop/src/**"
+      - "apps/desktop/public/**"
+      - "apps/desktop/index.html"
+      - "apps/desktop/vite.config.ts"
+      - "apps/desktop/package.json"
       - "pnpm-lock.yaml"
       - ".github/workflows/server.yml"
   workflow_dispatch:
@@ -61,6 +67,7 @@ jobs:
           pnpm --filter @twm/shared build
           pnpm --filter @twm/api build
           pnpm --filter @twm/site build
+          VITE_API_URL="${{ vars.API_URL || 'https://api.twm-market.ru' }}" pnpm --filter @twm/desktop build:web
 
       - name: Упаковка
         run: |
@@ -72,6 +79,8 @@ jobs:
           cp deploy/install.sh deploy/twm.sh deploy/twm-api.service deploy/nginx.conf deploy/nginx-site.conf "$out/deploy/"
           # Сайт twm-market.ru: статические файлы, отдаёт nginx (sudo twm set-site).
           cp -r apps/site/dist "$out/site"
+          # Веб-приложение для iPhone и браузеров: twm-market.ru/app/.
+          cp -r apps/desktop/dist-web "$out/site/app"
           chmod 755 "$out/deploy/install.sh" "$out/deploy/twm.sh"
           version="$(node -p "require('./apps/api/package.json').version")-$(git rev-parse --short HEAD)"
           echo "$version" > "$out/VERSION"
@@ -82,6 +91,13 @@ jobs:
           grep -q "support@twm-market.ru" "$out/site/index.html"
           # Связь сайта с приложением для Android: ссылки /l/ открываются в приложении.
           grep -q '"package_name": "ru.twmmarket.app"' "$out/site/.well-known/assetlinks.json"
+          # Веб-приложение: страница, служебный скрипт уведомлений, манифест и значок для iPhone.
+          test -f "$out/site/app/index.html" && test -f "$out/site/app/sw.js" && test -f "$out/site/app/manifest.webmanifest"
+          test -f "$out/site/app/icons/apple-touch-icon.png"
+          grep -q 'rel="manifest" href="/app/manifest.webmanifest"' "$out/site/app/index.html"
+          grep -q 'src="/app/assets/' "$out/site/app/index.html"
+          # Собрано для настоящего сервера, а не для localhost.
+          if grep -rq "localhost:3000" "$out/site/app/assets"; then echo "веб-приложение собрано с адресом localhost"; exit 1; fi
           if grep -rq "include:" "$out/site" --include=*.html; then echo "не подставлены шапка или подвал"; exit 1; fi
           if grep -rqE "<script>|<script type=\"module\">" "$out/site" --include=*.html; then echo "встроенный скрипт в сайте"; exit 1; fi
           tar -czf twm-server-linux-x64.tar.gz -C bundle twm-server
@@ -110,6 +126,29 @@ jobs:
           echo
           kill %1 || true
           cat /tmp/server.log | tail -n 20
+
+      - name: Проверка настроек сайта (nginx)
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq && sudo apt-get install -y -qq nginx-light >/dev/null
+          sudo mkdir -p /opt/twm && sudo cp -r bundle/twm-server /opt/twm/current
+          sed "s/__SITE__/site.test/g" deploy/nginx-site.conf | sudo tee /etc/nginx/sites-enabled/twm-site >/dev/null
+          sudo rm -f /etc/nginx/sites-enabled/default
+          sudo nginx -t
+          sudo systemctl restart nginx
+          get() { curl -fsS -D /tmp/headers -o /tmp/body -H "Host: site.test" "http://127.0.0.1$1"; }
+          get /app/
+          grep -qi "worker-src 'self'" /tmp/headers && grep -qi "cache-control: no-cache" /tmp/headers && grep -q "/app/manifest.webmanifest" /tmp/body
+          get /app/sw.js
+          grep -qi "content-type: application/javascript\|content-type: text/javascript" /tmp/headers && grep -qi "cache-control: no-cache" /tmp/headers
+          get /app/manifest.webmanifest
+          grep -qi "content-type: application/manifest+json" /tmp/headers && grep -q '"start_url"' /tmp/body
+          asset="$(grep -o '/app/assets/[^"]*\.js' bundle/twm-server/site/app/index.html | head -n 1)"
+          get "$asset"
+          grep -qi "immutable" /tmp/headers
+          get /
+          grep -qi "form-action 'none'" /tmp/headers
+          echo "nginx: сайт и веб-приложение отдаются правильно"
 
       - name: Публикация в релиз server-latest
         if: github.ref == 'refs/heads/main'

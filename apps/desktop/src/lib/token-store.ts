@@ -2,7 +2,11 @@ import { invoke } from "@tauri-apps/api/core";
 
 /**
  * Где хранится refresh-токен.
- * В приложении — в «Диспетчере учётных данных» Windows (через Rust).
+ * В приложении — в «Диспетчере учётных данных» Windows или в личной папке
+ * приложения на Android (через Rust).
+ * В веб-приложении (iPhone) — в localStorage этого сайта: вход сохраняется
+ * между запусками. Скрипты на странице — только свои (CSP), чужой код
+ * токен не прочитает.
  * В браузере при разработке интерфейса (pnpm dev:ui) — в sessionStorage,
  * только на время вкладки.
  */
@@ -11,13 +15,15 @@ export function isTauri(): boolean {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 }
 
-const DEV_KEY = "twm:dev-refresh-token";
+const WEB = import.meta.env?.VITE_WEB === "1";
+const DEV_KEY = WEB ? "twm:refresh-token" : "twm:dev-refresh-token";
+const storage = (): Storage => (WEB ? window.localStorage : window.sessionStorage);
 
 export const tokenStore = {
   async get(): Promise<string | null> {
     if (isTauri()) return (await invoke<string | null>("auth_token_get")) ?? null;
     try {
-      return window.sessionStorage.getItem(DEV_KEY);
+      return storage().getItem(DEV_KEY);
     } catch {
       return null;
     }
@@ -29,7 +35,7 @@ export const tokenStore = {
       return;
     }
     try {
-      window.sessionStorage.setItem(DEV_KEY, token);
+      storage().setItem(DEV_KEY, token);
     } catch {
       // Только для разработки: без хранилища вход просто не переживёт перезагрузку.
     }
@@ -41,7 +47,7 @@ export const tokenStore = {
       return;
     }
     try {
-      window.sessionStorage.removeItem(DEV_KEY);
+      storage().removeItem(DEV_KEY);
     } catch {
       // ничего
     }

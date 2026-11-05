@@ -45,6 +45,7 @@ describe("страница-ссылка на объявление для мес�
     assert.match(html, /<meta property="og:image" content="https:\/\/twm-market\.example\/img\/og\.jpg">/, "без фото — картинка сайта");
     assert.match(html, /og:url" content="https:\/\/twm-market\.example\/l\//);
     assert.match(html, new RegExp(`twm-market://listing/${id}`));
+    assert.match(html, new RegExp(`https://twm-market\\.example/app/#/listing/${id}`), "ссылка на веб-приложение (iPhone)");
     assert.match(html, /Share_Seller/);
     assert.ok(!html.includes("<script>"), "описание экранировано");
     assert.ok(!html.includes(seller.user.login), "логин продавца не раскрывается");

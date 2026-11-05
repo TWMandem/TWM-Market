@@ -7,6 +7,23 @@ import { isTauri } from "./token-store";
  */
 export const IS_ANDROID = typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent);
 
+/** Веб-приложение (сборка build:web, открывается в браузере: twm-market.ru/app/). */
+export const IS_WEB_APP = import.meta.env?.VITE_WEB === "1";
+
+/** iPhone или iPad (iPadOS представляется как Mac с сенсорным экраном). */
+export const IS_IOS =
+  typeof navigator !== "undefined" &&
+  (/iPhone|iPad|iPod/i.test(navigator.userAgent) || (/Macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 1));
+
+/** Веб-приложение открыто с экрана «Домой» (а не во вкладке браузера). */
+export function isStandalone(): boolean {
+  try {
+    return window.matchMedia("(display-mode: standalone)").matches || (navigator as unknown as { standalone?: boolean }).standalone === true;
+  } catch {
+    return false;
+  }
+}
+
 /** Приложение для компьютера (Tauri, не Android). */
 export function isDesktopApp(): boolean {
   return isTauri() && !IS_ANDROID;

@@ -108,6 +108,13 @@
     color-scheme: light;
   }
 
+  /* Отступы под «чёлку»/строку состояния и полоску «Домой» (iPhone, веб-приложение).
+     На Android их задаёт само приложение, на компьютере они нулевые. */
+  :root {
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
   html,
   body,
   #root {
@@ -118,6 +125,11 @@
     margin: 0;
     /* Ничего не вылезает вбок: на телефоне не появляется горизонтальная прокрутка. */
     overflow-x: clip;
+    /* Без «резинки» и обновления страницы оттягиванием — как в приложении. */
+    overscroll-behavior-y: none;
+    /* iPhone не увеличивает шрифт при повороте экрана. */
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
     background: var(--color-ground);
     color: var(--color-ink);
     font-family: var(--font-sans);

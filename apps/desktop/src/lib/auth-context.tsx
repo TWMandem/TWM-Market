@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { AuthResponseDto, MeDto } from "@twm/shared";
 import { stopBackgroundNotifications } from "./background-notify";
+import { disableWebPush } from "./web-push";
 import { api, applyAuth, clearAuth, refreshSession, setSessionEndedHandler } from "./api";
 
 type AuthStatus = "loading" | "guest" | "authed";
@@ -64,6 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     await stopBackgroundNotifications();
+    await disableWebPush();
     try {
       await api.logout();
     } catch {

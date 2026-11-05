@@ -1,7 +1,8 @@
 import { useEffect } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router";
 import { useAuth } from "../lib/auth-context";
-import { installDeepLinks } from "../lib/deep-link";
+import { installDeepLinks, routeFromDeepLink } from "../lib/deep-link";
+import { registerServiceWorker } from "../lib/web-push";
 import { AppHeader, BottomTabs } from "./AppHeader";
 import { ConnectionStatus } from "./ConnectionStatus";
 import { ErrorBoundary } from "./ErrorBoundary";
@@ -17,6 +18,12 @@ export function Layout() {
   // Ссылки «Открыть в приложении» с сайта (twm-market://listing/ID).
   useEffect(() => {
     void installDeepLinks((path) => navigate(path)).catch(() => {});
+    // Веб-приложение: нажатие на уведомление открывает нужный экран
+    // (только разрешённые экраны — как у уведомлений Android).
+    void registerServiceWorker((path) => {
+      const route = routeFromDeepLink(`twm-market://open${path}`);
+      if (route) navigate(route);
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

@@ -1,12 +1,13 @@
 {
   "name": "@twm/desktop",
-  "version": "0.19.2",
+  "version": "0.20.0",
   "private": true,
   "description": "Настольное приложение TWM Market для Windows (Tauri 2 + React)",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
+    "build:web": "tsc --noEmit && VITE_WEB=1 vite build --base /app/ --outDir dist-web",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test \"src/**/*.test.ts\"",

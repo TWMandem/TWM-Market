@@ -8,7 +8,8 @@ import { mediaUrl } from "../../lib/media.js";
  * Страница-ссылка на объявление: twm-market.ru/l/ID (nginx сайта передаёт
  * её сюда как /share/l/ID). Discord, VK и Telegram читают из неё заголовок,
  * цену и картинку и показывают карточку. Человек видит краткое описание,
- * кнопку «Открыть в приложении» (twm-market://listing/ID) и ссылку на скачивание.
+ * кнопку «Открыть в приложении» (twm-market://listing/ID), ссылку на веб-приложение
+ * (twm-market.ru/app/ — для iPhone и браузеров) и ссылку на скачивание.
  * Только то, что и так видно всем в каталоге: без логина и контактов.
  */
 
@@ -159,6 +160,7 @@ ${media}
 ${excerpt ? `<p class="desc">${escape(excerpt)}</p>` : ""}
 <div class="actions">
 <a class="btn primary" href="twm-market://listing/${row.id}">Открыть в приложении</a>
+<a class="btn secondary" href="${site}/app/#/listing/${row.id}">Открыть в браузере или на iPhone</a>
 <a class="btn secondary" href="${site}/">Скачать TWM Market</a>
 </div>
 <p class="note">Написать продавцу и договориться о цене можно в приложении. Сделка проходит в игре; торговля за реальные деньги запрещена.</p>

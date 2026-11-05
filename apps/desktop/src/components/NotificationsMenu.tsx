@@ -4,9 +4,10 @@ import type { NotificationDto } from "@twm/shared";
 import { api } from "../lib/api";
 import { syncBackgroundNotifications } from "../lib/background-notify";
 import { notificationsEnabled, setNotificationsEnabled } from "../lib/desktop-notify";
-import { IS_ANDROID } from "../lib/platform";
+import { IS_ANDROID, IS_WEB_APP } from "../lib/platform";
 import { useUpdates } from "../lib/updates-context";
 import { Icon } from "./Icon";
+import { WebPushToggle } from "./WebPushToggle";
 import { timeAgo } from "./listing";
 
 /** Колокольчик: последние уведомления, переход по щелчку, отметка «прочитано». */
@@ -97,19 +98,25 @@ export function NotificationsMenu() {
               </li>
             ))}
           </ul>
-          <label className="flex cursor-pointer items-center gap-2.5 border-t border-line-soft px-4 py-3 text-[13px] text-ink-2">
-            <input
-              type="checkbox"
-              checked={systemOn}
-              onChange={(e) => {
-                setNotificationsEnabled(e.target.checked);
-                setSystemOn(e.target.checked);
-                void syncBackgroundNotifications(true);
-              }}
-              className="size-4 accent-accent"
-            />
-            {IS_ANDROID ? "Уведомления на телефоне, даже когда приложение закрыто" : "Всплывающие уведомления Windows, когда приложение свёрнуто"}
-          </label>
+          {IS_WEB_APP ? (
+            <div className="border-t border-line-soft px-4 py-3">
+              <WebPushToggle compact />
+            </div>
+          ) : (
+            <label className="flex cursor-pointer items-center gap-2.5 border-t border-line-soft px-4 py-3 text-[13px] text-ink-2">
+              <input
+                type="checkbox"
+                checked={systemOn}
+                onChange={(e) => {
+                  setNotificationsEnabled(e.target.checked);
+                  setSystemOn(e.target.checked);
+                  void syncBackgroundNotifications(true);
+                }}
+                className="size-4 accent-accent"
+              />
+              {IS_ANDROID ? "Уведомления на телефоне, даже когда приложение закрыто" : "Всплывающие уведомления Windows, когда приложение свёрнуто"}
+            </label>
+          )}
         </div>
       )}
     </div>

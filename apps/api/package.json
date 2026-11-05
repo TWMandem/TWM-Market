@@ -1,6 +1,6 @@
 {
   "name": "@twm/api",
-  "version": "0.19.2",
+  "version": "0.20.0",
   "private": true,
   "description": "Сервер TWM Market: API для настольного приложения",
   "type": "module",
@@ -27,11 +27,13 @@
     "nodemailer": "^7.0.0 || ^6.10.0",
     "postgres": "^3.4.5",
     "sharp": "^0.34.1",
+    "web-push": "^3.6.7",
     "zod": "^3.25.0"
   },
   "devDependencies": {
     "@types/node": "^22.15.0",
     "@types/nodemailer": "^7.0.0 || ^6.4.17",
+    "@types/web-push": "^3.6.4",
     "tsx": "^4.20.0",
     "typescript": "^5.8.3"
   },

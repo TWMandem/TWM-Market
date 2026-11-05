@@ -4,6 +4,7 @@ import { Icon } from "../../components/Icon";
 import { ThemePicker } from "../../components/ThemePicker";
 import { Alert, Card } from "../../components/ui";
 import { useAuth } from "../../lib/auth-context";
+import { THEME_OPTIONS } from "../../lib/theme";
 import { ChatSettingsSection } from "./ChatSettingsSection";
 import { DeleteAccountSection } from "./DeleteAccountSection";
 import { GameProfilesSection } from "./GameProfilesSection";
@@ -150,7 +151,7 @@ export function AccountPage() {
                 <NotificationsSection />
                 <Card id="appearance" className="flex scroll-mt-24 flex-col gap-3">
                   <h2 className="m-0 text-[17px] font-extrabold">Оформление</h2>
-                  <p className="m-0 text-[13px] text-muted">Тема запоминается на этом компьютере. «Как в Windows» — меняется вместе с темой системы.</p>
+                  <p className="m-0 text-[13px] text-muted">Тема запоминается на этом устройстве. «{THEME_OPTIONS[0]!.label}» — меняется вместе с темой системы.</p>
                   <div className="max-w-[520px]">
                     <ThemePicker />
                   </div>

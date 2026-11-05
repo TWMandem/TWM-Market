@@ -4,7 +4,8 @@ import { api } from "./api";
 import { useAuth } from "./auth-context";
 import { androidNotify, syncBackgroundNotifications } from "./background-notify";
 import { appInBackground, showSystemNotification } from "./desktop-notify";
-import { IS_ANDROID } from "./platform";
+import { IS_ANDROID, IS_WEB_APP } from "./platform";
+import { syncWebPush } from "./web-push";
 
 const POLL_MS = 8_000;
 
@@ -31,7 +32,7 @@ const UpdatesContext = createContext<UpdatesState>({
  * уведомления. Если приложение в фоне или в трее — показываем уведомление Windows.
  */
 export function UpdatesProvider({ children }: { children: ReactNode }) {
-  const { status } = useAuth();
+  const { status, user } = useAuth();
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [version, setVersion] = useState(0);
@@ -55,7 +56,9 @@ export function UpdatesProvider({ children }: { children: ReactNode }) {
       if (result.notifications.length > 0) {
         setVersion((v) => v + 1);
         setLatest(result.notifications);
-        if (!IS_ANDROID && (await appInBackground())) {
+        // Веб-приложение: уведомления, когда оно закрыто или свёрнуто, присылает
+        // сервер (Web Push) — здесь их не дублируем.
+        if (!IS_ANDROID && !IS_WEB_APP && (await appInBackground())) {
           const first = result.notifications[0]!;
           const more = result.notifications.length - 1;
           await showSystemNotification(first.title, more > 0 ? `${first.body}\nИ ещё ${more}` : first.body);
@@ -72,6 +75,12 @@ export function UpdatesProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (status === "authed") void syncBackgroundNotifications(true);
   }, [status]);
+
+  // Веб-приложение: напомнить серверу о подписке на уведомления.
+  useEffect(() => {
+    if (status === "authed" && user) void syncWebPush(user.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, user?.id]);
 
   useEffect(() => {
     if (status !== "authed") {

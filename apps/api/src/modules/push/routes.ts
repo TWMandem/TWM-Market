@@ -2,12 +2,13 @@ import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 import type { PushPollDto } from "@twm/shared";
 import type { AppContext } from "../../context.js";
-import { AppError, parseBody } from "../../lib/errors.js";
+import { AppError, errors, parseBody } from "../../lib/errors.js";
 import { generateRefreshToken, hashToken } from "../../lib/tokens.js";
+import { allowedPushEndpoint, vapidKeys } from "../../lib/web-push.js";
 import { authOf, requireAuth } from "../auth/guard.js";
 
-/** Сколько устройств может быть у игрока: старые вытесняются. */
-const MAX_DEVICES = 5;
+/** Сколько устройств (телефонов и браузеров) может быть у игрока: старые вытесняются. */
+const MAX_DEVICES = 8;
 /** Не показываем уведомления старше суток — после долгого перерыва не засыпаем ими. */
 const FRESH = "24 hours";
 const POLL_LIMIT = 5;
@@ -18,9 +19,12 @@ interface DeviceRow {
 }
 
 /**
- * Фоновые уведомления на Android. Приложение регистрирует устройство и
- * получает отдельный ключ (не токен входа). По нему фоновая задача Android
- * раз в ~15 минут забирает новые непрочитанные уведомления.
+ * Уведомления, когда приложение закрыто.
+ *  • Android: приложение регистрирует устройство и получает отдельный ключ
+ *    (не токен входа); по нему фоновая задача раз в ~15 минут забирает новые
+ *    непрочитанные уведомления.
+ *  • Веб-приложение (iPhone, браузеры): подписка Web Push — сервер сам
+ *    отправляет уведомление в службу браузера (lib/web-push.ts).
  */
 export async function pushRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
   const { sql } = ctx;
@@ -37,15 +41,40 @@ export async function pushRoutes(app: FastifyInstance, ctx: AppContext): Promise
     return row;
   };
 
+  // Открытый ключ VAPID: браузер подписывается на уведомления этого сервера.
+  app.get("/v1/push/web-key", async (): Promise<{ publicKey: string }> => ({ publicKey: (await vapidKeys(sql)).publicKey }));
+
+  const deviceInput = z.discriminatedUnion("platform", [
+    z.object({ platform: z.literal("android") }),
+    z.object({
+      platform: z.literal("web"),
+      subscription: z.object({
+        endpoint: z.string().url().max(1000),
+        keys: z.object({ p256dh: z.string().min(10).max(200), auth: z.string().min(8).max(100) }),
+      }),
+    }),
+  ]);
+
   app.post(
     "/v1/me/push-devices",
     { preHandler: auth, config: { rateLimit: { max: 20, timeWindow: "1 hour" } } },
     async (request, reply): Promise<{ token: string }> => {
       const { user } = authOf(request);
-      parseBody(z.object({ platform: z.literal("android") }), request.body);
+      const input = parseBody(deviceInput, request.body);
+      if (input.platform === "web" && !allowedPushEndpoint(input.subscription.endpoint)) {
+        throw errors.validation({ subscription: "Неизвестная служба уведомлений" });
+      }
       const token = generateRefreshToken();
       await sql.begin(async (tx) => {
-        await tx`INSERT INTO push_devices (user_id, token_hash, platform) VALUES (${user.id}, ${hashToken(token)}, 'android')`;
+        if (input.platform === "web") {
+          // Та же подписка браузера (например, после повторного входа) — заменяем.
+          await tx`DELETE FROM push_devices WHERE endpoint = ${input.subscription.endpoint}`;
+          await tx`
+            INSERT INTO push_devices (user_id, token_hash, platform, subscription, endpoint)
+            VALUES (${user.id}, ${hashToken(token)}, 'web', ${sql.json(input.subscription)}, ${input.subscription.endpoint})`;
+        } else {
+          await tx`INSERT INTO push_devices (user_id, token_hash, platform) VALUES (${user.id}, ${hashToken(token)}, 'android')`;
+        }
         await tx`
           DELETE FROM push_devices WHERE user_id = ${user.id} AND id NOT IN (
             SELECT id FROM push_devices WHERE user_id = ${user.id} ORDER BY created_at DESC LIMIT ${MAX_DEVICES})`;

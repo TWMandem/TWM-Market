@@ -3,6 +3,7 @@ node_modules/
 
 # Сборки
 dist/
+dist-web/
 build/
 *.tsbuildinfo
 

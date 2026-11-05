@@ -144,6 +144,7 @@ jobs:
         run: |
           pnpm --filter @twm/api build
           pnpm --filter @twm/desktop exec vite build
+          pnpm --filter @twm/desktop build:web
           pnpm --filter @twm/site build
 
       - name: Запуск сервера
@@ -153,7 +154,7 @@ jobs:
           # Только для этой проверки: база и сервер живут несколько минут.
           JWT_SECRET: screenshots-jwt-secret-0123456789abcdef0123456789
           CODE_SECRET: screenshots-code-secret-0123456789abcdef012345678
-          CORS_ORIGINS: http://localhost:4173
+          CORS_ORIGINS: http://localhost:4173,http://localhost:4174
           MAIL_TRANSPORT: console
           RATE_LIMIT: "false"
           UPLOAD_DIR: ${{ runner.temp }}/uploads
@@ -169,16 +170,20 @@ jobs:
         working-directory: apps/desktop
         run: |
           nohup pnpm exec vite preview --port 4173 --strictPort > "$RUNNER_TEMP/ui.log" 2>&1 &
-          for i in $(seq 1 30); do curl -sf http://localhost:4173/ > /dev/null && exit 0; sleep 1; done
-          cat "$RUNNER_TEMP/ui.log"; exit 1
+          # Веб-приложение для iPhone — как на сайте, по адресу /app/.
+          nohup pnpm exec vite preview --outDir dist-web --base /app/ --port 4174 --strictPort > "$RUNNER_TEMP/web.log" 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://localhost:4173/ > /dev/null && curl -sf http://localhost:4174/app/sw.js > /dev/null && exit 0; sleep 1; done
+          cat "$RUNNER_TEMP/ui.log" "$RUNNER_TEMP/web.log"; exit 1
 
-      - name: Браузер Chromium
-        run: pnpm --filter @twm/screenshots exec playwright install --with-deps chromium
+      - name: Браузеры Chromium и WebKit (Safari)
+        run: pnpm --filter @twm/screenshots exec playwright install --with-deps chromium webkit
 
       - name: Тестовые данные
         run: pnpm --filter @twm/screenshots seed
 
       - name: Снимки
+        env:
+          WEB_URL: http://localhost:4174/app/
         run: |
           pnpm --filter @twm/screenshots shoot
           cat tools/screenshots/out/report.md >> "$GITHUB_STEP_SUMMARY"

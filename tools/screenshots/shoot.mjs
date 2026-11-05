@@ -7,7 +7,7 @@
  *   UI_URL=http://localhost:4173 node shoot.mjs
  */
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { chromium } from "playwright";
+import { chromium, devices, webkit } from "playwright";
 import { API, OUT, UI, totp } from "./lib.mjs";
 
 const seed = JSON.parse(await readFile(`${OUT}seed.json`, "utf8"));
@@ -344,6 +344,102 @@ await admin.context.close();
 }
 
 await browser.close();
+
+// ── Веб-приложение на iPhone (twm-market.ru/app/): движок Safari (WebKit) ──
+// Проверяем, что сборка build:web запускается в Safari без ошибок, раскладка
+// с «чёлкой» и полоской «Домой» не ломается, служебный скрипт регистрируется.
+if (process.env.WEB_URL) {
+  const WEB = process.env.WEB_URL.replace(/\/+$/, "");
+  let iphoneBrowser = null;
+  try {
+    iphoneBrowser = await webkit.launch();
+  } catch (error) {
+    results.push({ file: "—", title: "iPhone: запуск WebKit", role: "iPhone", path: null, ok: false, problems: [error.message.split("\n")[0]] });
+  }
+  if (iphoneBrowser) {
+    for (const standalone of [false, true]) {
+      const role = standalone ? "iPhone, с экрана «Домой»" : "iPhone, Safari";
+      const context = await iphoneBrowser.newContext({ ...devices["iPhone 13"], locale: "ru-RU", timezoneId: "Europe/Moscow" });
+      await context.addInitScript((standalone) => {
+        try {
+          window.localStorage.setItem("twm:server", "1");
+          // Открыто с экрана «Домой» (navigator.standalone в Safari на iPhone).
+          if (standalone) Object.defineProperty(Navigator.prototype, "standalone", { get: () => true });
+        } catch {}
+      }, standalone);
+      const page = await context.newPage();
+      const problems = [];
+      page.on("console", (m) => {
+        if (m.type() === "error") problems.push(`console: ${m.text()}`);
+      });
+      page.on("pageerror", (e) => problems.push(`ошибка страницы: ${e.message}`));
+      const s = { role, page, context, problems };
+      const go = async (name, title, path, act) => {
+        counter += 1;
+        const file = `${String(counter).padStart(2, "0")}-${name}.png`;
+        const before = problems.length;
+        const entry = { file, title, role, path, ok: true, problems: [] };
+        try {
+          await page.goto(`${WEB}/#${path}`);
+          await settle(page);
+          if (act) {
+            await act(page);
+            await settle(page);
+          }
+          // Без прокрутки — как видно на экране телефона; кабинет — целиком.
+          await page.screenshot({ path: SCREENS + file, fullPage: name.endsWith("account") });
+        } catch (error) {
+          entry.ok = false;
+          entry.problems.push(`не снят: ${error.message.split("\n")[0]}`);
+          await page.screenshot({ path: SCREENS + file }).catch(() => {});
+        }
+        entry.problems.push(...problems.slice(before));
+        results.push(entry);
+        console.log(`${entry.ok ? "✓" : "✗"} ${file} ${title}`);
+      };
+      const tag = standalone ? "iphone-app" : "iphone";
+      try {
+        if (!standalone) await go(`${tag}-guest`, `${role}: главная, гость`, "/");
+        await page.goto(`${WEB}/#/login`);
+        await page.getByLabel("Логин или email").fill(seed.maks.login);
+        await page.getByLabel("Пароль", { exact: true }).fill(seed.password);
+        await page.getByRole("button", { name: "Войти" }).click();
+        await page.waitForURL((url) => !url.hash.startsWith("#/login"), { timeout: 15_000 });
+        await settle(page);
+        await go(`${tag}-home`, `${role}: главная`, "/");
+        if (standalone) {
+          await go(`${tag}-listing`, `${role}: объявление`, `/listing/${L.ivanCar}`);
+          await go(`${tag}-chat`, `${role}: переписка`, `/chats/${seed.offerConversation}`);
+          await go(`${tag}-new-listing`, `${role}: новое объявление`, "/listings/new");
+        }
+        await go(`${tag}-notifications`, `${role}: уведомления`, "/", async (p) => {
+          await p.getByRole("button", { name: /^Уведомления/ }).click();
+        });
+        await go(`${tag}-account`, `${role}: личный кабинет, уведомления`, "/account");
+        // Служебный скрипт уведомлений и манифест на месте.
+        const check = await page.evaluate(async () => {
+          const reg = "serviceWorker" in navigator ? await navigator.serviceWorker.getRegistration() : undefined;
+          const manifest = document.querySelector('link[rel="manifest"]')?.getAttribute("href") ?? null;
+          const icon = document.querySelector('link[rel="apple-touch-icon"]')?.getAttribute("href") ?? null;
+          const scroll = document.documentElement.scrollWidth - window.innerWidth;
+          return { sw: reg ? reg.active?.scriptURL ?? reg.installing?.scriptURL ?? "есть" : null, push: "PushManager" in window, manifest, icon, scroll };
+        });
+        console.log(`  ${role}: ${JSON.stringify(check)}`);
+        const entry = { file: "—", title: `${role}: манифест, значок, без горизонтальной прокрутки`, role, path: null, ok: true, problems: [] };
+        if (!check.manifest || !check.icon) entry.problems.push("нет манифеста или значка для экрана «Домой»");
+        if (check.scroll > 1) entry.problems.push(`горизонтальная прокрутка: ${check.scroll}px`);
+        entry.problems.push(`служебный скрипт: ${check.sw ?? "нет (в этой сборке WebKit)"}; Web Push: ${check.push ? "есть" : "нет (в этой сборке WebKit)"}`);
+        entry.ok = Boolean(check.manifest && check.icon && check.scroll <= 1);
+        results.push(entry);
+      } catch (error) {
+        results.push({ file: "—", title: `${role}: вход`, role, path: null, ok: false, problems: [error.message.split("\n")[0], ...problems] });
+        console.log(`✗ ${role}: ${error.message.split("\n")[0]}`);
+      }
+      await s.context.close();
+    }
+    await iphoneBrowser.close();
+  }
+}
 
 // ── Отчёт ─────────────────────────────────────────────────────────────────
 const failed = results.filter((r) => !r.ok);

@@ -2,6 +2,7 @@ import { after, before, describe, test } from "node:test";
 import assert from "node:assert/strict";
 import type { PushPollDto } from "@twm/shared";
 import { notify } from "../../lib/notify.js";
+import { setWebPushTransport } from "../../lib/web-push.js";
 import { bearer, registerUser, setupTestEnv, skipWithoutDb, type TestEnv } from "../../test-helpers.js";
 
 describe("фоновые уведомления Android", { skip: skipWithoutDb }, () => {
@@ -69,13 +70,76 @@ describe("фоновые уведомления Android", { skip: skipWithoutDb 
     assert.equal((await poll(b)).statusCode, 401, "выход на других устройствах отзывает и ключи уведомлений");
   });
 
-  test("не больше 5 устройств: старые вытесняются", async () => {
+  test("не больше 8 устройств: старые вытесняются", async () => {
     const player = await registerUser(env);
     const tokens: string[] = [];
-    for (let i = 0; i < 6; i += 1) tokens.push(await register(player.accessToken));
+    for (let i = 0; i < 9; i += 1) tokens.push(await register(player.accessToken));
     assert.equal((await poll(tokens[0]!)).statusCode, 401);
-    assert.equal((await poll(tokens[5]!)).statusCode, 200);
+    assert.equal((await poll(tokens[8]!)).statusCode, 200);
     const [count] = await env.database.sql<{ count: number }[]>`SELECT count(*)::int AS count FROM push_devices WHERE user_id = ${player.user.id}`;
-    assert.equal(count?.count, 5);
+    assert.equal(count?.count, 8);
+  });
+
+  test("веб-приложение: подписка Web Push, отправка, отписка по 410", async () => {
+    const sent: Array<{ endpoint: string; body: string }> = [];
+    let status = 201;
+    setWebPushTransport(async (subscription, body) => {
+      sent.push({ endpoint: subscription.endpoint, body });
+      return status;
+    });
+    try {
+      const key = (await env.app.inject({ method: "GET", url: "/v1/push/web-key" })).json() as { publicKey: string };
+      assert.ok(key.publicKey.length > 40, "ключ VAPID создаётся сам");
+      const again = (await env.app.inject({ method: "GET", url: "/v1/push/web-key" })).json() as { publicKey: string };
+      assert.equal(again.publicKey, key.publicKey, "и не меняется");
+
+      const player = await registerUser(env);
+      const subscribe = (endpoint: string) =>
+        env.app.inject({
+          method: "POST",
+          url: "/v1/me/push-devices",
+          headers: bearer(player.accessToken),
+          payload: { platform: "web", subscription: { endpoint, keys: { p256dh: "BNcRdreALRFXTkOOUHK1EtK2wtaz5Ry4YfYCA_0QTpQtUbVlUls0VJXg7A8u-Ts1XbjhazAkj7I99e8QcYP7DkM", auth: "tBHItJI5svbpez7KI4CCXg" } } },
+        });
+      assert.equal((await subscribe("http://127.0.0.1:3000/steal")).statusCode, 400, "только службы уведомлений браузеров");
+      assert.equal((await subscribe("https://evil.example/push")).statusCode, 400);
+      const endpoint = "https://web.push.apple.com/QGuQyavXutnMH8Ip2uWiAbbbbb";
+      assert.equal((await subscribe(endpoint)).statusCode, 201);
+      assert.equal((await subscribe(endpoint)).statusCode, 201, "повторная подписка того же браузера");
+      const [devices] = await env.database.sql<{ count: number }[]>`SELECT count(*)::int AS count FROM push_devices WHERE endpoint = ${endpoint}`;
+      assert.equal(devices?.count, 1, "без дублей");
+
+      await notify(env.database.sql, player.user.id, "message", "Новое сообщение: Кейс", "Привет!", "/chats/abc");
+      await new Promise((r) => setTimeout(r, 300));
+      assert.equal(sent.length, 1);
+      const payload = JSON.parse(sent[0]!.body) as { id: number; title: string; link: string };
+      assert.equal(payload.title, "Новое сообщение: Кейс");
+      assert.equal(payload.link, "/chats/abc");
+      assert.ok(payload.id > 0);
+
+      // Браузер отписался — служба отвечает 410, подписка удаляется.
+      status = 410;
+      await notify(env.database.sql, player.user.id, "message", "Ещё сообщение");
+      await new Promise((r) => setTimeout(r, 300));
+      const [left] = await env.database.sql<{ count: number }[]>`SELECT count(*)::int AS count FROM push_devices WHERE endpoint = ${endpoint}`;
+      assert.equal(left?.count, 0);
+    } finally {
+      setWebPushTransport(null);
+    }
+  });
+
+  test("веб-приложение с адреса сайта: запросы к API разрешены (CORS)", async () => {
+    const preflight = (origin: string) =>
+      env.app.inject({
+        method: "OPTIONS",
+        url: "/v1/me",
+        headers: { origin, "access-control-request-method": "GET", "access-control-request-headers": "authorization" },
+      });
+    for (const origin of ["https://twm-market.ru", "https://www.twm-market.ru"]) {
+      const response = await preflight(origin);
+      assert.equal(response.headers["access-control-allow-origin"], origin, origin);
+    }
+    const evil = await preflight("https://evil.example");
+    assert.notEqual(evil.headers["access-control-allow-origin"], "https://evil.example");
   });
 });

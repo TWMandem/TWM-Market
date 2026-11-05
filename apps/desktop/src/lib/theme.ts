@@ -1,6 +1,8 @@
 import { useSyncExternalStore } from "react";
 import { readSetting, writeSetting } from "./storage";
 import { IS_ANDROID } from "./platform";
+
+const IS_WINDOWS = typeof navigator !== "undefined" && /Windows/i.test(navigator.userAgent);
 import { isTauri } from "./token-store";
 
 /**
@@ -12,7 +14,7 @@ export type ThemePreference = "system" | "dark" | "light";
 export type Theme = "dark" | "light";
 
 export const THEME_OPTIONS: Array<{ value: ThemePreference; label: string; icon: "monitor" | "moon" | "sun" }> = [
-  { value: "system", label: "Как в Windows", icon: "monitor" },
+  { value: "system", label: IS_WINDOWS ? "Как в Windows" : "Как в системе", icon: "monitor" },
   { value: "dark", label: "Тёмная", icon: "moon" },
   { value: "light", label: "Светлая", icon: "sun" },
 ];
@@ -49,7 +51,10 @@ function apply(): void {
     if (isTauri()) {
       import("./background-notify").then(({ setAndroidStatusBar }) => setAndroidStatusBar(theme === "light")).catch(() => {});
     }
-  } else if (isTauri()) {
+  } else if (!isTauri()) {
+    // Веб-приложение: цвет строки состояния и панели браузера — под тему.
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "light" ? "#f4f2ed" : "#0e1014");
+  } else {
     // Заголовок окна Windows — в тон приложению (null — как в системе).
     import("@tauri-apps/api/window")
       .then(({ getCurrentWindow }) => getCurrentWindow().setTheme(preference === "system" ? null : preference))
