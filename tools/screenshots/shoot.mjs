@@ -395,6 +395,23 @@ if (process.env.WEB_URL) {
     await page.waitForURL((url) => !url.hash.startsWith("#/login"), { timeout: 15_000 });
     await settle(page);
     await shotWeb("web-home", "Веб-версия: главная", "/");
+    {
+      const fpsChromium = await page.evaluate(
+        () =>
+          new Promise((resolve) => {
+            let frames = 0;
+            const start = performance.now();
+            const tick = () => {
+              frames += 1;
+              if (performance.now() - start < 2000) requestAnimationFrame(tick);
+              else resolve(Math.round(frames / ((performance.now() - start) / 1000)));
+            };
+            requestAnimationFrame(tick);
+          }),
+      );
+      console.log(`  Веб-версия (Chromium): главная, кадров/с — ${fpsChromium}`);
+      results.push({ file: "—", title: "Веб-версия: плавность главной (кадров/с)", role: s.role, path: null, ok: true, problems: [`${fpsChromium}`] });
+    }
     await shotWeb("web-notifications", "Веб-версия: уведомления", "/", async (p) => {
       await p.getByRole("button", { name: /^Уведомления/ }).click();
     });
@@ -509,9 +526,32 @@ if (process.env.WEB_URL) {
           await go(`${tag}-chat`, `${role}: переписка`, `/chats/${seed.offerConversation}`);
           await go(`${tag}-new-listing`, `${role}: новое объявление`, "/listings/new");
         }
-        await go(`${tag}-notifications`, `${role}: уведомления`, "/", async (p) => {
+        // Плавность главной в WebKit: кадров в секунду с праздничной анимацией и без неё.
+        const fps = async () =>
+          page.evaluate(
+            () =>
+              new Promise((resolve) => {
+                let frames = 0;
+                const start = performance.now();
+                const tick = () => {
+                  frames += 1;
+                  if (performance.now() - start < 2000) requestAnimationFrame(tick);
+                  else resolve(Math.round(frames / ((performance.now() - start) / 1000)));
+                };
+                requestAnimationFrame(tick);
+              }),
+          );
+        await page.goto(`${WEB}/#/`);
+        await settle(page);
+        const fpsAnimated = await fps();
+        await page.emulateMedia({ reducedMotion: "reduce" });
+        const fpsCalm = await fps();
+        console.log(`  ${role}: главная, кадров/с — с анимацией ${fpsAnimated}, без анимации ${fpsCalm}`);
+        results.push({ file: "—", title: `${role}: плавность главной (кадров/с)`, role, path: null, ok: true, problems: [`с анимацией ${fpsAnimated}, без анимации ${fpsCalm}`] });
+        await go(`${tag}-notifications`, `${role}: уведомления (без анимации)`, "/", async (p) => {
           await p.getByRole("button", { name: /^Уведомления/ }).click();
         });
+        await page.emulateMedia({ reducedMotion: "no-preference" });
         await go(`${tag}-account`, `${role}: личный кабинет, уведомления`, "/account");
         // Служебный скрипт уведомлений и манифест на месте.
         const check = await page.evaluate(async () => {
