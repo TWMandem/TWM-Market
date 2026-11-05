@@ -149,6 +149,49 @@
     transform: translateY(1px);
   }
 
+  /* Телефоны: три снимка приложения веером. */
+  .phones {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0;
+    padding: 12px 0;
+  }
+  .phone {
+    width: min(30%, 230px);
+    height: auto;
+    border-radius: 26px;
+    border: 6px solid #232833;
+    background: var(--color-ground);
+    box-shadow: 0 30px 60px -25px rgb(0 0 0 / 0.7);
+    transform: scale(0.88);
+  }
+  .phone:first-child {
+    transform: translateX(14%) scale(0.88) rotate(-4deg);
+  }
+  .phone:last-child {
+    transform: translateX(-14%) scale(0.88) rotate(4deg);
+  }
+  .phone-main {
+    position: relative;
+    z-index: 1;
+    transform: none;
+  }
+  .phone-point {
+    position: relative;
+    padding-left: 22px;
+  }
+  .phone-point::before {
+    content: "";
+    position: absolute;
+    left: 2px;
+    top: 0.55em;
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    background: var(--color-accent);
+  }
+
   /* Вторая кнопка скачивания (Android): рамка вместо заливки. */
   .btn-secondary {
     display: inline-flex;
