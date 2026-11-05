@@ -1,0 +1,8 @@
+{
+  "identifier": "ru.twmmarket.app",
+  "bundle": {
+    "android": {
+      "minSdkVersion": 24
+    }
+  }
+}

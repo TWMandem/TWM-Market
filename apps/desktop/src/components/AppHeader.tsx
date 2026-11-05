@@ -45,7 +45,7 @@ export function AppHeader() {
 
   return (
     <header className="sticky top-0 z-30 border-b border-line-soft bg-ground/90 backdrop-blur-md">
-      <div className="mx-auto flex max-w-[1280px] items-center gap-2.5 px-6 py-3">
+      <div className="mx-auto flex max-w-[1280px] items-center gap-2.5 px-6 py-3 max-md:flex-wrap max-md:gap-2 max-md:px-4 max-md:py-2.5">
         <NavLink to="/" className="flex shrink-0 items-center gap-2.5 text-ink no-underline">
           <span
             aria-hidden="true"
@@ -53,10 +53,10 @@ export function AppHeader() {
           >
             TW
           </span>
-          <span className="font-display text-[17px] font-bold max-[1100px]:sr-only">TWM Market</span>
+          <span className="font-display text-[17px] font-bold md:max-[1100px]:sr-only">TWM Market</span>
         </NavLink>
 
-        <nav aria-label="Разделы" className="flex shrink-0 gap-1">
+        <nav aria-label="Разделы" className="flex shrink-0 gap-1 max-md:hidden">
           {NAV.map((item) => (
             <NavLink
               key={item.to}
@@ -80,7 +80,7 @@ export function AppHeader() {
             if (q) navigate(`/search?q=${encodeURIComponent(q)}`);
             input.current?.blur();
           }}
-          className="group flex h-11 min-w-[150px] flex-1 items-center gap-2 rounded-xl border border-line bg-surface px-3 transition-colors focus-within:border-accent"
+          className="group flex h-11 min-w-[150px] flex-1 items-center gap-2 rounded-xl border border-line bg-surface px-3 transition-colors focus-within:border-accent max-md:order-last max-md:basis-full"
         >
           <Icon name="search" size={18} className="shrink-0 text-muted" />
           <label htmlFor="global-search" className="sr-only">
@@ -104,14 +104,16 @@ export function AppHeader() {
           </kbd>
         </form>
 
-        <ServerSwitcher />
+        <div className="max-md:ml-auto">
+          <ServerSwitcher />
+        </div>
 
         {status === "authed" && (
           <Link
             to="/chats"
             aria-label={unreadMessages > 0 ? `Сообщения: ${unreadMessages} непрочитанных` : "Сообщения"}
             title="Сообщения"
-            className="relative flex size-11 shrink-0 items-center justify-center rounded-xl text-ink-2 hover:bg-surface-2 hover:text-ink"
+            className="relative flex size-11 shrink-0 items-center justify-center rounded-xl text-ink-2 hover:bg-surface-2 hover:text-ink max-md:hidden"
           >
             <Icon name="chat" />
             {unreadMessages > 0 && <Badge count={unreadMessages} />}
@@ -134,7 +136,7 @@ export function AppHeader() {
         <button
           type="button"
           onClick={() => navigate(status === "authed" ? "/listings/new" : "/login", { state: { from: "/listings/new" } })}
-          className="flex h-11 shrink-0 items-center gap-2 rounded-xl bg-accent px-4.5 font-extrabold text-on-accent transition-colors hover:bg-accent-soft"
+          className="flex h-11 shrink-0 items-center gap-2 rounded-xl bg-accent px-4.5 font-extrabold text-on-accent transition-colors hover:bg-accent-soft max-md:hidden"
         >
           <Icon name="plus" size={18} strokeWidth={2.6} />
           <span className="max-[1020px]:sr-only">Разместить</span>
@@ -249,5 +251,54 @@ function AccountMenu() {
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Нижняя панель на телефоне: главное — под большим пальцем.
+ * На компьютере (окно шире 768 px) не показывается.
+ */
+export function BottomTabs() {
+  const { status } = useAuth();
+  const { unreadMessages } = useUpdates();
+  const navigate = useNavigate();
+  const authed = status === "authed";
+  const tab = ({ isActive }: { isActive: boolean }) =>
+    `flex flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-bold no-underline ${isActive ? "text-accent-ink" : "text-muted"}`;
+  return (
+    <nav
+      aria-label="Основные разделы"
+      className="fixed inset-x-0 bottom-0 z-30 flex h-16 items-stretch border-t border-line-soft bg-ground/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden"
+    >
+      <NavLink to="/" end className={tab}>
+        <Icon name="box" size={22} />
+        Главная
+      </NavLink>
+      <NavLink to="/items" className={tab}>
+        <Icon name="search" size={22} />
+        Каталог
+      </NavLink>
+      <button
+        type="button"
+        aria-label="Разместить объявление"
+        onClick={() => navigate(authed ? "/listings/new" : "/login", { state: { from: "/listings/new" } })}
+        className="flex flex-1 items-center justify-center"
+      >
+        <span className="flex size-12 items-center justify-center rounded-2xl bg-accent text-on-accent shadow-lg">
+          <Icon name="plus" size={24} strokeWidth={2.6} />
+        </span>
+      </button>
+      <NavLink to={authed ? "/chats" : "/login"} className={tab}>
+        <span className="relative">
+          <Icon name="chat" size={22} />
+          {unreadMessages > 0 && <Badge count={unreadMessages} />}
+        </span>
+        Сообщения
+      </NavLink>
+      <NavLink to={authed ? "/favorites" : "/login"} className={tab}>
+        <Icon name="heart" size={22} />
+        Избранное
+      </NavLink>
+    </nav>
   );
 }

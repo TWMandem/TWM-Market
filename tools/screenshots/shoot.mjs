@@ -27,8 +27,21 @@ async function settle(page) {
   await page.waitForTimeout(400);
 }
 
-async function session(role, login, { server = true, theme = null } = {}) {
-  const context = await browser.newContext({ viewport: { width: 1280, height: 820 }, locale: "ru-RU", timezoneId: "Europe/Moscow" });
+/** Телефон Android: экран 390×844, сенсорный ввод, браузер Android. */
+const PHONE = {
+  viewport: { width: 390, height: 844 },
+  isMobile: true,
+  hasTouch: true,
+  userAgent:
+    "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36",
+};
+
+async function session(role, login, { server = true, theme = null, phone = false } = {}) {
+  const context = await browser.newContext({
+    ...(phone ? PHONE : { viewport: { width: 1280, height: 820 } }),
+    locale: "ru-RU",
+    timezoneId: "Europe/Moscow",
+  });
   await context.addInitScript(
     ({ server, theme }) => {
       try {
@@ -158,6 +171,28 @@ await shot(light, "light-menu", "Светлая тема: меню аккаун�
   await page.getByRole("button", { name: /^Аккаунт / }).click();
 });
 await light.context.close();
+
+// ── Телефон (Android) ────────────────────────────────────────────────────
+const phone = await session("покупатель, телефон", seed.maks.login, { phone: true });
+await shot(phone, "phone-home", "Телефон: главная", "/");
+await shot(phone, "phone-catalog", "Телефон: каталог", "/items");
+await shot(phone, "phone-listing", "Телефон: объявление", `/listing/${L.ivanCar}`);
+await shot(phone, "phone-chats", "Телефон: сообщения", "/chats");
+await shot(phone, "phone-chat", "Телефон: переписка", `/chats/${seed.offerConversation}`);
+await shot(phone, "phone-favorites", "Телефон: избранное", "/favorites");
+await shot(phone, "phone-new-listing", "Телефон: новое объявление", "/listings/new");
+await shot(phone, "phone-account", "Телефон: личный кабинет", "/account");
+await shot(phone, "phone-menu", "Телефон: меню аккаунта", "/", async (page) => {
+  await page.getByRole("button", { name: /^Аккаунт / }).click();
+});
+await shot(phone, "phone-server", "Телефон: выбор сервера", "/", async (page) => {
+  await page.getByRole("button", { name: /^Мой сервер/ }).click();
+});
+await phone.context.close();
+const phoneGuest = await session("гость, телефон", null, { phone: true });
+await shot(phoneGuest, "phone-login", "Телефон: вход", "/login");
+await shot(phoneGuest, "phone-user", "Телефон: профиль продавца", `/user/${seed.ivan.login}`);
+await phoneGuest.context.close();
 
 // ── Продавец ──────────────────────────────────────────────────────────────
 const seller = await session("продавец", seed.ivan.login);

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useAppUpdate } from "../lib/app-update";
+import { IS_ANDROID } from "../lib/platform";
 import { Modal } from "./ReportDialog";
 import { Button } from "./ui";
 
@@ -14,7 +15,7 @@ export function UpdateBanner() {
   return (
     <>
       <div className="border-b border-warn-line bg-warn-bg">
-        <div className="mx-auto flex max-w-[1280px] flex-wrap items-center gap-3 px-6 py-2.5 text-sm text-warn-ink">
+        <div className="mx-auto flex max-w-[1280px] flex-wrap items-center gap-3 px-4 py-2.5 text-sm text-warn-ink md:px-6">
           <span>
             {working
               ? status === "installing"
@@ -49,7 +50,9 @@ export function UpdateBanner() {
             <p className="m-0 text-sm text-ink-2">Исправления и улучшения.</p>
           )}
           <p className="m-0 text-[13px] text-faint">
-            Обновление скачивается с GitHub, его подпись проверяется перед установкой. Приложение закроется на несколько секунд и откроется снова.
+            {IS_ANDROID
+              ? "Откроется загрузка файла TWM-Market.apk с GitHub. Откройте его и нажмите «Установить» — приложение обновится, вход и настройки сохранятся."
+              : "Обновление скачивается с GitHub, его подпись проверяется перед установкой. Приложение закроется на несколько секунд и откроется снова."}
           </p>
           <div className="flex justify-end gap-2">
             <Button variant="ghost" onClick={() => setOpen(false)}>
@@ -61,7 +64,7 @@ export function UpdateBanner() {
                 void install();
               }}
             >
-              Обновить сейчас
+              {IS_ANDROID ? "Скачать обновление" : "Обновить сейчас"}
             </Button>
           </div>
         </Modal>

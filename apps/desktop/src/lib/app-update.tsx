@@ -3,6 +3,7 @@ import { getVersion } from "@tauri-apps/api/app";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check, type Update } from "@tauri-apps/plugin-updater";
 import { setReportedVersion } from "./error-report";
+import { isAndroidApp, isDesktopApp, openExternal } from "./platform";
 import { isTauri } from "./token-store";
 
 /**
@@ -10,7 +11,32 @@ import { isTauri } from "./token-store";
  * (через 15 секунд после запуска и потом каждые 6 часов). Обновление
  * ставится только по кнопке: установщик проверяет подпись выпуска,
  * поддельный файл не установится.
+ *
+ * На Android установить обновление само приложение не может: оно находит
+ * новый выпуск и открывает в браузере ссылку на APK. Android ставит его
+ * поверх, только если он подписан тем же ключом, что и установленный.
  */
+
+const RELEASES_API = "https://api.github.com/repos/TWMandem/TWM-Market/releases/latest";
+const APK_NAME = "TWM-Market.apk";
+
+/** 0.16.0 > 0.15.2 и т. п. */
+export function newerVersion(candidate: string, current: string): boolean {
+  const parse = (v: string) => v.replace(/^v/, "").split(".").map((n) => Number.parseInt(n, 10) || 0);
+  const a = parse(candidate);
+  const b = parse(current);
+  for (let i = 0; i < Math.max(a.length, b.length); i += 1) {
+    if ((a[i] ?? 0) !== (b[i] ?? 0)) return (a[i] ?? 0) > (b[i] ?? 0);
+  }
+  return false;
+}
+
+interface GithubRelease {
+  tag_name: string;
+  body: string | null;
+  published_at: string | null;
+  assets: Array<{ name: string; browser_download_url: string }>;
+}
 
 export type UpdateStatus = "idle" | "checking" | "none" | "available" | "downloading" | "installing" | "error";
 
@@ -42,6 +68,7 @@ export function AppUpdateProvider({ children }: { children: ReactNode }) {
   const [dismissed, setDismissed] = useState(false);
   const [available, setAvailable] = useState<AppUpdateValue["available"]>(null);
   const update = useRef<Update | null>(null);
+  const apkUrl = useRef<string | null>(null);
   const busy = useRef(false);
 
   const checkNow = useCallback(async () => {
@@ -50,6 +77,22 @@ export function AppUpdateProvider({ children }: { children: ReactNode }) {
     setStatus("checking");
     setError(null);
     try {
+      if (isAndroidApp()) {
+        const current = await getVersion();
+        const response = await fetch(RELEASES_API, { headers: { Accept: "application/vnd.github+json" } });
+        if (!response.ok) throw new Error(`GitHub ответил ${response.status}`);
+        const release = (await response.json()) as GithubRelease;
+        const apk = release.assets.find((a) => a.name === APK_NAME);
+        if (apk && newerVersion(release.tag_name, current)) {
+          apkUrl.current = apk.browser_download_url;
+          setAvailable({ version: release.tag_name.replace(/^v/, ""), notes: release.body ?? "", date: release.published_at });
+          setStatus("available");
+        } else {
+          setAvailable(null);
+          setStatus("none");
+        }
+        return;
+      }
       const found = await check();
       update.current = found;
       if (found) {
@@ -68,6 +111,11 @@ export function AppUpdateProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const install = useCallback(async () => {
+    if (isAndroidApp()) {
+      if (apkUrl.current) await openExternal(apkUrl.current).catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)));
+      return;
+    }
+    if (!isDesktopApp()) return;
     const found = update.current;
     if (!found || busy.current) return;
     busy.current = true;

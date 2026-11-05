@@ -250,3 +250,65 @@ jobs:
           path: apps/desktop/src-tauri/target/release/bundle/nsis/*.exe
           if-no-files-found: error
           retention-days: 14
+
+  # Пробная сборка для Android. На выпусках APK подписывается ключом владельца
+  # (release.yml); здесь — временным ключом, только чтобы проверить сборку.
+  android:
+    name: Сборка для Android
+    needs: check
+    if: ${{ !failure() && !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'push' && github.ref || '' }}
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri -> target
+          key: android
+
+      - name: Установка зависимостей
+        run: pnpm install --frozen-lockfile
+
+      - name: Проект Android
+        working-directory: apps/desktop
+        run: bash ../../deploy/android-prepare.sh
+
+      - name: Сборка APK
+        working-directory: apps/desktop
+        env:
+          VITE_API_URL: ${{ vars.API_URL }}
+        run: pnpm tauri android build --apk --target aarch64 --target armv7 --ci
+
+      - name: Подпись временным ключом
+        working-directory: apps/desktop
+        run: |
+          keytool -genkeypair -keystore "$RUNNER_TEMP/ci.jks" -storepass ci-only -keypass ci-only -alias ci \
+            -keyalg RSA -keysize 2048 -validity 365 -dname "CN=TWM Market CI build" -noprompt
+          ANDROID_KEYSTORE_FILE="$RUNNER_TEMP/ci.jks" ANDROID_KEYSTORE_PASSWORD=ci-only ANDROID_KEY_ALIAS=ci ANDROID_KEY_PASSWORD=ci-only \
+            bash ../../deploy/android-sign.sh "$RUNNER_TEMP/TWM-Market-test.apk"
+
+      - name: Сохранить APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: TWM-Market-android-test-${{ github.sha }}
+          path: ${{ runner.temp }}/TWM-Market-test.apk
+          if-no-files-found: error
+          retention-days: 14

@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { parseDff, parseTxd, type RwModel, type RwTexture } from "./rw";
 import { readSetting, writeSetting } from "./storage";
-import { isTauri } from "./token-store";
+import { isDesktopApp } from "./platform";
 
 /**
  * Папка установленной игры Amazing Online и модели персонажей из неё.
@@ -14,7 +14,7 @@ export class GameNotFoundError extends Error {}
 
 /** Папка из настроек или найденная в обычных местах; null — игра не найдена. */
 export async function gameDir(): Promise<string | null> {
-  if (!isTauri()) return null;
+  if (!isDesktopApp()) return null;
   const saved = readSetting(KEY);
   if (saved) {
     try {

@@ -4,7 +4,7 @@ import { Button, Card } from "../../components/ui";
 import { GameNotFoundError, chooseGameDir, forgetGameModels, loadPedModel, type PedModel } from "../../lib/game";
 import { pedStyles, styleLabel } from "../../lib/ped-styles";
 import type { RwTexture } from "../../lib/rw";
-import { isTauri } from "../../lib/token-store";
+import { isDesktopApp } from "../../lib/platform";
 
 type State =
   | { kind: "loading" }
@@ -41,10 +41,10 @@ export function PedModelCard({ gameCode, name }: { gameCode: string; name: strin
   }, [id]);
 
   useEffect(() => {
-    if (isTauri() && Number.isInteger(id) && id > 0) load();
+    if (isDesktopApp() && Number.isInteger(id) && id > 0) load();
   }, [id, load]);
 
-  if (!isTauri() || !Number.isInteger(id) || id <= 0) return null;
+  if (!isDesktopApp() || !Number.isInteger(id) || id <= 0) return null;
 
   const pick = async () => {
     try {

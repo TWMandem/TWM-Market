@@ -16,22 +16,28 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = ["tray-icon"] }
-# Всплывающие уведомления Windows о новых сообщениях и сделках.
+tauri = { version = "2", features = [] }
+# Всплывающие уведомления о новых сообщениях и сделках (Windows и Android).
 tauri-plugin-notification = "2"
+# Ссылки twm-market://listing/ID со страницы объявления на сайте открывают его в приложении.
+tauri-plugin-deep-link = "2"
+# Выбор папки с игрой для 3D-просмотра одежды (на компьютере); на телефоне — выбор фото.
+tauri-plugin-dialog = "2"
+# Ссылки во внешнем браузере: скачивание обновления на Android.
+tauri-plugin-opener = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Только для компьютера: трей, один экземпляр, автообновление, хранилище учётных данных Windows.
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri = { version = "2", features = ["tray-icon"] }
 # Второй запуск не открывает новое окно, а показывает уже запущенное (оно может быть в трее).
 # С deep-link ссылка twm-market://… из браузера передаётся уже запущенному приложению.
 tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }
-# Ссылки twm-market://listing/ID со страницы объявления на сайте открывают его в приложении.
-tauri-plugin-deep-link = "2"
 # Автообновление: проверка подписанного выпуска на GitHub и установка поверх.
 tauri-plugin-updater = "2"
 # Перезапуск приложения после установки обновления.
 tauri-plugin-process = "2"
-# Выбор папки с игрой для 3D-просмотра одежды.
-tauri-plugin-dialog = "2"
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
 # Системное хранилище учётных данных (на Windows — «Диспетчер учётных данных»).
 keyring = { version = "3", features = ["windows-native", "apple-native", "linux-native"] }
 
