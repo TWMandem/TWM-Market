@@ -65,11 +65,21 @@ function halloween() {
   thread.className = "hw-thread";
   spider.append(thread, svg("0 0 40 40", SPIDER, "hw-spider-body"));
   layer.append(spider);
+  const small = document.createElement("div");
+  small.className = "hw-spider hw-spider-2";
+  const thread2 = document.createElement("span");
+  thread2.className = "hw-thread";
+  small.append(thread2, svg("0 0 40 40", SPIDER, "hw-spider-body hw-spider-small"));
+  layer.append(small);
   document.body.append(layer);
 
-  // Летучие мыши и тыквы на первом экране главной.
+  mist();
+  let counter = null;
+
+  // Летучие мыши и тыквы на первом экране главной, под ним — сцена.
   const hero = document.querySelector("section.hero");
   if (hero) {
+    counter = sceneStrip(hero);
     const bats = document.createElement("div");
     bats.className = "hw-bats";
     bats.setAttribute("aria-hidden", "true");
@@ -81,6 +91,128 @@ function halloween() {
     pumpkins.append(svg("0 0 64 64", PUMPKIN, "hw-pumpkin-big"), svg("0 0 64 64", PUMPKIN, "hw-pumpkin-small"));
     hero.append(pumpkins);
   }
+  ghostHunt(counter);
+}
+
+const GHOST = `<path d="M20 3c9.5 0 17 7.5 17 18v22l-4.2-3.4-4.2 3.4-4.2-3.4-4.2 3.4-4.2-3.4-4.2 3.4-4.2-3.4L3 43V21C3 10.5 10.5 3 20 3z" fill="#f4efff"/>
+  <ellipse cx="14" cy="19" rx="2.6" ry="3.6" fill="#1b1028"/><ellipse cx="26" cy="19" rx="2.6" ry="3.6" fill="#1b1028"/><ellipse cx="20" cy="28" rx="3" ry="4" fill="#1b1028"/>`;
+
+const BOO = ["Бу!", "Попался!", "Ой!", "У-у-у!", "Пойман!"];
+const CAUGHT_KEY = "twm:ghosts-caught";
+
+function caught() {
+  try {
+    return Number(localStorage.getItem(CAUGHT_KEY) ?? 0) || 0;
+  } catch {
+    return 0;
+  }
+}
+
+/** Туман у нижнего края и искры — за содержимым страницы. */
+function mist() {
+  const layer = document.createElement("div");
+  layer.className = "hw-mist";
+  layer.setAttribute("aria-hidden", "true");
+  for (const name of ["hw-fog hw-fog-1", "hw-fog hw-fog-2"]) {
+    const fog = document.createElement("span");
+    fog.className = name;
+    layer.append(fog);
+  }
+  for (let i = 0; i < 16; i++) {
+    const ember = document.createElement("span");
+    ember.className = "hw-ember";
+    // CSSOM разрешён политикой безопасности сайта (в отличие от атрибута style).
+    ember.style.setProperty("left", `${(i * 61) % 100}%`);
+    ember.style.setProperty("animation-delay", `${-((i * 1.7) % 9).toFixed(1)}s`);
+    ember.style.setProperty("animation-duration", `${7 + ((i * 3) % 6)}s`);
+    ember.style.setProperty("width", `${3 + (i % 3)}px`);
+    ember.style.setProperty("height", `${3 + (i % 3)}px`);
+    layer.append(ember);
+  }
+  document.body.append(layer);
+}
+
+/** «Поймай призрака»: раз в 25–50 секунд через экран пролетает призрак. */
+function ghostHunt(counter) {
+  if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+  const show = () => {
+    if (document.visibilityState !== "visible") return;
+    const fromLeft = Math.random() < 0.5;
+    const flight = document.createElement("div");
+    flight.className = `hw-ghost-flight ${fromLeft ? "hw-from-left" : "hw-from-right"}`;
+    flight.style.setProperty("top", `${18 + Math.random() * 52}%`);
+    flight.style.setProperty("animation-duration", `${11 + Math.random() * 5}s`);
+    const button = document.createElement("button");
+    button.type = "button";
+    button.tabIndex = -1;
+    button.className = "hw-ghost";
+    button.setAttribute("aria-label", "Поймать призрака");
+    button.title = "Поймай меня!";
+    const size = 44 + Math.round(Math.random() * 22);
+    button.style.setProperty("width", `${size}px`);
+    button.style.setProperty("height", `${Math.round(size * 1.15)}px`);
+    button.append(svg("0 0 40 46", GHOST, fromLeft ? "hw-ghost-svg" : "hw-ghost-svg hw-mirror"));
+    button.addEventListener("click", () => {
+      const rect = button.getBoundingClientRect();
+      try {
+        localStorage.setItem(CAUGHT_KEY, String(caught() + 1));
+      } catch {
+        // без хранилища счёт не сохранится
+      }
+      counter?.();
+      const boo = document.createElement("span");
+      boo.className = "hw-boo";
+      boo.setAttribute("aria-hidden", "true");
+      boo.textContent = BOO[Math.floor(Math.random() * BOO.length)];
+      boo.style.setProperty("left", `${rect.left + rect.width / 2}px`);
+      boo.style.setProperty("top", `${rect.top}px`);
+      document.body.append(boo);
+      setTimeout(() => boo.remove(), 1100);
+      flight.remove();
+    });
+    flight.append(button);
+    flight.addEventListener("animationend", () => flight.remove());
+    document.body.append(flight);
+  };
+  const schedule = (delay) =>
+    setTimeout(() => {
+      show();
+      schedule(25000 + Math.random() * 25000);
+    }, delay);
+  schedule(6000);
+}
+
+/** Полоса со сценой (луна, ведьма, дом с привидениями) после первого экрана главной. */
+function sceneStrip(hero) {
+  const strip = document.createElement("section");
+  strip.className = "hw-strip";
+  strip.setAttribute("aria-label", "Хеллоуин");
+  const img = document.createElement("img");
+  img.src = "/img/halloween-scene.svg";
+  img.alt = "";
+  img.className = "hw-strip-scene";
+  const text = document.createElement("div");
+  text.className = "hw-strip-text";
+  const kicker = document.createElement("span");
+  kicker.className = "hw-strip-kicker";
+  kicker.textContent = "ХЕЛЛОУИН В ИГРЕ";
+  const title = document.createElement("b");
+  title.className = "hw-strip-title";
+  title.textContent = "Ночь, когда цены пугают меньше всего";
+  const note = document.createElement("span");
+  note.className = "hw-strip-note";
+  note.textContent = "По сайту и приложению бродят призраки — заметите пролетающего, нажмите и поймайте.";
+  const score = document.createElement("span");
+  score.className = "hw-strip-score";
+  const update = () => {
+    const n = caught();
+    score.textContent = n === 0 ? "Призраков пока не поймано" : `Поймано призраков: ${n}`;
+  };
+  update();
+  text.append(kicker, title, note, score);
+  strip.append(img, text);
+  hero.after(strip);
+  return update;
 }
 
 export async function initSeason() {

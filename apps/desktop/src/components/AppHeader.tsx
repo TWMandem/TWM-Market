@@ -6,7 +6,7 @@ import { Icon, type IconName } from "./Icon";
 import { Badge, NotificationsMenu } from "./NotificationsMenu";
 import { ServerSwitcher } from "./ServerSwitcher";
 import { ThemePicker } from "./ThemePicker";
-import { Pumpkin } from "./Halloween";
+import { Pumpkin, WitchHat } from "./Halloween";
 import { useSeason } from "../lib/season";
 
 const NAV = [
@@ -55,7 +55,7 @@ export function AppHeader() {
             className="relative flex size-9 items-center justify-center rounded-[10px] bg-accent font-display text-[13px] font-bold text-on-accent"
           >
             TW
-            {season === "halloween" && <Pumpkin lit className="absolute -bottom-2 -right-2.5 size-[22px] drop-shadow" />}
+            {season === "halloween" && <Pumpkin lit className="hw-flicker absolute -bottom-2 -right-2.5 size-[22px] drop-shadow" />}
           </span>
           <span className="font-display text-[17px] font-bold max-[1100px]:sr-only">TWM Market</span>
         </NavLink>
@@ -158,6 +158,7 @@ interface MenuItem {
 
 /** Аватар: меню со всеми личными разделами. */
 function AccountMenu() {
+  const { active: season } = useSeason();
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const { pathname } = useLocation();
@@ -203,9 +204,10 @@ function AccountMenu() {
       >
         <span
           aria-hidden="true"
-          className={`flex size-8 items-center justify-center rounded-full text-xs font-extrabold uppercase ${staff ? "bg-exchange/20 text-exchange" : "bg-line text-ink"}`}
+          className={`relative flex size-8 items-center justify-center rounded-full text-xs font-extrabold uppercase ${staff ? "bg-exchange/20 text-exchange" : "bg-line text-ink"}`}
         >
           {user.login.slice(0, 2)}
+          {season === "halloween" && <WitchHat className="absolute -top-[15px] left-1/2 h-[18px] w-[24px] -translate-x-1/2 -rotate-12" />}
         </span>
         <Icon name="chevronDown" size={16} className={`text-muted transition-transform ${open ? "rotate-180" : ""}`} />
       </button>

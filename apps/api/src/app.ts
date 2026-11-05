@@ -35,7 +35,7 @@ import { errorRoutes } from "./modules/errors/routes.js";
 import { pushRoutes } from "./modules/push/routes.js";
 import { appearanceRoutes } from "./modules/appearance/routes.js";
 
-export const API_VERSION = "0.22.0";
+export const API_VERSION = "0.23.0";
 
 export interface BuildOptions {
   config: Config;

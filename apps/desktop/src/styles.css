@@ -281,3 +281,148 @@
 @media (prefers-reduced-motion: reduce) {
   .hw-spider, .hw-thread, .hw-bat { animation: none; }
 }
+
+/* ── Хеллоуин, часть 2: туман, искры, призраки, мерцание ── */
+:root[data-season="halloween"] main,
+:root[data-season="halloween"] footer {
+  position: relative;
+  z-index: 1;
+}
+.hw-web-right {
+  transform: scaleX(-1);
+  opacity: 0.8;
+}
+.hw-spider-2 {
+  animation-duration: 7.5s;
+  animation-delay: -2s;
+}
+.hw-spider-2 .hw-thread {
+  height: 40px;
+  animation-duration: 11s;
+  animation-delay: -4s;
+}
+.hw-mist {
+  overflow: hidden;
+  mask-image: linear-gradient(to top, black 30%, transparent);
+}
+.hw-fog {
+  position: absolute;
+  bottom: -40px;
+  left: -25%;
+  width: 150%;
+  height: 160px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgb(185 166 220 / 0.13), transparent);
+  filter: blur(6px);
+  animation: hw-fog-drift 26s ease-in-out infinite alternate;
+}
+.hw-fog-2 {
+  bottom: -70px;
+  height: 200px;
+  background: radial-gradient(closest-side, rgb(255 138 31 / 0.07), transparent);
+  animation-duration: 34s;
+  animation-direction: alternate-reverse;
+}
+:root[data-theme="light"] .hw-fog {
+  background: radial-gradient(closest-side, rgb(110 70 170 / 0.12), transparent);
+}
+.hw-ember {
+  position: absolute;
+  bottom: -10px;
+  border-radius: 50%;
+  background: #ffb347;
+  box-shadow: 0 0 8px 2px rgb(255 140 40 / 0.6);
+  opacity: 0;
+  animation: hw-rise 9s linear infinite;
+}
+.hw-ghost-flight {
+  position: fixed;
+  z-index: 40;
+  left: 0;
+  pointer-events: none;
+  animation: hw-fly-ltr 13s linear forwards;
+}
+.hw-ghost-flight.hw-from-right {
+  animation-name: hw-fly-rtl;
+}
+.hw-ghost {
+  pointer-events: auto;
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  opacity: 0.88;
+  filter: drop-shadow(0 0 12px rgb(200 180 255 / 0.65));
+  animation: hw-bob 1.8s ease-in-out infinite;
+}
+.hw-ghost:hover {
+  opacity: 1;
+}
+.hw-boo {
+  position: fixed;
+  z-index: 41;
+  pointer-events: none;
+  transform: translate(-50%, -100%);
+  font-family: var(--font-display, inherit);
+  font-size: 22px;
+  font-weight: 800;
+  color: #ffb46b;
+  text-shadow: 0 2px 10px rgb(0 0 0 / 0.6), 0 0 18px rgb(255 122 26 / 0.6);
+  animation: hw-boo 1.1s ease-out forwards;
+}
+.hw-flicker {
+  animation: hw-flicker 2.4s ease-in-out infinite;
+}
+.hw-banner {
+  color: #f3ecff;
+}
+:root[data-season="halloween"] .hw-tile::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 54px;
+  height: 54px;
+  opacity: 0.35;
+  pointer-events: none;
+  transform: scaleX(-1);
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'%3E%3Cpath d='M0 0L118 0M0 0L95.5 69.4M0 0L36.5 112.2M0 0L0 118M30 0Q24 10 23 17Q14 22 0 30M60 0Q48 20 46 34Q28 44 0 60M92 0Q74 30 71 52Q42 68 0 92' stroke='%23b9a6dc' stroke-width='2' fill='none'/%3E%3C/svg%3E")
+    no-repeat top left / contain;
+}
+@keyframes hw-fog-drift {
+  from { transform: translateX(-6%); }
+  to { transform: translateX(6%); }
+}
+@keyframes hw-rise {
+  0% { transform: translate(0, 0); opacity: 0; }
+  10% { opacity: 0.9; }
+  50% { transform: translate(14px, -18vh); }
+  100% { transform: translate(-10px, -40vh); opacity: 0; }
+}
+@keyframes hw-fly-ltr {
+  from { transform: translateX(-90px); }
+  to { transform: translateX(calc(100vw + 90px)); }
+}
+@keyframes hw-fly-rtl {
+  from { transform: translateX(calc(100vw + 90px)); }
+  to { transform: translateX(-90px); }
+}
+@keyframes hw-bob {
+  0%, 100% { transform: translateY(0) rotate(-4deg); }
+  50% { transform: translateY(-22px) rotate(4deg); }
+}
+@keyframes hw-boo {
+  0% { opacity: 0; transform: translate(-50%, -60%) scale(0.6); }
+  25% { opacity: 1; transform: translate(-50%, -110%) scale(1.15); }
+  100% { opacity: 0; transform: translate(-50%, -220%) scale(1); }
+}
+@keyframes hw-flicker {
+  0%, 100% { filter: drop-shadow(0 0 3px rgb(255 160 40 / 0.7)) brightness(1); }
+  40% { filter: drop-shadow(0 0 6px rgb(255 160 40 / 0.95)) brightness(1.12); }
+  60% { filter: drop-shadow(0 0 2px rgb(255 160 40 / 0.5)) brightness(0.92); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hw-fog, .hw-ember, .hw-ghost, .hw-flicker { animation: none; }
+  .hw-ember { display: none; }
+}

@@ -144,6 +144,10 @@ jobs:
         env:
           VITE_API_URL: http://localhost:3000
         run: |
+          # Хеллоуинская сцена — один файл для приложения и сайта.
+          cmp apps/desktop/public/halloween/scene.svg apps/site/public/img/halloween-scene.svg
+          # В сцене только рисунок и SMIL: никаких скриптов и стилей (CSP сайта).
+          ! grep -qiE "<script|<style|on[a-z]+=" apps/desktop/public/halloween/scene.svg
           pnpm --filter @twm/api build
           pnpm --filter @twm/desktop exec vite build
           pnpm --filter @twm/desktop build:web

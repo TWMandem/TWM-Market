@@ -399,6 +399,25 @@ if (process.env.WEB_URL) {
       await p.getByRole("button", { name: /^Уведомления/ }).click();
     });
     await shotWeb("web-account", "Веб-версия: личный кабинет", "/account");
+    // Хеллоуин: призрак пролетает — ловим его, счёт растёт.
+    await shotWeb("web-ghost", "Хеллоуин: пролетает призрак", "/", async (p) => {
+      await p.evaluate(() => window.dispatchEvent(new Event("twm:ghost-now")));
+      await p.waitForTimeout(3500);
+    });
+    {
+      const entry = { file: "—", title: "Хеллоуин: призрака можно поймать", role: s.role, path: null, ok: true, problems: [] };
+      try {
+        await page.evaluate(() => window.dispatchEvent(new Event("twm:ghost-now")));
+        await page.waitForTimeout(2500);
+        await page.getByRole("button", { name: "Поймать призрака" }).dispatchEvent("click");
+        await page.getByText(/Поймано призраков: \d+/).waitFor({ timeout: 5000 });
+      } catch (error) {
+        entry.ok = false;
+        entry.problems.push(error.message.split("\n")[0]);
+      }
+      results.push(entry);
+      console.log(`${entry.ok ? "✓" : "✗"} ${entry.title} ${entry.problems.join("; ")}`);
+    }
     // Две вкладки одновременно обновляют вход — сессия не должна закрыться.
     const second = await context.newPage();
     await Promise.all([page.reload(), second.goto(`${WEB}/#/account`)]);

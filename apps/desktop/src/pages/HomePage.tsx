@@ -10,7 +10,7 @@ import { useServers } from "../lib/server-context";
 import { readSetting, writeSetting } from "../lib/storage";
 import { useUpdates } from "../lib/updates-context";
 import { SECTIONS, type SectionKey } from "./sections";
-import { Bats, Pumpkin } from "../components/Halloween";
+import { Bats, Ghost, HalloweenScene, Pumpkin, useGhostsCaught } from "../components/Halloween";
 import { useSeason } from "../lib/season";
 
 /**
@@ -93,7 +93,7 @@ export function HomePage() {
             <Link
               key={section.key}
               to={section.path}
-              className="group relative flex items-center gap-4 overflow-hidden rounded-[var(--radius-card)] border border-line bg-surface p-5 text-ink no-underline transition-colors hover:border-faint"
+              className="hw-tile group relative flex items-center gap-4 overflow-hidden rounded-[var(--radius-card)] border border-line bg-surface p-5 text-ink no-underline transition-colors hover:border-faint"
             >
               <span className={`flex size-12 shrink-0 items-center justify-center rounded-[14px] ${section.toneBg} ${section.tone}`}>
                 <Icon name={section.icon} size={24} />
@@ -152,35 +152,41 @@ export function HomePage() {
   );
 }
 
-/** Приветствие праздника на главной; закрывается крестиком (запоминается). */
+/** Праздничная сцена на главной: анимированная картина и счёт пойманных призраков. Сворачивается крестиком. */
 function HalloweenBanner() {
   const key = "seasonBanner:halloween-2026";
   const [hidden, setHidden] = useState(() => readSetting(key) === "hidden");
+  const caught = useGhostsCaught();
   if (hidden) return null;
   return (
-    <section aria-label="Хеллоуин" className="hw-banner relative flex items-center gap-5 overflow-hidden rounded-2xl px-5 py-4 max-sm:flex-col max-sm:items-start">
-      <span className="flex shrink-0 items-end gap-1">
-        <Pumpkin lit className="size-14" />
-        <Pumpkin className="size-9" />
-      </span>
-      <span className="flex min-w-0 flex-1 flex-col gap-1">
-        <b className="font-display text-[17px]">В игре празднуют Хеллоуин</b>
-        <span className="hw-banner-muted text-sm leading-relaxed">
-          TWM Market на время праздника в тыквах и паутине. Торгуйте спокойно — пугаем только оформлением. Скрыть его можно в{" "}
+    <section aria-label="Хеллоуин" className="hw-banner relative isolate overflow-hidden rounded-2xl">
+      <HalloweenScene className="absolute inset-0 -z-10 size-full object-cover object-[72%_100%]" />
+      <div className="flex min-h-[230px] flex-col justify-start gap-2 bg-gradient-to-r from-[#0f0820]/85 via-[#0f0820]/40 to-transparent px-6 py-5 max-sm:min-h-[260px] max-sm:from-[#0f0820]/70 max-sm:px-5 sm:max-w-[640px]">
+        <span className="flex items-center gap-2 text-[12px] font-extrabold tracking-[0.12em] text-[#ffb46b]">
+          <Pumpkin lit className="hw-flicker size-5" /> ХЕЛЛОУИН В ИГРЕ
+        </span>
+        <b className="font-display text-[clamp(20px,2.4vw,28px)] leading-tight">Ночь, когда цены пугают меньше всего</b>
+        <span className="hw-banner-muted max-w-[460px] text-sm leading-relaxed">
+          По рынку бродят призраки — заметите пролетающего, нажмите на него и поймайте. Торгуйте спокойно: пугаем только
+          оформлением, а скрыть его можно в{" "}
           <Link to="/account#appearance" className="font-bold text-[#ffb46b] underline-offset-2 hover:underline">
             личном кабинете
           </Link>
           .
         </span>
-      </span>
+        <span className="mt-1 flex w-fit items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-[13px] font-bold backdrop-blur-sm">
+          <Ghost className="size-5" />
+          {caught === 0 ? "Призраков пока не поймано" : `Поймано призраков: ${caught}`}
+        </span>
+      </div>
       <button
         type="button"
-        aria-label="Закрыть"
+        aria-label="Свернуть"
         onClick={() => {
           writeSetting(key, "hidden");
           setHidden(true);
         }}
-        className="hw-banner-muted absolute right-2 top-2 flex size-8 items-center justify-center rounded-lg hover:bg-white/10"
+        className="hw-banner-muted absolute right-2 top-2 flex size-8 items-center justify-center rounded-lg bg-black/20 hover:bg-white/10"
       >
         <Icon name="close" size={16} />
       </button>
