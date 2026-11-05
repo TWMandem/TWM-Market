@@ -20,6 +20,7 @@ import type { AppContext } from "../../context.js";
 import { writeAudit } from "../../lib/audit.js";
 import { errors, parseBody } from "../../lib/errors.js";
 import { mediaUrl } from "../../lib/media.js";
+import { watchBack, watchClosed, watchPrice, watchSafely } from "../../lib/favorite-watch.js";
 import { notify } from "../../lib/notify.js";
 import { resetStopWordCache } from "../../lib/stop-words.js";
 import { notifySavedSearchesLater } from "../saved-searches/routes.js";
@@ -127,6 +128,10 @@ export async function adminModerationRoutes(app: FastifyInstance, ctx: AppContex
     await writeAudit(ctx, request, "listing.approved", { type: "listing", id });
     await notify(sql, row.userId, "listing_approved", "Объявление опубликовано", `«${row.title}» прошло проверку.`, `/listing/${id}`);
     notifySavedSearchesLater(ctx, id, request.log);
+    await watchSafely(
+      watchBack(sql, id).then(() => watchPrice(sql, id)),
+      request.log,
+    );
     return true;
   };
 
@@ -140,6 +145,7 @@ export async function adminModerationRoutes(app: FastifyInstance, ctx: AppContex
     await closeReports(request, "listing", id, "resolved", `Объявление отклонено: ${reason}`);
     await writeAudit(ctx, request, "listing.rejected", { type: "listing", id }, { reason });
     await notify(sql, row.userId, "listing_rejected", "Объявление отклонено", `«${row.title}»: ${reason}`, "/my/listings");
+    await watchSafely(watchClosed(sql, [id], "removed"), request.log);
     return true;
   };
 

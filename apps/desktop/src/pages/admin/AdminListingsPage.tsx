@@ -167,7 +167,7 @@ export function AdminListingsPage() {
               <li key={l.id} className="flex flex-wrap items-center gap-3 border-b border-line-soft px-4 py-2.5 text-sm last:border-0">
                 <input type="checkbox" aria-label={`Выбрать «${l.title}»`} checked={selected.has(l.id)} onChange={() => toggle(l.id)} className="size-4 accent-[var(--color-accent)]" />
                 <div className="flex min-w-[240px] flex-1 flex-col gap-0.5">
-                  <Link to={`/listing/${l.id}`} className="font-bold text-ink hover:text-accent">
+                  <Link to={`/listing/${l.id}`} className="font-bold text-ink hover:text-accent-ink">
                     {l.title}
                   </Link>
                   <span className="flex flex-wrap items-center gap-x-2.5 text-[13px] text-muted">
@@ -183,9 +183,9 @@ export function AdminListingsPage() {
                     <span>{when(l.createdAt)}</span>
                     <span>{l.views} просм.</span>
                   </span>
-                  {l.reason && <span className="text-[13px] text-[#e8d3a6]">{l.reason}</span>}
+                  {l.reason && <span className="text-[13px] text-warn-ink">{l.reason}</span>}
                 </div>
-                {l.openReports > 0 && <span className="rounded-md bg-[#ff6b6b]/15 px-2 py-0.5 text-xs font-bold text-[#ffc4c4]">жалоб: {l.openReports}</span>}
+                {l.openReports > 0 && <span className="rounded-md bg-danger/15 px-2 py-0.5 text-xs font-bold text-danger-ink">жалоб: {l.openReports}</span>}
                 <span className="rounded-md bg-surface-2 px-2 py-0.5 text-xs font-bold text-ink-2">{LISTING_STATUS_LABELS[l.status]}</span>
               </li>
             ))}

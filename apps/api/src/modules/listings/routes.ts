@@ -6,6 +6,7 @@ import {
   MAX_ACTIVE_LISTINGS,
   imageOrderSchema,
   listingInputSchema,
+  type FavoriteItemDto,
   type ListingCardDto,
   type ListingSearchResultDto,
   type ListingStatsDto,
@@ -16,6 +17,7 @@ import { AppError, errors, parseBody } from "../../lib/errors.js";
 import { removeMedia, removeMediaDir, saveListingImage } from "../../lib/media.js";
 import { dayMinus, dayRange, mskDay } from "../../lib/day.js";
 import { stopWordReason } from "../../lib/stop-words.js";
+import { watchBack, watchClosed, watchPrice, watchSafely } from "../../lib/favorite-watch.js";
 import { authOf, hasRole, optionalAuth, requireAuth } from "../auth/guard.js";
 import { notifySavedSearchesLater } from "../saved-searches/routes.js";
 import { filterDefinitions, ownerActive, searchConditions, searchFrom, searchQuery, whereOf } from "./search.js";
@@ -308,6 +310,8 @@ export async function listingRoutes(app: FastifyInstance, ctx: AppContext): Prom
       const flag = await stopWordReason(sql, input.title, input.description, input.wantDescription);
       if (flag) {
         await sql`UPDATE listings SET status = 'moderation', moderation_reason = ${flag}, updated_at = now() WHERE id = ${row.id}`;
+      } else if (input.price !== null && String(input.price) !== row.price) {
+        await watchSafely(watchPrice(sql, row.id), request.log);
       }
     }
     return fresh(row.id, user.id);
@@ -362,6 +366,11 @@ export async function listingRoutes(app: FastifyInstance, ctx: AppContext): Prom
       }
     });
     notifySavedSearchesLater(ctx, row.id, request.log);
+    // Тем, у кого оно в избранном: «снова доступно», затем — если цена стала лучше.
+    await watchSafely(
+      watchBack(sql, row.id).then(() => watchPrice(sql, row.id)),
+      request.log,
+    );
     return fresh(row.id, user.id);
   });
 
@@ -393,6 +402,7 @@ export async function listingRoutes(app: FastifyInstance, ctx: AppContext): Prom
     const { user, row } = await ownListing(request);
     if (row.status !== "active") throw errors.conflict("not_active", "Снять можно только активное объявление");
     await sql`UPDATE listings SET status = 'withdrawn', updated_at = now() WHERE id = ${row.id}`;
+    await watchSafely(watchClosed(sql, [row.id], "withdrawn"), request.log);
     return fresh(row.id, user.id);
   });
 
@@ -402,6 +412,7 @@ export async function listingRoutes(app: FastifyInstance, ctx: AppContext): Prom
       throw errors.conflict("cannot_mark_sold", "Это объявление нельзя отметить проданным");
     }
     await sql`UPDATE listings SET status = 'sold', updated_at = now() WHERE id = ${row.id}`;
+    await watchSafely(watchClosed(sql, [row.id], "sold"), request.log);
     return fresh(row.id, user.id);
   });
 
@@ -494,9 +505,13 @@ export async function listingRoutes(app: FastifyInstance, ctx: AppContext): Prom
     const { user } = authOf(request);
     const params = idParam.safeParse(request.params);
     if (!params.success) throw notOwner();
-    const [listing] = await sql`SELECT 1 FROM listings WHERE id = ${params.data.id} AND status = 'active'`;
+    const [listing] = await sql<{ price: string | null }[]>`SELECT price FROM listings WHERE id = ${params.data.id} AND status = 'active'`;
     if (!listing) throw notOwner();
-    await sql`INSERT INTO favorites (user_id, listing_id) VALUES (${user.id}, ${params.data.id}) ON CONFLICT DO NOTHING`;
+    // Цена в момент добавления — от неё считаем «подешевело».
+    await sql`
+      INSERT INTO favorites (user_id, listing_id, added_price, notified_price)
+      VALUES (${user.id}, ${params.data.id}, ${listing.price}::bigint, ${listing.price}::bigint)
+      ON CONFLICT DO NOTHING`;
     return reply.code(204).send();
   });
 
@@ -508,17 +523,21 @@ export async function listingRoutes(app: FastifyInstance, ctx: AppContext): Prom
     return reply.code(204).send();
   });
 
-  app.get("/v1/me/favorites", { preHandler: auth }, async (request): Promise<{ items: Array<ListingCardDto & { status: string }> }> => {
+  app.get("/v1/me/favorites", { preHandler: auth }, async (request): Promise<{ items: FavoriteItemDto[] }> => {
     const { user } = authOf(request);
     const rows = await sql<ListingRow[]>`
       ${listingSelect(sql, user.id)}
       JOIN favorites fav ON fav.listing_id = l.id AND fav.user_id = ${user.id}
       ORDER BY fav.created_at DESC
       LIMIT 200`;
+    const added = await sql<{ listingId: string; addedPrice: string | null }[]>`
+      SELECT listing_id, added_price FROM favorites WHERE user_id = ${user.id}`;
+    const addedMap = new Map(added.map((a) => [a.listingId, a.addedPrice === null ? null : Number(a.addedPrice)]));
     return {
       items: rows.map((r) => ({
         ...toCard(r),
         status: r.status === "active" && r.expiresAt && r.expiresAt.getTime() <= Date.now() ? "archived" : r.status,
+        addedPrice: addedMap.get(r.id) ?? null,
       })),
     };
   });

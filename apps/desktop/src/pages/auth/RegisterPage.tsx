@@ -78,7 +78,7 @@ export function RegisterPage() {
       </form>
       <p className="m-0 text-sm text-muted">
         Уже есть аккаунт?{" "}
-        <Link to="/login" className="font-bold text-accent hover:text-accent-soft">
+        <Link to="/login" className="font-bold text-accent-ink hover:text-accent-soft">
           Войти
         </Link>
       </p>

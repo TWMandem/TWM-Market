@@ -59,7 +59,7 @@ export function StopWordsPage() {
       <Card className="flex flex-col gap-3">
         <Field label="Проверить текст" value={sample} onChange={(e) => setSample(e.target.value)} placeholder="Вставьте текст объявления или сообщения" />
         {sample.trim() && (
-          <span className={`text-sm font-bold ${hit ? "text-[#e8d3a6]" : "text-[#9eebc0]"}`}>
+          <span className={`text-sm font-bold ${hit ? "text-warn-ink" : "text-success-ink"}`}>
             {hit ? `Сработает: ${hit.phrase}${hit.note ? ` (${hit.note})` : ""}` : "Стоп-слов не найдено"}
           </span>
         )}

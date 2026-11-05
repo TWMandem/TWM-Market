@@ -16,12 +16,16 @@ export async function meRoutes(app: FastifyInstance, ctx: AppContext): Promise<v
 
   app.get("/v1/me", { preHandler: auth }, async (request) => toMeDto(authOf(request).user));
 
-  // Настройки приватности.
+  // Настройки: приватность и уведомления.
   app.patch("/v1/me/settings", { preHandler: auth }, async (request): Promise<MeDto> => {
     const { user } = authOf(request);
-    const { showOnline } = parseBody(meSettingsSchema, request.body);
-    await ctx.sql`UPDATE users SET show_online = ${showOnline}, updated_at = now() WHERE id = ${user.id}`;
-    return toMeDto({ ...user, showOnline });
+    const input = parseBody(meSettingsSchema, request.body);
+    const showOnline = input.showOnline ?? user.showOnline;
+    const notifyFavorites = input.notifyFavorites ?? user.notifyFavorites;
+    await ctx.sql`
+      UPDATE users SET show_online = ${showOnline}, notify_favorites = ${notifyFavorites}, updated_at = now()
+      WHERE id = ${user.id}`;
+    return toMeDto({ ...user, showOnline, notifyFavorites });
   });
 
   // Устройства, с которых выполнен вход.

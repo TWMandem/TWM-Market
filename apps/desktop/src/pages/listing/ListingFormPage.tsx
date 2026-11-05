@@ -336,7 +336,7 @@ export function ListingFormPage() {
       <Card className="flex max-w-[640px] flex-col items-start gap-3">
         <h1 className="m-0 font-display text-2xl font-bold">Сначала добавьте игровой профиль</h1>
         <p className="m-0 text-muted">Объявление публикуется от имени игрового ника на конкретном сервере.</p>
-        <Link to="/account" className="font-bold text-accent">
+        <Link to="/account" className="font-bold text-accent-ink">
           Перейти в личный кабинет →
         </Link>
       </Card>
@@ -356,7 +356,7 @@ export function ListingFormPage() {
       {user && !user.emailVerified && (
         <Alert tone="warning">
           Сохранить черновик можно сейчас, а опубликовать — после подтверждения email.{" "}
-          <Link to="/verify-email" className="font-bold text-accent">
+          <Link to="/verify-email" className="font-bold text-accent-ink">
             Подтвердить →
           </Link>
         </Alert>
@@ -641,7 +641,7 @@ function PreviewPanel({ card, checks }: { card: ListingCardDto; checks: Array<{ 
           <li key={c.label} className={`flex items-center gap-2 ${c.done ? "text-ink-2" : "text-muted"}`}>
             <span
               aria-hidden="true"
-              className={`flex size-5 shrink-0 items-center justify-center rounded-full transition-colors ${c.done ? "bg-[#4cd48a]/20 text-success" : "border border-line"}`}
+              className={`flex size-5 shrink-0 items-center justify-center rounded-full transition-colors ${c.done ? "bg-success/20 text-success" : "border border-line"}`}
             >
               {c.done && <Icon name="check" size={12} strokeWidth={3} />}
             </span>
@@ -668,7 +668,7 @@ function Step({ n, title, children }: { n: number; title: string; children: Reac
   return (
     <section className="flex flex-col gap-4 rounded-[var(--radius-card)] border border-line bg-surface p-6">
       <h2 className="m-0 text-[17px] font-extrabold">
-        {n > 0 && <span className="mr-2 font-mono text-accent">{String(n).padStart(2, "0")}</span>}
+        {n > 0 && <span className="mr-2 font-mono text-accent-ink">{String(n).padStart(2, "0")}</span>}
         {title}
       </h2>
       {children}
@@ -705,7 +705,7 @@ function SelectField({
         disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
         aria-invalid={error ? true : undefined}
-        className={`h-12 rounded-xl border bg-ground px-3 text-ink disabled:opacity-60 ${error ? "border-[#c45555]" : "border-line"}`}
+        className={`h-12 rounded-xl border bg-ground px-3 text-ink disabled:opacity-60 ${error ? "border-danger-strong" : "border-line"}`}
       >
         {options.map(([v, text]) => (
           <option key={v} value={v}>
@@ -749,7 +749,7 @@ function TextArea({
         value={value}
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
-        className={`resize-y rounded-xl border bg-ground px-3.5 py-3 leading-relaxed text-ink outline-none placeholder:text-faint focus:border-accent ${error ? "border-[#c45555]" : "border-line"}`}
+        className={`resize-y rounded-xl border bg-ground px-3.5 py-3 leading-relaxed text-ink outline-none placeholder:text-faint focus:border-accent ${error ? "border-danger-strong" : "border-line"}`}
       />
       <span className={`self-end text-xs ${error ? "text-danger" : "text-faint"}`}>{error ?? `${value.length} / ${max}`}</span>
     </div>
@@ -957,7 +957,7 @@ function ImagesEditor({
                 aria-label={isMain ? "Главное изображение" : "Сделать главным"}
                 aria-pressed={isMain}
                 onClick={() => onMain(entry.key)}
-                className="absolute left-1 top-1 flex size-9 items-center justify-center rounded-lg bg-ground/75 text-accent hover:bg-ground"
+                className="absolute left-1 top-1 flex size-9 items-center justify-center rounded-lg bg-ground/75 text-accent-ink hover:bg-ground"
               >
                 <span aria-hidden="true">{isMain ? "★" : "☆"}</span>
               </button>
@@ -976,7 +976,7 @@ function ImagesEditor({
           <button
             type="button"
             onClick={() => fileInput.current?.click()}
-            className="flex aspect-[16/10] flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-[#3a404c] p-2 text-[13px] font-bold text-ink-2 hover:border-faint"
+            className="flex aspect-[16/10] flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-line-strong p-2 text-[13px] font-bold text-ink-2 hover:border-faint"
           >
             <span aria-hidden="true" className="text-2xl leading-none">
               +

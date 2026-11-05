@@ -44,7 +44,7 @@ export function SaveSearchDialog({
             Подписка сохранена.{notify ? " Когда появится подходящее объявление, придёт уведомление." : ""}
           </Alert>
           <div className="flex flex-wrap justify-end gap-2">
-            <Link to="/my/searches" className="inline-flex h-11 items-center rounded-xl px-4 font-bold text-accent no-underline hover:text-accent-soft">
+            <Link to="/my/searches" className="inline-flex h-11 items-center rounded-xl px-4 font-bold text-accent-ink no-underline hover:text-accent-soft">
               Мои подписки →
             </Link>
             <Button onClick={onClose}>Готово</Button>

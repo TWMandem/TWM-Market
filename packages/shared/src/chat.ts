@@ -163,7 +163,10 @@ export type NotificationKind =
   | "report_resolved"
   | "saved_search"
   | "nickname_verified"
-  | "nickname_rejected";
+  | "nickname_rejected"
+  | "favorite_price"
+  | "favorite_closed"
+  | "favorite_back";
 
 export interface NotificationDto {
   id: number;
@@ -356,9 +359,12 @@ export interface BlockedUserDto {
   createdAt: string;
 }
 
-export const meSettingsSchema = z.object({
-  showOnline: z.boolean(),
-});
+export const meSettingsSchema = z
+  .object({
+    showOnline: z.boolean().optional(),
+    notifyFavorites: z.boolean().optional(),
+  })
+  .refine((v) => v.showOnline !== undefined || v.notifyFavorites !== undefined, { message: "Нет изменений" });
 
 /** «в сети», «был(а) 5 мин назад», «был(а) вчера в 21:40». */
 export const ONLINE_WINDOW_MS = 5 * 60 * 1000;

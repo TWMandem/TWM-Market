@@ -100,7 +100,7 @@ export function HomePage() {
           <h2 id="fresh-title" className="m-0 font-display text-[22px] font-bold">
             Новое{current ? ` на ${current.name}` : ""}
           </h2>
-          <Link to="/search?sort=new" className="flex items-center gap-1.5 font-bold text-accent no-underline hover:text-accent-soft">
+          <Link to="/search?sort=new" className="flex items-center gap-1.5 font-bold text-accent-ink no-underline hover:text-accent-soft">
             Все объявления <Icon name="arrowRight" size={16} />
           </Link>
         </div>
@@ -118,12 +118,12 @@ export function HomePage() {
         {fresh && fresh.length > 0 && <ListingGrid items={fresh} onToggleFavorite={(l) => void toggle(l)} />}
       </section>
 
-      <section aria-label="Безопасная сделка" className="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-2xl border border-[#3a3220] bg-[#17140d] px-5 py-4">
-        <span className="flex items-center gap-2.5 text-accent">
+      <section aria-label="Безопасная сделка" className="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-2xl border border-warn-line bg-warn-bg px-5 py-4">
+        <span className="flex items-center gap-2.5 text-accent-ink">
           <Icon name="shield" size={22} />
           <b className="font-display text-[15px] text-ink">Безопасная сделка</b>
         </span>
-        <span className="flex-1 text-sm leading-relaxed text-[#d6cdb8]">
+        <span className="flex-1 text-sm leading-relaxed text-warn-ink">
           Имущество передаётся только в игре. Сверьте ник собеседника и посмотрите его отзывы. Торговля за реальные деньги запрещена.
         </span>
       </section>
@@ -183,7 +183,7 @@ function Attention() {
             list.push({
               key: `offer-${c.id}`,
               icon: "tag",
-              tone: "text-accent bg-accent/15",
+              tone: "text-accent-ink bg-accent/15",
               title: `${who} предлагает ${formatPrice(c.offer.price)}`,
               detail: c.listing.title,
               to: `/chats/${c.id}`,
@@ -194,7 +194,7 @@ function Attention() {
             list.push({
               key: `deal-${c.id}`,
               icon: "check",
-              tone: "text-success bg-[#4cd48a]/15",
+              tone: "text-success bg-success/15",
               title: `${who} отметил(а) сделку — подтвердите`,
               detail: c.listing.title,
               to: `/chats/${c.id}`,
@@ -205,7 +205,7 @@ function Attention() {
             list.push({
               key: `review-${c.id}`,
               icon: "check",
-              tone: "text-success bg-[#4cd48a]/15",
+              tone: "text-success bg-success/15",
               title: `Оставьте отзыв о сделке с ${who}`,
               detail: c.listing.title,
               to: `/chats/${c.id}`,
@@ -271,7 +271,7 @@ function Attention() {
                 <span className="truncate text-[15px] font-bold">{t.title}</span>
                 <span className="truncate text-[13px] text-muted">{t.detail}</span>
               </span>
-              <span className="flex shrink-0 items-center gap-1 text-sm font-bold text-accent">
+              <span className="flex shrink-0 items-center gap-1 text-sm font-bold text-accent-ink">
                 {t.action}
                 <Icon name="arrowRight" size={16} className="transition-transform group-hover:translate-x-0.5" />
               </span>

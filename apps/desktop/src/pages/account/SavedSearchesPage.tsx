@@ -72,7 +72,7 @@ export function SavedSearchesPage() {
       {data && data.items.length === 0 && (
         <p className="m-0 text-muted">
           Подписок пока нет. Настройте фильтры в каталоге и нажмите «Подписаться на поиск».{" "}
-          <Link to="/items" className="font-bold text-accent">
+          <Link to="/items" className="font-bold text-accent-ink">
             В каталог →
           </Link>
         </p>
@@ -108,7 +108,7 @@ export function SavedSearchesPage() {
                     </Button>
                   </form>
                 ) : (
-                  <button type="button" onClick={() => void open(search)} className="flex items-center gap-2 text-left text-[17px] font-extrabold text-ink hover:text-accent">
+                  <button type="button" onClick={() => void open(search)} className="flex items-center gap-2 text-left text-[17px] font-extrabold text-ink hover:text-accent-ink">
                     {search.name}
                     {search.newCount > 0 && (
                       <span className="rounded-full bg-accent px-2 py-0.5 font-mono text-xs font-bold text-on-accent">

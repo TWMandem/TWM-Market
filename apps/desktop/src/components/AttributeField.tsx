@@ -27,7 +27,7 @@ export function AttributeField({
     <span className={`text-[13px] ${error ? "text-danger" : "text-faint"}`}>{error ?? definition.helpText}</span>
   );
   const inputClass = `h-12 w-full rounded-xl border bg-ground px-3.5 text-ink outline-none focus:border-accent ${
-    error ? "border-[#c45555]" : "border-line"
+    error ? "border-danger-strong" : "border-line"
   }`;
 
   switch (definition.dataType) {

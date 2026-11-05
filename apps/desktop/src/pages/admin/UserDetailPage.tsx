@@ -32,7 +32,7 @@ export function UserDetailPage() {
       <AdminTitle title={target.login}>
         <span
           className={`rounded-lg px-3 py-1 text-sm font-bold ${
-            target.status === "blocked" ? "bg-[#ff6b6b]/15 text-[#ffb4b4]" : "bg-[#4cd48a]/15 text-success"
+            target.status === "blocked" ? "bg-danger/15 text-danger-ink" : "bg-success/15 text-success"
           }`}
         >
           {target.status === "blocked" ? "Заблокирован" : "Активен"}

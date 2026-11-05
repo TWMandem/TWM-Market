@@ -21,7 +21,7 @@ export const SECTIONS: readonly SectionInfo[] = [
     title: "Рынок предметов",
     description: "Аксессуары и предметы с Центрального рынка и рынка ТЦ «Анашан». Продажа и скупка.",
     icon: "box",
-    tone: "text-accent",
+    tone: "text-accent-ink",
     toneBg: "bg-accent/15",
   },
   {

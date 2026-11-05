@@ -74,7 +74,7 @@ export function VerifyNicknameDialog({ profile, onClose }: { profile: GameProfil
               </li>
               {state.code && (
                 <li>
-                  Если получится, напишите в игровой чат код <span className="select-all font-mono font-bold text-accent">{state.code}</span> так,
+                  Если получится, напишите в игровой чат код <span className="select-all font-mono font-bold text-accent-ink">{state.code}</span> так,
                   чтобы он попал на тот же скриншот, — так проверка пройдёт быстрее.
                 </li>
               )}

@@ -27,6 +27,7 @@ export function toMeDto(user: UserRow): MeDto {
     role: user.role,
     createdAt: user.createdAt.toISOString(),
     showOnline: user.showOnline,
+    notifyFavorites: user.notifyFavorites,
   };
 }
 

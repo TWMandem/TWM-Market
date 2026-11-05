@@ -51,12 +51,12 @@ export function UserPage() {
           <LastSeen at={p.lastSeenAt} />
           {(p.trusted || p.verifiedNicknames.length > 0) && (
             <span className="mt-1 flex flex-wrap gap-1.5">
-              {p.trusted && <span className="rounded-lg bg-[#4cd48a]/10 px-2.5 py-1 text-[13px] font-bold text-[#9eebc0]">★ Надёжный продавец</span>}
+              {p.trusted && <span className="rounded-lg bg-success/10 px-2.5 py-1 text-[13px] font-bold text-success-ink">★ Надёжный продавец</span>}
               {p.verifiedNicknames.map((v) => (
                 <span
                   key={`${v.server.number}-${v.nickname}`}
                   title={`Сервер ${v.server.name}: ник подтверждён модератором`}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-[#24503a] px-2.5 py-1 font-mono text-[13px] font-bold text-ink-2"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-success-line px-2.5 py-1 font-mono text-[13px] font-bold text-ink-2"
                 >
                   <span aria-hidden="true" className="size-2 rounded-full" style={{ background: v.server.color }} />✔ {v.nickname}
                 </span>
@@ -65,10 +65,10 @@ export function UserPage() {
           )}
         </div>
         <div className="flex gap-3 font-mono text-lg font-bold">
-          <span className="rounded-xl bg-[#4cd48a]/10 px-3.5 py-2 text-[#9eebc0]" title="Положительные отзывы">
+          <span className="rounded-xl bg-success/10 px-3.5 py-2 text-success-ink" title="Положительные отзывы">
             👍 {p.reviews.positive}
           </span>
-          <span className="rounded-xl bg-[#ff6b6b]/10 px-3.5 py-2 text-[#ffc4c4]" title="Отрицательные отзывы">
+          <span className="rounded-xl bg-danger/10 px-3.5 py-2 text-danger-ink" title="Отрицательные отзывы">
             👎 {p.reviews.negative}
           </span>
         </div>
@@ -102,7 +102,7 @@ export function UserPage() {
               <li key={r.id} className="group flex flex-col gap-1 rounded-xl bg-surface-2 px-4 py-3">
                 <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
                   <span aria-label={r.positive ? "Положительный" : "Отрицательный"}>{r.positive ? "👍" : "👎"}</span>
-                  <Link to={`/user/${encodeURIComponent(r.author.login)}`} className="font-bold text-ink hover:text-accent">
+                  <Link to={`/user/${encodeURIComponent(r.author.login)}`} className="font-bold text-ink hover:text-accent-ink">
                     {r.author.login}
                   </Link>
                   <span className="text-muted">о сделке «{r.listingTitle}»</span>

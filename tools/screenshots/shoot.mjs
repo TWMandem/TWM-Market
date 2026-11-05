@@ -27,15 +27,17 @@ async function settle(page) {
   await page.waitForTimeout(400);
 }
 
-async function session(role, login, { server = true } = {}) {
+async function session(role, login, { server = true, theme = null } = {}) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 820 }, locale: "ru-RU", timezoneId: "Europe/Moscow" });
-  if (server) {
-    await context.addInitScript(() => {
+  await context.addInitScript(
+    ({ server, theme }) => {
       try {
-        window.localStorage.setItem("twm:server", "1");
+        if (server) window.localStorage.setItem("twm:server", "1");
+        if (theme) window.localStorage.setItem("twm:theme", theme);
       } catch {}
-    });
-  }
+    },
+    { server, theme },
+  );
   const page = await context.newPage();
   const problems = [];
   page.on("console", (m) => {
@@ -139,7 +141,23 @@ await shot(buyer, "account-delete", "Удаление аккаунта (форм
   await page.getByRole("button", { name: "Удалить аккаунт…" }).click();
   await page.getByRole("button", { name: "Удалить аккаунт навсегда" }).scrollIntoViewIfNeeded();
 });
+await shot(buyer, "account-notifications", "Личный кабинет: уведомления и тема", "/account#notifications", async (page) => {
+  await page.waitForTimeout(800);
+});
 await buyer.context.close();
+
+// ── Светлая тема ──────────────────────────────────────────────────────────
+const light = await session("покупатель, светлая тема", seed.maks.login, { theme: "light" });
+await shot(light, "light-home", "Светлая тема: главная", "/");
+await shot(light, "light-catalog", "Светлая тема: каталог", "/items");
+await shot(light, "light-listing", "Светлая тема: объявление", `/listing/${L.ivanCar}`);
+await shot(light, "light-chats", "Светлая тема: переписка", `/chats/${seed.offerConversation}`);
+await shot(light, "light-favorites", "Светлая тема: избранное", "/favorites");
+await shot(light, "light-account", "Светлая тема: личный кабинет", "/account");
+await shot(light, "light-menu", "Светлая тема: меню аккаунта", "/", async (page) => {
+  await page.getByRole("button", { name: /^Аккаунт / }).click();
+});
+await light.context.close();
 
 // ── Продавец ──────────────────────────────────────────────────────────────
 const seller = await session("продавец", seed.ivan.login);

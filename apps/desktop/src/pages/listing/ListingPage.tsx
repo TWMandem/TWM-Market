@@ -49,7 +49,7 @@ export function ListingPage() {
     return (
       <div className="flex flex-col items-start gap-4">
         <Alert>{error}</Alert>
-        <Link to="/" className="font-bold text-accent">
+        <Link to="/" className="font-bold text-accent-ink">
           На главную →
         </Link>
       </div>
@@ -103,13 +103,13 @@ export function ListingPage() {
           {listing.catalogItem && (listing.sectionCode === "items" || listing.sectionCode === "cars") && <PriceHistoryCard listing={listing} />}
 
           {listing.want && (
-            <Card className="flex flex-col gap-4 border-[#4a4266]">
+            <Card className="flex flex-col gap-4 border-exchange/40">
               <h2 className="m-0 font-display text-[19px] font-bold text-exchange">Хочу получить взамен</h2>
               {listing.want.listingType && <p className="m-0 text-[15px] font-bold">{listing.want.listingType.name}</p>}
               {listing.want.attributes.length > 0 && <AttributeList items={listing.want.attributes} />}
               {listing.want.description && <p className="m-0 whitespace-pre-line leading-relaxed text-ink-2">{listing.want.description}</p>}
               {listing.want.surcharge !== null && listing.want.surchargeDirection && (
-                <span className="self-start rounded-lg bg-[#b79cff]/15 px-3 py-1.5 font-mono font-bold text-[#d6c9ff]">
+                <span className="self-start rounded-lg bg-exchange/15 px-3 py-1.5 font-mono font-bold text-exchange">
                   {SURCHARGE_DIRECTION_LABELS[listing.want.surchargeDirection]}: {formatPrice(listing.want.surcharge)}
                 </span>
               )}
@@ -128,7 +128,7 @@ export function ListingPage() {
           <PriceCard listing={listing} onChange={setData} />
           <StickyBar listing={listing} />
           {listing.warnings.length > 0 && (
-            <div role="note" className="flex flex-col gap-2 rounded-[var(--radius-card)] border border-[#5a2e2e] bg-[#1f1414] p-4 text-sm leading-snug text-[#ffc4c4]">
+            <div role="note" className="flex flex-col gap-2 rounded-[var(--radius-card)] border border-danger-line bg-danger-bg p-4 text-sm leading-snug text-danger-ink">
               <span className="font-extrabold">Будьте внимательны</span>
               <ul className="m-0 flex list-disc flex-col gap-1 pl-5">
                 {listing.warnings.map((w) => (
@@ -226,7 +226,7 @@ function ItemPreviewCard({ item }: { item: CatalogItemInfoDto }) {
               )}
               <span className="flex min-w-0 flex-col">
                 {entry.item ? (
-                  <Link to={`/items?item=${entry.item.id}`} className="truncate font-semibold text-ink hover:text-accent">
+                  <Link to={`/items?item=${entry.item.id}`} className="truncate font-semibold text-ink hover:text-accent-ink">
                     {entry.name}
                   </Link>
                 ) : (
@@ -443,7 +443,7 @@ function PriceCard({ listing, onChange }: { listing: ListingDetailDto; onChange:
       {listing.sectionCode === "items" && listing.quantity > 1 && <span className="text-sm text-muted">Количество: {listing.quantity} шт.</span>}
 
       {stats && diff !== null && listing.operation === "sell" && (
-        <div className={`rounded-xl px-3.5 py-3 text-sm leading-snug ${diff <= -5 ? "bg-[#4cd48a]/10 text-[#9eebc0]" : diff >= 15 ? "bg-[#ff6b6b]/10 text-[#ffc4c4]" : "bg-surface-2 text-ink-2"}`}>
+        <div className={`rounded-xl px-3.5 py-3 text-sm leading-snug ${diff <= -5 ? "bg-success/10 text-success-ink" : diff >= 15 ? "bg-danger/10 text-danger-ink" : "bg-surface-2 text-ink-2"}`}>
           {diff === 0 ? "Как средняя цена" : diff < 0 ? `На ${-diff}% ниже средней` : `На ${diff}% выше средней`} на {listing.server.name}:{" "}
           <span className="font-mono font-bold">{formatPriceShort(stats.average)}</span> по {stats.count} объявл. (от{" "}
           {formatPriceShort(stats.min)} до {formatPriceShort(stats.max)})
@@ -511,7 +511,7 @@ function SellerCard({ listing }: { listing: ListingDetailDto }) {
           {seller.login.slice(0, 2)}
         </span>
         <div className="flex flex-col gap-0.5">
-          <Link to={`/user/${encodeURIComponent(seller.login)}`} className="text-base font-extrabold text-ink hover:text-accent">
+          <Link to={`/user/${encodeURIComponent(seller.login)}`} className="text-base font-extrabold text-ink hover:text-accent-ink">
             {seller.login}
           </Link>
           <span className="text-[13px] text-muted">
@@ -522,7 +522,7 @@ function SellerCard({ listing }: { listing: ListingDetailDto }) {
       </div>
       {seller.trusted && (
         <span
-          className="self-start rounded-lg bg-[#4cd48a]/10 px-2.5 py-1 text-[13px] font-bold text-[#9eebc0]"
+          className="self-start rounded-lg bg-success/10 px-2.5 py-1 text-[13px] font-bold text-success-ink"
           title={`Не меньше ${TRUSTED_SELLER.minDeals} подтверждённых сделок, ${Math.round(TRUSTED_SELLER.minPositiveShare * 100)}% положительных отзывов, на площадке больше ${TRUSTED_SELLER.minAccountDays} дней`}
         >
           ★ Надёжный продавец
@@ -532,13 +532,13 @@ function SellerCard({ listing }: { listing: ListingDetailDto }) {
         to={`/user/${encodeURIComponent(seller.login)}`}
         className="flex items-center gap-3 rounded-xl bg-surface-2 px-3.5 py-2.5 text-sm text-ink-2 no-underline hover:text-ink"
       >
-        <span className="font-mono font-bold text-[#9eebc0]">👍 {seller.reviews.positive}</span>
-        <span className="font-mono font-bold text-[#ffc4c4]">👎 {seller.reviews.negative}</span>
+        <span className="font-mono font-bold text-success-ink">👍 {seller.reviews.positive}</span>
+        <span className="font-mono font-bold text-danger-ink">👎 {seller.reviews.negative}</span>
         <span className="ml-auto">
           {seller.reviews.positive + seller.reviews.negative > 0 ? "Все отзывы →" : "Отзывов пока нет"}
         </span>
       </Link>
-      <div className={`flex flex-col gap-1 rounded-xl border px-3.5 py-3 ${seller.nicknameVerified ? "border-[#24503a]" : "border-dashed border-[#3a404c]"}`}>
+      <div className={`flex flex-col gap-1 rounded-xl border px-3.5 py-3 ${seller.nicknameVerified ? "border-success-line" : "border-dashed border-line-strong"}`}>
         <span className={`text-xs ${seller.nicknameVerified ? "font-bold text-success" : "text-muted"}`}>
           {seller.nicknameVerified ? "✔ Ник в игре подтверждён модератором" : "Ник в игре · указан продавцом, не проверен"}
         </span>
@@ -548,8 +548,8 @@ function SellerCard({ listing }: { listing: ListingDetailDto }) {
         </span>
       </div>
       {seller.sameNicknameCount > 0 && (
-        <div role="note" className="flex gap-2.5 rounded-xl bg-accent/10 px-3.5 py-3 text-[13px] leading-snug text-[#e8d3a6]">
-          <span aria-hidden="true" className="font-bold text-accent">
+        <div role="note" className="flex gap-2.5 rounded-xl bg-accent/10 px-3.5 py-3 text-[13px] leading-snug text-warn-ink">
+          <span aria-hidden="true" className="font-bold text-accent-ink">
             !
           </span>
           <span>

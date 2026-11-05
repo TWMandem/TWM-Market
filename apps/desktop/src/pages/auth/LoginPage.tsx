@@ -48,7 +48,7 @@ export function LoginPage() {
         <Link to="/forgot-password" className="font-semibold text-muted hover:text-ink">
           Забыли пароль?
         </Link>
-        <Link to="/register" state={location.state} className="font-bold text-accent hover:text-accent-soft">
+        <Link to="/register" state={location.state} className="font-bold text-accent-ink hover:text-accent-soft">
           Создать аккаунт →
         </Link>
       </div>

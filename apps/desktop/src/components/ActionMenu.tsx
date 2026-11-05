@@ -68,8 +68,8 @@ export function ActionMenu({ items, label = "Ещё действия" }: { items
                   item.onSelect();
                 }}
                 className={`flex flex-col items-start gap-0.5 rounded-xl px-3 py-2.5 text-left text-[15px] font-semibold outline-none transition-colors hover:bg-surface-2 focus-visible:bg-surface-2 ${
-                  item.danger || isArmed ? "text-[#ffb4b4]" : "text-ink-2 hover:text-ink"
-                } ${isArmed ? "bg-[#2a1717]" : ""}`}
+                  item.danger || isArmed ? "text-danger-ink" : "text-ink-2 hover:text-ink"
+                } ${isArmed ? "bg-danger-hover" : ""}`}
               >
                 {isArmed ? item.confirm : item.label}
                 {item.hint && !isArmed && <span className="text-[12px] font-medium text-faint">{item.hint}</span>}

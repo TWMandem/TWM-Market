@@ -23,6 +23,8 @@ export interface MeDto {
   createdAt: string;
   /** Показывать ли другим, когда игрок был в сети. */
   showOnline: boolean;
+  /** Присылать ли уведомления об изменениях объявлений из избранного. */
+  notifyFavorites: boolean;
 }
 
 export interface AuthResponseDto {
@@ -238,6 +240,14 @@ export interface ListingCardDto {
   favorite: boolean;
   /** Цена ниже средней по этому предмету на сервере (если есть с чем сравнить). */
   belowAverage: boolean;
+}
+
+/** Объявление в избранном. */
+export interface FavoriteItemDto extends ListingCardDto {
+  /** active, sold, withdrawn, archived… */
+  status: string;
+  /** Цена, когда объявление добавили в избранное (null — без цены или добавлено до слежения за ценой). */
+  addedPrice: number | null;
 }
 
 export interface ListingAttributeDto {

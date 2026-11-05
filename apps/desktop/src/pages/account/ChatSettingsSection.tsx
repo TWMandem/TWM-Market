@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useLocation } from "react-router";
 import { CHAT_TEMPLATE_LIMIT, DEFAULT_CHAT_TEMPLATES } from "@twm/shared";
 import { Alert, Button, Card } from "../../components/ui";
@@ -6,11 +6,12 @@ import { api } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
 import { attempt, useLoad } from "../../lib/use-load";
 
-/** Приватность, шаблоны ответов и чёрный список. */
-export function ChatSettingsSection() {
+/** Приватность, шаблоны ответов и чёрный список. after.privacy — что показать сразу после «Приватности». */
+export function ChatSettingsSection({ after }: { after?: { privacy?: ReactNode } }) {
   return (
     <>
       <PrivacyCard />
+      {after?.privacy}
       <TemplatesCard />
       <BlocksCard />
     </>
@@ -127,7 +128,7 @@ function BlocksCard() {
       <ul className="m-0 flex list-none flex-col gap-2 p-0">
         {data?.items.map((b) => (
           <li key={b.login} className="flex items-center gap-3 rounded-xl bg-surface-2 px-3.5 py-2">
-            <Link to={`/user/${encodeURIComponent(b.login)}`} className="font-bold text-ink hover:text-accent">
+            <Link to={`/user/${encodeURIComponent(b.login)}`} className="font-bold text-ink hover:text-accent-ink">
               {b.login}
             </Link>
             <span className="text-[13px] text-faint">с {new Date(b.createdAt).toLocaleDateString("ru-RU")}</span>

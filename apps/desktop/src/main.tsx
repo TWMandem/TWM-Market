@@ -6,8 +6,10 @@ import "@fontsource-variable/jetbrains-mono";
 import "./styles.css";
 import { App } from "./App";
 import { installErrorReporting } from "./lib/error-report";
+import { initTheme } from "./lib/theme";
 
 installErrorReporting();
+initTheme();
 
 const root = document.getElementById("root");
 if (!root) throw new Error("Не найден элемент #root");

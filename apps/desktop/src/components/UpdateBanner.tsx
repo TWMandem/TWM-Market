@@ -13,8 +13,8 @@ export function UpdateBanner() {
 
   return (
     <>
-      <div className="border-b border-[#3a3220] bg-[#17140d]">
-        <div className="mx-auto flex max-w-[1280px] flex-wrap items-center gap-3 px-6 py-2.5 text-sm text-[#e8d3a6]">
+      <div className="border-b border-warn-line bg-warn-bg">
+        <div className="mx-auto flex max-w-[1280px] flex-wrap items-center gap-3 px-6 py-2.5 text-sm text-warn-ink">
           <span>
             {working
               ? status === "installing"
@@ -24,7 +24,7 @@ export function UpdateBanner() {
           </span>
           {!working && (
             <>
-              <button type="button" onClick={() => setOpen(true)} className="font-bold text-accent hover:text-accent-soft">
+              <button type="button" onClick={() => setOpen(true)} className="font-bold text-accent-ink hover:text-accent-soft">
                 Что нового и обновить →
               </button>
               <button type="button" onClick={dismiss} className="ml-auto text-muted hover:text-ink">

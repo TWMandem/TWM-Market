@@ -33,10 +33,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             key={t.id}
             role={t.tone === "error" ? "alert" : "status"}
             className={`toast-in flex items-center gap-2.5 rounded-xl border px-4 py-3 text-sm font-semibold shadow-2xl ${
-              t.tone === "error" ? "border-[#5a2e2e] bg-[#1f1414] text-[#ffc4c4]" : "border-line bg-surface-2 text-ink"
+              t.tone === "error" ? "border-danger-line bg-danger-bg text-danger-ink" : "border-line bg-surface-2 text-ink"
             }`}
           >
-            {t.tone === "ok" && <span aria-hidden="true" className="flex size-5 items-center justify-center rounded-full bg-[#4cd48a]/20 text-[12px] text-success">✓</span>}
+            {t.tone === "ok" && <span aria-hidden="true" className="flex size-5 items-center justify-center rounded-full bg-success/20 text-[12px] text-success">✓</span>}
             {t.text}
           </div>
         ))}

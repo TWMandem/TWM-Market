@@ -438,7 +438,7 @@ function AttributeForm({
               value={state.options}
               onChange={(e) => set("options", e.target.value)}
               className={`resize-y rounded-xl border bg-ground px-3.5 py-2.5 leading-relaxed text-ink outline-none focus:border-accent ${
-                errors.options ? "border-[#c45555]" : "border-line"
+                errors.options ? "border-danger-strong" : "border-line"
               }`}
             />
             {errors.options && <span className="text-[13px] text-danger">{errors.options}</span>}

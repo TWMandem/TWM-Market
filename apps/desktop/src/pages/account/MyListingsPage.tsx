@@ -12,11 +12,11 @@ import { attempt, useLoad } from "../../lib/use-load";
 const TABS: ListingStatus[] = ["active", "draft", "moderation", "rejected", "withdrawn", "archived", "sold"];
 
 const STATUS_STYLES: Record<ListingStatus, string> = {
-  active: "bg-[#4cd48a]/15 text-success",
+  active: "bg-success/15 text-success",
   draft: "bg-line text-ink-2",
   moderation: "bg-accent/15 text-accent-soft",
-  rejected: "bg-[#ff6b6b]/15 text-[#ffb4b4]",
-  sold: "bg-[#6cb4ff]/15 text-buy",
+  rejected: "bg-danger/15 text-danger-ink",
+  sold: "bg-buy/15 text-buy",
   withdrawn: "bg-line text-ink-2",
   archived: "bg-line text-ink-2",
 };
@@ -103,14 +103,14 @@ export function MyListingsPage() {
           return (
             <article
               key={item.id}
-              className="group grid grid-cols-[96px_minmax(0,1fr)] items-center gap-x-4 gap-y-3 rounded-2xl border border-line bg-surface p-3 transition-colors hover:border-[#363c49] md:grid-cols-[96px_minmax(0,1fr)_auto_auto]"
+              className="group grid grid-cols-[96px_minmax(0,1fr)] items-center gap-x-4 gap-y-3 rounded-2xl border border-line bg-surface p-3 transition-colors hover:border-line-strong md:grid-cols-[96px_minmax(0,1fr)_auto_auto]"
             >
               <Link to={`/listing/${item.id}`} className="block h-16 w-24 overflow-hidden rounded-[10px] bg-surface-2" tabIndex={-1}>
                 <Media media={item.image} alt="" className="size-full" fit={item.image?.kind === "image" ? "cover" : "contain"} />
               </Link>
               <div className="flex min-w-0 flex-col gap-1">
                 <div className="flex min-w-0 flex-wrap items-center gap-2">
-                  <Link to={`/listing/${item.id}`} className="truncate text-[15px] font-bold text-ink no-underline hover:text-accent">
+                  <Link to={`/listing/${item.id}`} className="truncate text-[15px] font-bold text-ink no-underline hover:text-accent-ink">
                     {item.title}
                   </Link>
                   <OperationBadge operation={item.operation} />
@@ -126,9 +126,9 @@ export function MyListingsPage() {
                   </span>
                   {exp.text && <span className={exp.soon ? "font-bold text-accent-soft" : ""}>{exp.text}</span>}
                 </span>
-                {item.rejectionReason && <span className="text-[13px] text-[#ffb4b4]">Причина отклонения: {item.rejectionReason}</span>}
+                {item.rejectionReason && <span className="text-[13px] text-danger-ink">Причина отклонения: {item.rejectionReason}</span>}
                 {item.status === "moderation" && (
-                  <span className="text-[13px] text-[#e8d3a6]">На проверке у модератора{item.moderationReason ? `: ${item.moderationReason}` : ""}</span>
+                  <span className="text-[13px] text-warn-ink">На проверке у модератора{item.moderationReason ? `: ${item.moderationReason}` : ""}</span>
                 )}
               </div>
 

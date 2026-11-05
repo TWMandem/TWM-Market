@@ -32,7 +32,7 @@ export function ErrorsPage() {
         {data?.items.map((e) => (
           <Card key={e.fingerprint} className="flex flex-col gap-2 p-4">
             <button type="button" onClick={() => setOpen(open === e.fingerprint ? null : e.fingerprint)} aria-expanded={open === e.fingerprint} className="flex flex-wrap items-start gap-3 text-left">
-              <span className={`rounded-md px-2 py-0.5 text-xs font-bold ${e.source === "server" ? "bg-[#ff6b6b]/15 text-[#ffc4c4]" : "bg-surface-2 text-ink-2"}`}>
+              <span className={`rounded-md px-2 py-0.5 text-xs font-bold ${e.source === "server" ? "bg-danger/15 text-danger-ink" : "bg-surface-2 text-ink-2"}`}>
                 {e.source === "server" ? "сервер" : "приложение"}
               </span>
               <span className="min-w-[240px] flex-1 font-mono text-sm font-bold text-ink">{e.message}</span>

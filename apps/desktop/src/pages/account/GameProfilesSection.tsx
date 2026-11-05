@@ -98,7 +98,7 @@ function AddProfileForm({ onCreated }: { onCreated: (profile: GameProfileDto) =>
             value={form.values.serverNumber ?? ""}
             onChange={(e) => form.set("serverNumber", e.target.value ? Number(e.target.value) : undefined)}
             aria-invalid={form.errors.serverNumber ? true : undefined}
-            className={`h-12 rounded-xl border bg-ground px-3 text-ink ${form.errors.serverNumber ? "border-[#c45555]" : "border-line"}`}
+            className={`h-12 rounded-xl border bg-ground px-3 text-ink ${form.errors.serverNumber ? "border-danger-strong" : "border-line"}`}
           >
             <option value="">Выберите сервер</option>
             {servers.map((s) => (
@@ -159,12 +159,12 @@ function ProfileRow({ profile, onUpdated, onDeleted }: ProfileRowProps) {
           {profile.server.number} · {profile.server.name}
         </span>
         {profile.verified ? (
-          <span className="rounded-md border border-[#24503a] px-2 py-0.5 text-xs font-bold text-success">✔ подтверждён</span>
+          <span className="rounded-md border border-success-line px-2 py-0.5 text-xs font-bold text-success">✔ подтверждён</span>
         ) : (
           <button
             type="button"
             onClick={() => setVerifying(true)}
-            className="rounded-md border border-dashed border-[#3a404c] px-2 py-0.5 text-xs text-muted hover:border-accent hover:text-ink"
+            className="rounded-md border border-dashed border-line-strong px-2 py-0.5 text-xs text-muted hover:border-accent hover:text-ink"
           >
             не подтверждён · подтвердить
           </button>

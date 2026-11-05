@@ -300,12 +300,12 @@ function Thread({ id, onChange }: { id: string; onChange: (c: ConversationDto) =
   return (
     <div className="flex h-full min-h-[560px] flex-col overflow-hidden rounded-[var(--radius-card)] border border-line bg-surface">
       <header className="flex flex-wrap items-center gap-3 border-b border-line-soft p-3.5">
-        <Link to="/chats" className="text-sm font-bold text-accent lg:hidden">
+        <Link to="/chats" className="text-sm font-bold text-accent-ink lg:hidden">
           ← Все
         </Link>
         <Media media={c.listing.image} alt="" fit="cover" className="size-12 shrink-0 rounded-lg" />
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <Link to={`/listing/${c.listing.id}`} className="truncate font-bold text-ink hover:text-accent">
+          <Link to={`/listing/${c.listing.id}`} className="truncate font-bold text-ink hover:text-accent-ink">
             {c.listing.title}
           </Link>
           <span className="flex flex-wrap items-center gap-x-2 text-[13px] text-muted">
@@ -313,11 +313,11 @@ function Thread({ id, onChange }: { id: string; onChange: (c: ConversationDto) =
             <span className="flex items-center gap-1">
               <ServerDot color={c.listing.server.color} /> {c.listing.server.name}
             </span>
-            {c.listing.status !== "active" && <span className="text-[#ffb4b4]">объявление снято</span>}
+            {c.listing.status !== "active" && <span className="text-danger-ink">объявление снято</span>}
           </span>
         </div>
         <div className="flex flex-col items-end gap-0.5 text-right">
-          <Link to={`/user/${encodeURIComponent(c.counterpart.login)}`} className="text-sm font-bold text-ink hover:text-accent">
+          <Link to={`/user/${encodeURIComponent(c.counterpart.login)}`} className="text-sm font-bold text-ink hover:text-accent-ink">
             {c.counterpart.login}
           </Link>
           {c.counterpart.nickname && (
@@ -347,7 +347,7 @@ function Thread({ id, onChange }: { id: string; onChange: (c: ConversationDto) =
 
       <div role="log" aria-live="polite" aria-label="Сообщения" className="flex flex-1 flex-col gap-2 overflow-y-auto p-4">
         {hasMore && (
-          <button type="button" onClick={() => void loadOlder()} className="self-center text-sm font-bold text-accent">
+          <button type="button" onClick={() => void loadOlder()} className="self-center text-sm font-bold text-accent-ink">
             Показать раньше
           </button>
         )}
@@ -446,7 +446,7 @@ function Thread({ id, onChange }: { id: string; onChange: (c: ConversationDto) =
                 {t}
               </button>
             ))}
-            <Link to="/account#templates" className="px-2.5 py-1.5 text-xs font-bold text-accent hover:text-accent-soft">
+            <Link to="/account#templates" className="px-2.5 py-1.5 text-xs font-bold text-accent-ink hover:text-accent-soft">
               Настроить свои шаблоны →
             </Link>
           </div>
@@ -516,7 +516,7 @@ function Thread({ id, onChange }: { id: string; onChange: (c: ConversationDto) =
 function Bubble({ message: m, onZoom, onReport }: { message: MessageDto; onZoom: (url: string) => void; onReport: () => void }) {
   if (m.mine === null) {
     return (
-      <div role="note" className="my-1 self-center rounded-xl bg-accent/10 px-3.5 py-2 text-center text-[13px] text-[#e8d3a6]">
+      <div role="note" className="my-1 self-center rounded-xl bg-accent/10 px-3.5 py-2 text-center text-[13px] text-warn-ink">
         {m.body} <span className="text-faint">· {time(m.createdAt)}</span>
       </div>
     );
@@ -622,7 +622,7 @@ function DealBar({ conversation: c, onChange }: { conversation: ConversationDto;
   } else {
     content = (
       <div className="flex w-full flex-col gap-3">
-        <span className="text-sm font-bold text-[#9eebc0]">
+        <span className="text-sm font-bold text-success-ink">
           Сделка подтверждена обеими сторонами{deal.price !== null ? ` · ${formatPrice(deal.price)}` : ""}
         </span>
         {deal.canReview && (
@@ -642,7 +642,7 @@ function DealBar({ conversation: c, onChange }: { conversation: ConversationDto;
                 type="button"
                 aria-pressed={positive === true}
                 onClick={() => setPositive(true)}
-                className={`h-11 rounded-xl border px-3 text-sm font-bold ${positive === true ? "border-[#4cd48a] bg-[#4cd48a]/15 text-[#9eebc0]" : "border-line text-ink-2"}`}
+                className={`h-11 rounded-xl border px-3 text-sm font-bold ${positive === true ? "border-success bg-success/15 text-success-ink" : "border-line text-ink-2"}`}
               >
                 👍 Всё хорошо
               </button>
@@ -650,7 +650,7 @@ function DealBar({ conversation: c, onChange }: { conversation: ConversationDto;
                 type="button"
                 aria-pressed={positive === false}
                 onClick={() => setPositive(false)}
-                className={`h-11 rounded-xl border px-3 text-sm font-bold ${positive === false ? "border-[#ff6b6b] bg-[#ff6b6b]/15 text-[#ffc4c4]" : "border-line text-ink-2"}`}
+                className={`h-11 rounded-xl border px-3 text-sm font-bold ${positive === false ? "border-danger-strong bg-danger/15 text-danger-ink" : "border-line text-ink-2"}`}
               >
                 👎 Были проблемы
               </button>
@@ -778,7 +778,7 @@ function OfferBar({
   } else {
     content = (
       <span className="text-sm text-ink-2">
-        Договорились о цене <b className="font-mono text-[15px] text-[#9eebc0]">{formatPrice(c.agreedPrice!)}</b>. Она будет указана в
+        Договорились о цене <b className="font-mono text-[15px] text-success-ink">{formatPrice(c.agreedPrice!)}</b>. Она будет указана в
         сделке, когда вы её отметите.
       </span>
     );

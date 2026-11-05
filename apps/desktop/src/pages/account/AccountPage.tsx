@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router";
 import { Icon } from "../../components/Icon";
+import { ThemePicker } from "../../components/ThemePicker";
 import { Alert, Card } from "../../components/ui";
 import { useAuth } from "../../lib/auth-context";
 import { ChatSettingsSection } from "./ChatSettingsSection";
 import { DeleteAccountSection } from "./DeleteAccountSection";
 import { GameProfilesSection } from "./GameProfilesSection";
+import { NotificationsSection } from "./NotificationsSection";
 import { SecuritySection } from "./SecuritySection";
 
 const ROLE_LABELS = { user: "Игрок", moderator: "Модератор", admin: "Администратор", superadmin: "Суперадминистратор" };
@@ -15,6 +17,8 @@ const SECTIONS = [
   { id: "account", label: "Аккаунт" },
   { id: "profiles", label: "Игровые профили" },
   { id: "privacy", label: "Приватность" },
+  { id: "notifications", label: "Уведомления" },
+  { id: "appearance", label: "Оформление" },
   { id: "templates", label: "Шаблоны ответов" },
   { id: "blocks", label: "Чёрный список" },
   { id: "security", label: "Безопасность и входы" },
@@ -46,6 +50,14 @@ export function AccountPage() {
   const location = useLocation();
   const notice = (location.state as { notice?: string } | null)?.notice;
   const active = useActiveSection();
+
+  // Переход по ссылке вида /account#notifications — к нужному разделу.
+  useEffect(() => {
+    const id = location.hash.slice(1);
+    if (!id || !SECTIONS.some((s) => s.id === id)) return;
+    const timer = window.setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" }), 150);
+    return () => window.clearTimeout(timer);
+  }, [location.hash]);
 
   if (!user) return null;
 
@@ -119,9 +131,9 @@ export function AccountPage() {
             <dd className="m-0 flex flex-wrap items-center gap-2 font-semibold">
               {user.email}
               {user.emailVerified ? (
-                <span className="rounded-md bg-[#4cd48a]/15 px-2 py-0.5 text-xs font-bold text-success">подтверждён</span>
+                <span className="rounded-md bg-success/15 px-2 py-0.5 text-xs font-bold text-success">подтверждён</span>
               ) : (
-                <Link to="/verify-email" className="rounded-md bg-accent/15 px-2 py-0.5 text-xs font-bold text-accent-soft hover:text-accent">
+                <Link to="/verify-email" className="rounded-md bg-accent/15 px-2 py-0.5 text-xs font-bold text-accent-soft hover:text-accent-ink">
                   подтвердить
                 </Link>
               )}
@@ -131,7 +143,22 @@ export function AccountPage() {
         </Card>
 
         <GameProfilesSection />
-        <ChatSettingsSection />
+        <ChatSettingsSection
+          after={{
+            privacy: (
+              <>
+                <NotificationsSection />
+                <Card id="appearance" className="flex scroll-mt-24 flex-col gap-3">
+                  <h2 className="m-0 text-[17px] font-extrabold">Оформление</h2>
+                  <p className="m-0 text-[13px] text-muted">Тема запоминается на этом компьютере. «Как в Windows» — меняется вместе с темой системы.</p>
+                  <div className="max-w-[460px]">
+                    <ThemePicker />
+                  </div>
+                </Card>
+              </>
+            ),
+          }}
+        />
         <SecuritySection />
         <DeleteAccountSection />
       </div>

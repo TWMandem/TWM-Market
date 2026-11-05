@@ -89,7 +89,7 @@ function ListingsQueue({ onChanged }: { onChanged: () => void }) {
           <div className="flex flex-wrap items-start gap-4">
             <Media media={l.image} alt="" className="h-20 w-32 shrink-0 rounded-lg" />
             <div className="flex min-w-0 flex-1 flex-col gap-1">
-              <Link to={`/listing/${l.id}`} className="font-bold text-ink hover:text-accent">
+              <Link to={`/listing/${l.id}`} className="font-bold text-ink hover:text-accent-ink">
                 {l.title}
               </Link>
               <span className="flex flex-wrap items-center gap-x-3 text-[13px] text-muted">
@@ -102,7 +102,7 @@ function ListingsQueue({ onChanged }: { onChanged: () => void }) {
                 </span>
                 <span>{when(l.updatedAt)}</span>
               </span>
-              {l.moderationReason && <span className="text-sm font-bold text-[#e8d3a6]">{l.moderationReason}</span>}
+              {l.moderationReason && <span className="text-sm font-bold text-warn-ink">{l.moderationReason}</span>}
               {l.description && <p className="m-0 line-clamp-4 whitespace-pre-line text-sm text-ink-2">{l.description}</p>}
             </div>
           </div>
@@ -212,7 +212,7 @@ function ReportsQueue({ onChanged, onOpenConversation }: { onChanged: () => void
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
             <span className="rounded-md bg-surface-2 px-2 py-0.5 text-xs font-bold">{TARGET_LABELS[r.targetType]}</span>
             <span className="font-bold">{REPORT_REASON_LABELS[r.reason]}</span>
-            {r.openCount > 1 && <span className="text-[#e8d3a6]">жалоб на этот объект: {r.openCount}</span>}
+            {r.openCount > 1 && <span className="text-warn-ink">жалоб на этот объект: {r.openCount}</span>}
             <span className="ml-auto text-xs text-faint">
               {r.author ? r.author.login : "площадка"} · {when(r.createdAt)}
             </span>
@@ -220,11 +220,11 @@ function ReportsQueue({ onChanged, onOpenConversation }: { onChanged: () => void
           <div className="flex flex-col gap-1 rounded-xl bg-surface-2 px-3.5 py-2.5 text-sm">
             <span className="font-bold">
               {r.target.listingId ? (
-                <Link to={`/listing/${r.target.listingId}`} className="text-ink hover:text-accent">
+                <Link to={`/listing/${r.target.listingId}`} className="text-ink hover:text-accent-ink">
                   {r.target.title}
                 </Link>
               ) : r.target.userLogin ? (
-                <Link to={`/user/${encodeURIComponent(r.target.userLogin)}`} className="text-ink hover:text-accent">
+                <Link to={`/user/${encodeURIComponent(r.target.userLogin)}`} className="text-ink hover:text-accent-ink">
                   {r.target.title}
                 </Link>
               ) : (
@@ -233,7 +233,7 @@ function ReportsQueue({ onChanged, onOpenConversation }: { onChanged: () => void
             </span>
             {r.target.text && <span className="whitespace-pre-line text-ink-2">{r.target.text}</span>}
             {r.target.conversationId && (
-              <button type="button" onClick={() => onOpenConversation(r.target.conversationId!)} className="self-start text-[13px] font-bold text-accent">
+              <button type="button" onClick={() => onOpenConversation(r.target.conversationId!)} className="self-start text-[13px] font-bold text-accent-ink">
                 Открыть переписку (запишется в журнал)
               </button>
             )}
@@ -255,7 +255,7 @@ function ReportsQueue({ onChanged, onOpenConversation }: { onChanged: () => void
                 </Button>
               )}
               {r.targetType === "user" && r.target.userLogin && (
-                <Link to="/admin/users" className="text-sm font-bold text-accent">
+                <Link to="/admin/users" className="text-sm font-bold text-accent-ink">
                   К пользователям →
                 </Link>
               )}
@@ -304,7 +304,7 @@ function MessagesQueue({ onChanged, onOpenConversation }: { onChanged: () => voi
           <span className="flex flex-wrap gap-x-3 text-[13px] text-muted">
             <span className="font-bold text-ink">{m.sender?.login ?? "—"}</span>
             <span>по «{m.listingTitle}»</span>
-            <span className="font-bold text-[#e8d3a6]">{m.flagReason}</span>
+            <span className="font-bold text-warn-ink">{m.flagReason}</span>
             <span className="ml-auto">{when(m.createdAt)}</span>
           </span>
           <p className="m-0 whitespace-pre-wrap rounded-xl bg-surface-2 px-3.5 py-2.5 text-sm">{m.body}</p>
@@ -425,10 +425,10 @@ function VerificationCard({ item: v, onError, onDone }: { item: VerificationQueu
             <ServerDot color={v.server.color} /> {v.server.number} · {v.server.name}
           </dd>
           <dt className="text-muted">Код</dt>
-          <dd className="m-0 font-mono font-bold text-accent">{v.code}</dd>
+          <dd className="m-0 font-mono font-bold text-accent-ink">{v.code}</dd>
           <dt className="text-muted">Аккаунт</dt>
           <dd className="m-0">
-            <Link to={`/user/${encodeURIComponent(v.user.login)}`} className="font-bold text-ink hover:text-accent">
+            <Link to={`/user/${encodeURIComponent(v.user.login)}`} className="font-bold text-ink hover:text-accent-ink">
               {v.user.login}
             </Link>{" "}
             <span className="text-muted">с {new Date(v.user.memberSince).toLocaleDateString("ru-RU")}</span>

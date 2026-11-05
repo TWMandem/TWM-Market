@@ -88,11 +88,11 @@ export function UsersPage() {
             {data?.items.map((u) => (
               <tr key={u.id} className="border-t border-line-soft hover:bg-surface-2">
                 <td className="px-4 py-3">
-                  <Link to={`/admin/users/${u.id}`} className="font-bold text-ink hover:text-accent">
+                  <Link to={`/admin/users/${u.id}`} className="font-bold text-ink hover:text-accent-ink">
                     {u.login}
                   </Link>
                   {u.status === "blocked" && (
-                    <span className="ml-2 rounded-md bg-[#ff6b6b]/15 px-2 py-0.5 text-xs font-bold text-[#ffb4b4]">
+                    <span className="ml-2 rounded-md bg-danger/15 px-2 py-0.5 text-xs font-bold text-danger-ink">
                       заблокирован
                     </span>
                   )}

@@ -5,6 +5,7 @@ import { useUpdates } from "../lib/updates-context";
 import { Icon, type IconName } from "./Icon";
 import { Badge, NotificationsMenu } from "./NotificationsMenu";
 import { ServerSwitcher } from "./ServerSwitcher";
+import { ThemePicker } from "./ThemePicker";
 
 const NAV = [
   { to: "/items", label: "Предметы" },
@@ -225,6 +226,13 @@ function AccountMenu() {
               {item.label}
             </Link>
           ))}
+          <div className="my-1 border-t border-line-soft" />
+          <div className="flex items-center justify-between gap-3 px-3 py-1.5">
+            <span className="text-[13px] font-semibold text-muted">Тема</span>
+            <div className="w-[132px]">
+              <ThemePicker compact />
+            </div>
+          </div>
           <div className="my-1 border-t border-line-soft" />
           <button
             type="button"

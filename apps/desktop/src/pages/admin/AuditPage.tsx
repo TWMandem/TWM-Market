@@ -62,7 +62,7 @@ export function AuditPage() {
                 </td>
                 <td className="px-4 py-3">
                   {entry.actor ? (
-                    <Link to={`/admin/users/${entry.actor.id}`} className="font-bold text-ink hover:text-accent">
+                    <Link to={`/admin/users/${entry.actor.id}`} className="font-bold text-ink hover:text-accent-ink">
                       {entry.actor.login}
                     </Link>
                   ) : (
@@ -74,7 +74,7 @@ export function AuditPage() {
                   {entry.targetType === "user" && entry.targetId && (
                     <>
                       {" · "}
-                      <Link to={`/admin/users/${entry.targetId}`} className="text-accent hover:text-accent-soft">
+                      <Link to={`/admin/users/${entry.targetId}`} className="text-accent-ink hover:text-accent-soft">
                         профиль
                       </Link>
                     </>

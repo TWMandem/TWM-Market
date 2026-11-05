@@ -21,6 +21,7 @@ export interface UserRow {
   blockedAt: Date | null;
   lastSeenAt: Date | null;
   showOnline: boolean;
+  notifyFavorites: boolean;
   createdAt: Date;
   updatedAt: Date;
 }

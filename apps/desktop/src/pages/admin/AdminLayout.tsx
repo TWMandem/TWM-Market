@@ -61,7 +61,7 @@ export function AdminLayout() {
 
   return (
     <div className="flex flex-wrap items-start gap-6">
-      <aside aria-label="Меню админ-панели" className="flex min-w-0 flex-[1_1_220px] flex-col gap-5 rounded-[var(--radius-card)] border border-line bg-[#111318] p-3.5 lg:max-w-[260px]">
+      <aside aria-label="Меню админ-панели" className="flex min-w-0 flex-[1_1_220px] flex-col gap-5 rounded-[var(--radius-card)] border border-line bg-ground-2 p-3.5 lg:max-w-[260px]">
         <div className="flex flex-col gap-0.5 px-2 pt-1">
           <span className="font-display text-[15px] font-bold">Админ-панель</span>
           <span className="text-[13px] text-muted">

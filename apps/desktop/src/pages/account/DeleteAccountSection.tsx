@@ -38,7 +38,7 @@ export function DeleteAccountSection() {
   };
 
   return (
-    <Card id="delete" className="flex flex-col gap-4 border-[#3b2424]">
+    <Card id="delete" className="flex flex-col gap-4 border-danger-line/60">
       <h2 className="m-0 text-[17px] font-extrabold">Удаление аккаунта</h2>
       {staff ? (
         <p className="m-0 text-sm leading-relaxed text-ink-2">
@@ -62,8 +62,8 @@ export function DeleteAccountSection() {
           }}
         >
           <div className="grid gap-3 text-sm leading-relaxed md:grid-cols-2">
-            <div className="flex flex-col gap-1.5 rounded-xl bg-[#1f1414] px-4 py-3">
-              <b className="text-[#ffc4c4]">Удалится</b>
+            <div className="flex flex-col gap-1.5 rounded-xl bg-danger-bg px-4 py-3">
+              <b className="text-danger-ink">Удалится</b>
               <span className="text-ink-2">
                 Логин и email, игровые профили и ники, объявления с фото, избранное, подписки на поиск, шаблоны, уведомления, входы на всех устройствах.
               </span>
@@ -90,7 +90,7 @@ export function DeleteAccountSection() {
             className="max-w-[360px]"
           />
           <label className="flex cursor-pointer items-start gap-3 text-sm leading-relaxed text-ink-2">
-            <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} className="mt-0.5 size-[18px] shrink-0 accent-[#ff6b6b]" />
+            <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} className="mt-0.5 size-[18px] shrink-0 accent-danger-strong" />
             Понимаю, что аккаунт удалится насовсем и восстановить его нельзя
           </label>
           <div className="flex flex-wrap gap-2">

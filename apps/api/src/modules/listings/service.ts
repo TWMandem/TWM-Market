@@ -22,6 +22,7 @@ import type { AppContext } from "../../context.js";
 import type { Fragment, Sql } from "../../db/client.js";
 import { visibleLastSeen } from "../../lib/activity.js";
 import { AppError, errors } from "../../lib/errors.js";
+import { watchClosed } from "../../lib/favorite-watch.js";
 import { mediaUrl } from "../../lib/media.js";
 import { attributeColumns, toAttributeDto, type AttributeRow } from "../catalog/attribute-row.js";
 
@@ -477,12 +478,17 @@ export function bumpAvailableAt(row: Pick<ListingRow, "status" | "publishedAt" |
   return new Date(last.getTime() + BUMP_INTERVAL_HOURS * 3600 * 1000).toISOString();
 }
 
-/** Объявления с истёкшим сроком уходят в архив. Запускается по таймеру. */
+/**
+ * Объявления с истёкшим сроком уходят в архив. Запускается по таймеру.
+ * Тем, у кого они в избранном, приходит уведомление.
+ */
 export async function archiveExpired(sql: Sql): Promise<number> {
-  const result = await sql`
+  const rows = await sql<{ id: string }[]>`
     UPDATE listings SET status = 'archived', updated_at = now()
-    WHERE status = 'active' AND expires_at <= now()`;
-  return result.count;
+    WHERE status = 'active' AND expires_at <= now()
+    RETURNING id`;
+  if (rows.length > 0) await watchClosed(sql, rows.map((r) => r.id), "archived");
+  return rows.length;
 }
 
 export function notOwner(): AppError {

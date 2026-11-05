@@ -404,7 +404,7 @@ export function CatalogPage({ section }: { section: SectionCode | "search" }) {
               <button
                 type="button"
                 onClick={() => setParams(get("q") ? new URLSearchParams({ q: get("q") }) : new URLSearchParams(), { replace: true })}
-                className="h-9 px-2 text-sm font-bold text-accent hover:text-accent-soft"
+                className="h-9 px-2 text-sm font-bold text-accent-ink hover:text-accent-soft"
               >
                 Сбросить все
               </button>
@@ -418,7 +418,7 @@ export function CatalogPage({ section }: { section: SectionCode | "search" }) {
               <p className="m-0 max-w-md text-sm text-muted">
                 Попробуйте убрать часть фильтров или посмотреть другие серверы.
               </p>
-              <Link to="/listings/new" className="font-bold text-accent hover:text-accent-soft">
+              <Link to="/listings/new" className="font-bold text-accent-ink hover:text-accent-soft">
                 Разместить своё объявление →
               </Link>
             </div>

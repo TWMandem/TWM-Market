@@ -236,7 +236,7 @@ function AddCategory({
 
   if (!open) {
     return (
-      <button type="button" onClick={() => setOpen(true)} className="min-h-9 self-start rounded-lg px-2 text-left text-sm font-semibold text-accent hover:text-accent-soft">
+      <button type="button" onClick={() => setOpen(true)} className="min-h-9 self-start rounded-lg px-2 text-left text-sm font-semibold text-accent-ink hover:text-accent-soft">
         {label}
       </button>
     );
@@ -539,7 +539,7 @@ function MediaSlot({
   return (
     <div className="flex items-center gap-2 text-sm text-ink-2">
       <span>{label}:</span>
-      <label className="cursor-pointer font-bold text-accent hover:text-accent-soft">
+      <label className="cursor-pointer font-bold text-accent-ink hover:text-accent-soft">
         {busy ? "загружаю…" : present ? "заменить" : "загрузить"}
         <input
           type="file"

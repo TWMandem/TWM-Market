@@ -189,7 +189,7 @@ function Steps({ login, onClose }: { login: string; onClose: () => void }) {
                 spellCheck={false}
                 aria-invalid={error ? true : undefined}
                 className={`h-[52px] rounded-xl border bg-ground px-4 font-mono text-lg text-ink outline-none placeholder:font-sans placeholder:text-base placeholder:text-faint focus:border-accent ${
-                  error ? "border-[#c45555]" : "border-line"
+                  error ? "border-danger-strong" : "border-line"
                 }`}
               />
               {error && <span className="text-[13px] text-danger">{error}</span>}
@@ -248,7 +248,7 @@ function NextCard({
       onClick={onClick}
       className="group flex flex-col items-start gap-2 rounded-2xl border border-line bg-ground/50 p-4 text-left transition-colors hover:border-accent"
     >
-      <span className="flex size-10 items-center justify-center rounded-xl bg-accent/15 text-accent">
+      <span className="flex size-10 items-center justify-center rounded-xl bg-accent/15 text-accent-ink">
         <Icon name={icon} size={20} />
       </span>
       <span className="font-bold">{title}</span>

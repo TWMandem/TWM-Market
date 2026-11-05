@@ -1,4 +1,5 @@
 import type {
+  FavoriteItemDto,
   AdminStatsDto,
   AdminUserDetailDto,
   AdminUserListItemDto,
@@ -282,7 +283,7 @@ export const api = {
     request<{ images: ListingImageDto[] }>(`/v1/listings/${encodeURIComponent(id)}/images/${encodeURIComponent(imageId)}`, { method: "DELETE" }),
   favorite: (id: string, on: boolean) =>
     request<void>(`/v1/listings/${encodeURIComponent(id)}/favorite`, { method: on ? "POST" : "DELETE" }),
-  favorites: () => request<{ items: Array<ListingCardDto & { status: string }> }>("/v1/me/favorites"),
+  favorites: () => request<{ items: FavoriteItemDto[] }>("/v1/me/favorites"),
 
   catalog: () =>
     request<{ sections: SectionDto[]; listingTypes: ListingTypeDto[]; categories: CategoryDto[] }>("/v1/catalog", {
@@ -354,7 +355,7 @@ export const api = {
 
   // ── Настройки, шаблоны ответов, чёрный список ───────────────────────────
   deleteAccount: (password: string) => request<void>("/v1/me/delete", { method: "POST", body: { password, confirm: true } }),
-  updateSettings: (body: { showOnline: boolean }) => request<MeDto>("/v1/me/settings", { method: "PATCH", body }),
+  updateSettings: (body: { showOnline?: boolean; notifyFavorites?: boolean }) => request<MeDto>("/v1/me/settings", { method: "PATCH", body }),
   chatTemplates: () => request<{ items: string[] }>("/v1/me/chat-templates"),
   saveChatTemplates: (items: string[]) => request<{ items: string[] }>("/v1/me/chat-templates", { method: "PUT", body: { items } }),
   blocks: () => request<{ items: BlockedUserDto[] }>("/v1/me/blocks"),

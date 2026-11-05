@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Link } from "react-router";
 import {
   OPERATION_LABELS,
@@ -13,8 +14,8 @@ import { Icon } from "./Icon";
 /** Цвета типов операций: продажа — янтарный, скупка — голубой, обмен — фиолетовый. */
 export const OPERATION_STYLES: Record<Operation, string> = {
   sell: "bg-accent/20 text-accent-soft",
-  buy: "bg-[#6cb4ff]/20 text-buy",
-  exchange: "bg-[#b79cff]/20 text-exchange",
+  buy: "bg-buy/20 text-buy",
+  exchange: "bg-exchange/20 text-exchange",
 };
 
 export function OperationBadge({ operation, className = "" }: { operation: Operation; className?: string }) {
@@ -86,9 +87,12 @@ export function timeAgo(iso: string | null): string {
 export function ListingCard({
   listing,
   onToggleFavorite,
+  priceNote,
 }: {
   listing: ListingCardDto;
   onToggleFavorite?: ((listing: ListingCardDto) => void) | undefined;
+  /** Строка под ценой — например, «было …» в избранном. */
+  priceNote?: ReactNode;
 }) {
   const isItem = listing.sectionCode === "items";
   return (
@@ -98,7 +102,7 @@ export function ListingCard({
           <Media media={listing.image} alt={listing.title} fit={isItem && listing.image?.kind !== "image" ? "contain" : "cover"} className="size-full" />
           <OperationBadge operation={listing.operation} className="absolute left-3 top-3" />
           {listing.belowAverage && (
-            <span className="absolute bottom-3 left-3 rounded-lg bg-[#4cd48a]/20 px-2.5 py-1 text-xs font-bold text-success backdrop-blur">
+            <span className="absolute bottom-3 left-3 rounded-lg bg-success/20 px-2.5 py-1 text-xs font-bold text-success backdrop-blur">
               Ниже средней
             </span>
           )}
@@ -109,6 +113,7 @@ export function ListingCard({
           <span className="mt-1 font-mono text-[19px] font-bold text-accent-soft tabular" title={listing.price ? formatPrice(listing.price) : undefined}>
             {listing.price !== null && listing.price >= 10_000_000 ? formatPriceShort(listing.price) : priceText(listing.price, listing.operation)}
           </span>
+          {priceNote}
           <div className="mt-auto flex items-center justify-between gap-2 border-t border-line-soft pt-2.5 text-[13px] text-muted">
             <span className="flex min-w-0 items-center gap-1.5">
               <ServerDot color={listing.server.color} />
@@ -130,7 +135,7 @@ export function ListingCard({
           aria-pressed={listing.favorite}
           onClick={() => onToggleFavorite(listing)}
           className={`absolute right-1.5 top-1.5 flex size-11 items-center justify-center rounded-xl ${
-            listing.favorite ? "text-accent" : "text-ink"
+            listing.favorite ? "text-accent-ink" : "text-ink"
           } hover:bg-black/30`}
         >
           <Icon name="heart" size={20} fill={listing.favorite ? "currentColor" : "none"} />
@@ -140,17 +145,19 @@ export function ListingCard({
   );
 }
 
-export function ListingGrid({
+export function ListingGrid<T extends ListingCardDto>({
   items,
   onToggleFavorite,
+  priceNote,
 }: {
-  items: ListingCardDto[];
+  items: T[];
   onToggleFavorite?: ((listing: ListingCardDto) => void) | undefined;
+  priceNote?: ((listing: T) => ReactNode) | undefined;
 }) {
   return (
     <div className="grid grid-cols-[repeat(auto-fill,minmax(230px,1fr))] gap-4">
       {items.map((item) => (
-        <ListingCard key={item.id} listing={item} onToggleFavorite={onToggleFavorite} />
+        <ListingCard key={item.id} listing={item} onToggleFavorite={onToggleFavorite} priceNote={priceNote?.(item)} />
       ))}
     </div>
   );
@@ -185,7 +192,7 @@ export function ListingList({
                   <span className="truncate text-[15px] font-bold">{l.title}</span>
                   {isItem && l.quantity > 1 && <span className="shrink-0 text-[13px] text-muted">{l.quantity} шт.</span>}
                   {l.belowAverage && (
-                    <span className="shrink-0 rounded-md bg-[#4cd48a]/15 px-1.5 py-0.5 text-[11px] font-bold text-success">ниже средней</span>
+                    <span className="shrink-0 rounded-md bg-success/15 px-1.5 py-0.5 text-[11px] font-bold text-success">ниже средней</span>
                   )}
                 </span>
                 <span className="flex min-w-0 items-center gap-1.5 text-[13px] text-muted">
@@ -206,7 +213,7 @@ export function ListingList({
                 aria-label={l.favorite ? "Убрать из избранного" : "В избранное"}
                 aria-pressed={l.favorite}
                 onClick={() => onToggleFavorite(l)}
-                className={`absolute right-1.5 top-1/2 flex size-10 -translate-y-1/2 items-center justify-center rounded-xl ${l.favorite ? "text-accent" : "text-faint hover:text-ink"} hover:bg-surface-2`}
+                className={`absolute right-1.5 top-1/2 flex size-10 -translate-y-1/2 items-center justify-center rounded-xl ${l.favorite ? "text-accent-ink" : "text-faint hover:text-ink"} hover:bg-surface-2`}
               >
                 <Icon name="heart" size={18} fill={l.favorite ? "currentColor" : "none"} />
               </button>

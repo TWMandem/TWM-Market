@@ -54,7 +54,7 @@ export function UserActivity({ id }: { id: string }) {
                 <span className="flex flex-wrap gap-x-3 gap-y-1">
                   <span className="font-bold">{REPORT_REASON_LABELS[r.reason]}</span>
                   <span className="text-muted">на {TARGET[r.targetType]}</span>
-                  <span className={r.status === "open" ? "font-bold text-accent" : "text-muted"}>{REPORT_STATUS[r.status]}</span>
+                  <span className={r.status === "open" ? "font-bold text-accent-ink" : "text-muted"}>{REPORT_STATUS[r.status]}</span>
                   <span className="ml-auto text-xs text-faint">
                     {r.author ?? "площадка"} · {when(r.createdAt)}
                   </span>
@@ -73,7 +73,7 @@ export function UserActivity({ id }: { id: string }) {
           <ul className="m-0 flex list-none flex-col gap-1.5 p-0 text-sm">
             {data.listings.map((l) => (
               <li key={l.id} className="flex items-baseline gap-2">
-                <Link to={`/listing/${l.id}`} className="truncate font-semibold text-ink hover:text-accent">
+                <Link to={`/listing/${l.id}`} className="truncate font-semibold text-ink hover:text-accent-ink">
                   {l.title}
                 </Link>
                 <span className="shrink-0 text-xs text-muted">{LISTING_STATUS_LABELS[l.status]}</span>
@@ -121,7 +121,7 @@ export function UserActivity({ id }: { id: string }) {
 
 function Stat({ label, value, note, danger }: { label: string; value: string; note?: string | undefined; danger?: boolean }) {
   return (
-    <div className={`flex flex-col gap-1 rounded-xl px-3.5 py-2.5 ${danger ? "bg-[#ff6b6b]/10" : "bg-surface-2"}`}>
+    <div className={`flex flex-col gap-1 rounded-xl px-3.5 py-2.5 ${danger ? "bg-danger/10" : "bg-surface-2"}`}>
       <span className="text-xs text-muted">{label}</span>
       <span className="font-mono text-[17px] font-bold tabular">{value}</span>
       {note && <span className="text-xs text-ink-2">{note}</span>}

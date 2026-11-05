@@ -174,6 +174,9 @@ const [clothes] = await sql`SELECT id FROM categories WHERE name = 'Одежда
 await api("POST", "/v1/me/saved-searches", maks.token, { name: "Одежда до 3 млн, сервер 1", section: "items", params: `section=items&category=${clothes.id}&server=1&priceMax=3000000`, notify: true });
 await api("PUT", "/v1/me/chat-templates", ivan.token, { items: ["Здравствуйте! Да, актуально.", "Встречаемся у мэрии в 20:00.", "Цена окончательная."] });
 await api("POST", `/v1/listings/${ivanCar.id}/favorite`, maks.token);
+await api("POST", `/v1/listings/${ivanDeadpool.id}/favorite`, maks.token);
+// Как будто машину добавили в избранное, когда она стоила дороже: в избранном видно «было → стало».
+await sql`UPDATE favorites SET added_price = 19500000 WHERE listing_id = ${ivanCar.id} AND user_id = ${maks.id}`;
 await api("POST", "/v1/client-errors", maks.token, { message: "TypeError: Cannot read properties of undefined (reading 'price')", stack: "TypeError: Cannot read properties of undefined\n    at PriceCard (index.js:1:2)", route: "/listing/…", version: "0.11.0" });
 
 await writeFile(

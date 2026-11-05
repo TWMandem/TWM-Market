@@ -26,10 +26,10 @@ export function Layout() {
       <WelcomeDialog />
       <UpdateBanner />
       {showVerifyBanner && (
-        <div className="border-b border-[#3a3220] bg-[#17140d]">
-          <div className="mx-auto flex max-w-[1280px] flex-wrap items-center gap-3 px-6 py-2.5 text-sm text-[#e8d3a6]">
+        <div className="border-b border-warn-line bg-warn-bg">
+          <div className="mx-auto flex max-w-[1280px] flex-wrap items-center gap-3 px-6 py-2.5 text-sm text-warn-ink">
             <span>Подтвердите email — без этого нельзя будет публиковать объявления.</span>
-            <Link to="/verify-email" className="font-bold text-accent hover:text-accent-soft">
+            <Link to="/verify-email" className="font-bold text-accent-ink hover:text-accent-soft">
               Ввести код →
             </Link>
           </div>

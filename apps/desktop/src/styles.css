@@ -6,7 +6,7 @@
  * Tailwind (bg-surface, text-muted, font-display, …). Менять оформление
  * нужно в этом файле, а не в компонентах.
  */
-@theme {
+@theme static {
   --color-ground: #0e1014;
   --color-ground-2: #12151b;
   --color-surface: #161920;
@@ -23,10 +23,30 @@
   --color-accent-soft: #ffc75a;
   --color-on-accent: #1a1200;
 
+  --color-line-strong: #3a404c;
+  /* Текст и ссылки цвета акцента (в светлой теме темнее заливки — для читаемости). */
+  --color-accent-ink: #ffb224;
+
   --color-buy: #8ec5ff;
   --color-exchange: #c9b6ff;
   --color-success: #7be3a8;
   --color-danger: #ff9a9a;
+  --color-danger-strong: #c45555;
+
+  /* Плашки-сообщения: фон, рамка, текст. */
+  --color-danger-bg: #1f1414;
+  --color-danger-line: #5a2e2e;
+  --color-danger-ink: #ffc4c4;
+  --color-danger-hover: #2a1717;
+  --color-warn-bg: #17140d;
+  --color-warn-line: #3a3220;
+  --color-warn-ink: #e8d3a6;
+  --color-success-bg: #122019;
+  --color-success-line: #24503a;
+  --color-success-ink: #9eebc0;
+
+  --color-stripe-a: #1b1f27;
+  --color-stripe-b: #181b22;
 
   --font-sans: "Manrope Variable", "Segoe UI", system-ui, sans-serif;
   --font-display: "Unbounded Variable", "Segoe UI", system-ui, sans-serif;
@@ -35,7 +55,59 @@
   --radius-card: 20px;
 }
 
+/*
+ * Светлая тема «дневная биржа»: те же токены, другие значения.
+ * Включается атрибутом <html data-theme="light"> (lib/theme.ts).
+ * Акцент как заливка остаётся янтарным, текст акцента — тёмно-янтарный.
+ */
+:root[data-theme="light"] {
+  --color-ground: #f4f2ed;
+  --color-ground-2: #eeebe4;
+  --color-surface: #ffffff;
+  --color-surface-2: #f1eee8;
+  --color-line: #dbd6cb;
+  --color-line-soft: #e8e4dc;
+  --color-line-strong: #c2bcaf;
+
+  --color-ink: #16181d;
+  --color-ink-2: #33373f;
+  --color-muted: #565c68;
+  --color-faint: #6b7280;
+
+  --color-accent: #f2a20f;
+  --color-accent-soft: #8a5200;
+  --color-accent-ink: #965a00;
+  --color-on-accent: #1a1200;
+
+  --color-buy: #1d5fbf;
+  --color-exchange: #6b46c1;
+  --color-success: #1f7a47;
+  --color-danger: #b42318;
+  --color-danger-strong: #d64545;
+
+  --color-danger-bg: #fdeeec;
+  --color-danger-line: #f0c3bd;
+  --color-danger-ink: #8f1d14;
+  --color-danger-hover: #fbe2df;
+  --color-warn-bg: #fdf5e2;
+  --color-warn-line: #ead7a4;
+  --color-warn-ink: #5f4300;
+  --color-success-bg: #e9f6ee;
+  --color-success-line: #b7ddc6;
+  --color-success-ink: #155c35;
+
+  --color-stripe-a: #ebe7df;
+  --color-stripe-b: #e4e0d7;
+}
+
 @layer base {
+  :root {
+    color-scheme: dark;
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
+  }
+
   html,
   body,
   #root {
@@ -51,7 +123,7 @@
   }
 
   :focus-visible {
-    outline: 2px solid var(--color-accent);
+    outline: 2px solid var(--color-accent-ink);
     outline-offset: 2px;
   }
 
@@ -76,7 +148,7 @@
 
 /* Полоски-заглушки на месте фото и скриншотов. */
 @utility placeholder-stripes {
-  background: repeating-linear-gradient(135deg, #1b1f27 0 12px, #181b22 12px 24px);
+  background: repeating-linear-gradient(135deg, var(--color-stripe-a) 0 12px, var(--color-stripe-b) 12px 24px);
 }
 
 /* Всплывающие меню: короткое появление от точки нажатия. */

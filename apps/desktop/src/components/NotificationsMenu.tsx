@@ -70,7 +70,7 @@ export function NotificationsMenu() {
           <div className="flex items-center justify-between border-b border-line-soft px-4 py-3">
             <span className="font-bold">Уведомления</span>
             {unreadNotifications > 0 && (
-              <button type="button" onClick={() => void readAll()} className="text-[13px] font-bold text-accent">
+              <button type="button" onClick={() => void readAll()} className="text-[13px] font-bold text-accent-ink">
                 Прочитать все
               </button>
             )}

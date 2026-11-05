@@ -8,7 +8,7 @@ const BUTTON_VARIANTS: Record<ButtonVariant, string> = {
   primary: "bg-accent text-on-accent hover:bg-accent-soft font-extrabold",
   secondary: "border border-line bg-transparent text-ink hover:border-faint font-bold",
   ghost: "bg-transparent text-ink-2 hover:bg-surface-2 hover:text-ink font-semibold",
-  danger: "border border-[#5a2e2e] bg-transparent text-[#ffb4b4] hover:bg-[#2a1717] font-bold",
+  danger: "border border-danger-line bg-transparent text-danger-ink hover:bg-danger-hover font-bold",
 };
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -66,7 +66,7 @@ export function Field({ label, error, hint, revealable, mono, type = "text", cla
       </label>
       <div
         className={`flex items-center rounded-xl border bg-ground focus-within:border-accent ${
-          error ? "border-[#c45555]" : "border-line"
+          error ? "border-danger-strong" : "border-line"
         }`}
       >
         <input
@@ -101,10 +101,10 @@ export function Field({ label, error, hint, revealable, mono, type = "text", cla
 
 export function Alert({ tone = "error", children }: { tone?: "error" | "info" | "success" | "warning"; children: ReactNode }) {
   const styles = {
-    error: "border-[#5a2e2e] bg-[#1f1414] text-[#ffc4c4]",
+    error: "border-danger-line bg-danger-bg text-danger-ink",
     info: "border-line bg-surface-2 text-ink-2",
-    success: "border-[#24503a] bg-[#122019] text-[#a8f0c6]",
-    warning: "border-[#3a3220] bg-[#17140d] text-[#e8d3a6]",
+    success: "border-success-line bg-success-bg text-success-ink",
+    warning: "border-warn-line bg-warn-bg text-warn-ink",
   }[tone];
   return (
     <div role={tone === "error" ? "alert" : "status"} className={`rounded-xl border px-4 py-3 text-sm leading-relaxed ${styles}`}>

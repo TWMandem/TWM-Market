@@ -95,7 +95,7 @@ function ServerOption({ label, hint, color, active, onPick }: ServerOptionProps)
       <span aria-hidden="true" className="size-2 shrink-0 rounded-full" style={{ background: color }} />
       <span className="flex-1">{label}</span>
       {hint && <span className="font-mono text-xs text-faint">{hint}</span>}
-      {active && <Icon name="check" size={14} className="text-accent" strokeWidth={2.6} />}
+      {active && <Icon name="check" size={14} className="text-accent-ink" strokeWidth={2.6} />}
     </button>
   );
 }
