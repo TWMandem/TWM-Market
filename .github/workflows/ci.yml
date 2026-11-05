@@ -297,6 +297,14 @@ jobs:
           VITE_API_URL: ${{ vars.API_URL }}
         run: pnpm tauri android build --apk --target aarch64 --target armv7 --ci
 
+      - name: Ссылки открывают приложение
+        working-directory: apps/desktop/src-tauri/gen/android/app/src/main
+        run: |
+          grep -q 'android:autoVerify="true"' AndroidManifest.xml
+          grep -q 'android:host="twm-market.ru"' AndroidManifest.xml
+          grep -q 'android:scheme="twm-market"' AndroidManifest.xml
+          grep -B2 -A12 'autoVerify' AndroidManifest.xml
+
       - name: Подпись временным ключом
         working-directory: apps/desktop
         run: |

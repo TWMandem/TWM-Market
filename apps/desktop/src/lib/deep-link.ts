@@ -1,13 +1,23 @@
 import { isTauri } from "./token-store";
 
-/** twm-market://listing/<id> → адрес внутри приложения (#/listing/<id>). */
+/**
+ * Ссылка → адрес внутри приложения (#/listing/<id>):
+ *  • twm-market://listing/<id> — кнопка «Открыть в приложении» на сайте;
+ *  • https://twm-market.ru/l/<id> — ссылка «Поделиться» (на Android открывает
+ *    приложение сразу, если оно установлено).
+ * Всё остальное игнорируется.
+ */
 export function routeFromDeepLink(url: string): string | null {
-  const match = /^twm-market:\/\/listing\/([0-9a-f-]{36})\/?$/i.exec(url.trim());
+  const value = url.trim();
+  const match =
+    /^twm-market:\/\/listing\/([0-9a-f-]{36})\/?$/i.exec(value) ??
+    /^https:\/\/(?:www\.)?twm-market\.ru\/l\/([0-9a-f-]{36})\/?(?:[?#].*)?$/i.exec(value);
   return match ? `/listing/${match[1]!.toLowerCase()}` : null;
 }
 
 /**
- * Ссылки со страницы объявления на сайте («Открыть в приложении»).
+ * Ссылки на объявления снаружи приложения: кнопка «Открыть в приложении»
+ * на сайте и (на Android) ссылки twm-market.ru/l/… из мессенджеров.
  * Работает только в собранном приложении: в браузере ничего не делает.
  */
 export async function installDeepLinks(navigate: (path: string) => void): Promise<void> {

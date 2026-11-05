@@ -80,6 +80,8 @@ jobs:
           test -f "$out/site/index.html" && test -f "$out/site/rules/index.html" && test -f "$out/site/privacy/index.html"
           # Шапка и подвал подставлены, встроенных скриптов нет (их запрещает CSP сайта).
           grep -q "support@twm-market.ru" "$out/site/index.html"
+          # Связь сайта с приложением для Android: ссылки /l/ открываются в приложении.
+          grep -q '"package_name": "ru.twmmarket.app"' "$out/site/.well-known/assetlinks.json"
           if grep -rq "include:" "$out/site" --include=*.html; then echo "не подставлены шапка или подвал"; exit 1; fi
           if grep -rqE "<script>|<script type=\"module\">" "$out/site" --include=*.html; then echo "встроенный скрипт в сайте"; exit 1; fi
           tar -czf twm-server-linux-x64.tar.gz -C bundle twm-server

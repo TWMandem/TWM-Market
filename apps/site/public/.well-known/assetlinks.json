@@ -1,0 +1,14 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "ru.twmmarket.app",
+      "sha256_cert_fingerprints": [
+        "1D:3A:7E:27:DD:C9:18:DF:26:32:DD:19:BB:0B:A1:CD:C6:94:AC:C1:14:AA:3C:40:BF:28:70:47:3C:F3:84:D2"
+      ]
+    }
+  }
+]

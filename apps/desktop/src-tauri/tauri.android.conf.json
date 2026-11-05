@@ -4,5 +4,27 @@
     "android": {
       "minSdkVersion": 24
     }
+  },
+  "plugins": {
+    "deep-link": {
+      "mobile": [
+        {
+          "scheme": [
+            "https"
+          ],
+          "host": "twm-market.ru",
+          "pathPrefix": [
+            "/l/"
+          ],
+          "appLink": true
+        },
+        {
+          "scheme": [
+            "twm-market"
+          ],
+          "appLink": false
+        }
+      ]
+    }
   }
 }
