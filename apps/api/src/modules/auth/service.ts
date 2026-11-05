@@ -63,7 +63,13 @@ export async function issueTokens(
   return { accessToken, expiresIn: ttl * 60, refreshToken, user: toMeDto(user) };
 }
 
+/**
+ * Завершить сеансы на всех (или всех других) устройствах. Ключи фоновых
+ * уведомлений Android тоже отзываются: текущее устройство зарегистрирует
+ * новый при следующем запуске приложения.
+ */
 export async function revokeAllSessions(ctx: AppContext, userId: string, exceptSessionId?: string): Promise<void> {
+  await ctx.sql`DELETE FROM push_devices WHERE user_id = ${userId}`;
   if (exceptSessionId) {
     await ctx.sql`
       UPDATE sessions SET revoked_at = now()

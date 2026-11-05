@@ -44,6 +44,8 @@ keyring = { version = "3", features = ["windows-native", "apple-native", "linux-
 # Только для Android: скачать обновление внутри приложения и открыть установщик.
 [target.'cfg(target_os = "android")'.dependencies]
 tauri-plugin-apk-update = { path = "plugins/apk-update" }
+# Только для Android: фоновая проверка уведомлений, когда приложение закрыто.
+tauri-plugin-background-notify = { path = "plugins/background-notify" }
 
 [profile.release]
 codegen-units = 1

@@ -36,9 +36,10 @@ const PHONE = {
     "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36",
 };
 
-async function session(role, login, { server = true, theme = null, phone = false } = {}) {
+async function session(role, login, { server = true, theme = null, phone = false, scale = 1 } = {}) {
   const context = await browser.newContext({
     ...(phone ? PHONE : { viewport: { width: 1280, height: 820 } }),
+    deviceScaleFactor: scale,
     locale: "ru-RU",
     timezoneId: "Europe/Moscow",
   });
@@ -245,6 +246,58 @@ await shot(admin, "admin-users", "Пользователи", "/admin/users");
 await shot(admin, "admin-user", "Игрок: активность", `/admin/users/${seed.ivan.id}`);
 await shot(admin, "admin-errors", "Ошибки", "/admin/errors");
 await admin.context.close();
+
+// ── Снимки для сайта twm-market.ru ────────────────────────────────────────
+// Окно приложения для «камеры» на главной (apps/site/src/tour.js): снимок и
+// области, которые приближаются на каждом шаге, плюс экраны телефона.
+// Кладутся рядом со снимками (screens/site-*), области — в screens/site.json.
+{
+  const site = {};
+  const box = async (locator) => {
+    const b = await locator.first().boundingBox();
+    return b ? { x: Math.round(b.x), y: Math.round(b.y), w: Math.round(b.width), h: Math.round(b.height) } : null;
+  };
+  const card = (page, text) => page.locator("section", { hasText: text }).last();
+  try {
+    const guestSite = await session("сайт", null);
+    await guestSite.page.goto(`${UI}/#/listing/${L.ivanDeadpool}`);
+    await settle(guestSite.page);
+    await guestSite.page.waitForTimeout(800);
+    const p = guestSite.page;
+    site.tour = {
+      price: await box(p.locator("#price-card")),
+      history: await box(card(p, "История цены")),
+      seller: await box(card(p, "Все отзывы")),
+    };
+    await p.screenshot({ path: `${SCREENS}site-tour.png`, fullPage: true, clip: { x: 0, y: 0, width: 1280, height: 1300 } });
+    await guestSite.context.close();
+
+    const sellerSite = await session("сайт", seed.ivan.login);
+    await sellerSite.page.goto(`${UI}/#/chats/${seed.offerConversation}`);
+    await settle(sellerSite.page);
+    await sellerSite.page.waitForTimeout(800);
+    site.chat = { offer: await box(sellerSite.page.locator("div", { has: sellerSite.page.getByRole("button", { name: "Своя цена" }) }).last()) };
+    await sellerSite.page.screenshot({ path: `${SCREENS}site-chat.png` });
+    await sellerSite.context.close();
+
+    const phoneSite = await session("сайт, телефон", seed.maks.login, { phone: true, scale: 2 });
+    for (const [name, path] of [
+      ["home", "/"],
+      ["listing", `/listing/${L.ivanCar}`],
+      ["chat", `/chats/${seed.offerConversation}`],
+    ]) {
+      await phoneSite.page.goto(`${UI}/#${path}`);
+      await settle(phoneSite.page);
+      await phoneSite.page.waitForTimeout(600);
+      await phoneSite.page.screenshot({ path: `${SCREENS}site-phone-${name}.png` });
+    }
+    await phoneSite.context.close();
+    await writeFile(`${SCREENS}site.json`, JSON.stringify(site, null, 2));
+    console.log("✓ снимки для сайта", JSON.stringify(site));
+  } catch (error) {
+    console.log(`✗ снимки для сайта: ${error.message.split("\n")[0]}`);
+  }
+}
 
 await browser.close();
 

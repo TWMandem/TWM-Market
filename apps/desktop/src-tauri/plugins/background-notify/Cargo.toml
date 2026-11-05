@@ -1,0 +1,18 @@
+[package]
+name = "tauri-plugin-background-notify"
+version = "0.1.0"
+description = "TWM Market: фоновые уведомления на Android"
+authors = ["TWM Market contributors"]
+license = "MIT"
+edition = "2021"
+rust-version = "1.77.2"
+# По этому имени сборка Tauri находит Android-часть плагина (папка android).
+links = "tauri-plugin-background-notify"
+
+[build-dependencies]
+tauri-plugin = { version = "2", features = ["build"] }
+
+[dependencies]
+tauri = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

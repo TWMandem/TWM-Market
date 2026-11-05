@@ -32,6 +32,7 @@ import { shareRoutes } from "./modules/share/routes.js";
 import { savedSearchRoutes } from "./modules/saved-searches/routes.js";
 import { verificationRoutes } from "./modules/game-profiles/verification.js";
 import { errorRoutes } from "./modules/errors/routes.js";
+import { pushRoutes } from "./modules/push/routes.js";
 
 export const API_VERSION = "0.18.0";
 
@@ -143,6 +144,7 @@ export async function buildApp({ config, sql, mailer }: BuildOptions): Promise<F
   await savedSearchRoutes(app, ctx);
   await verificationRoutes(app, ctx);
   await errorRoutes(app, ctx);
+  await pushRoutes(app, ctx);
 
   return app;
 }

@@ -179,6 +179,13 @@ export interface NotificationDto {
   read: boolean;
 }
 
+/** Фоновый опрос Android: новые непрочитанные уведомления (без лишних полей). */
+export interface PushPollDto {
+  items: Array<{ id: number; title: string; body: string; link: string | null }>;
+  /** Номер последнего уведомления — с него начнётся следующий опрос. */
+  cursor: number;
+}
+
 /** Ответ на периодический опрос: счётчики и новые уведомления. */
 export interface UpdatesDto {
   unreadMessages: number;

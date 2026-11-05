@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import type { NotificationDto } from "@twm/shared";
 import { api } from "../lib/api";
+import { syncBackgroundNotifications } from "../lib/background-notify";
 import { notificationsEnabled, setNotificationsEnabled } from "../lib/desktop-notify";
+import { IS_ANDROID } from "../lib/platform";
 import { useUpdates } from "../lib/updates-context";
 import { Icon } from "./Icon";
 import { timeAgo } from "./listing";
@@ -102,10 +104,11 @@ export function NotificationsMenu() {
               onChange={(e) => {
                 setNotificationsEnabled(e.target.checked);
                 setSystemOn(e.target.checked);
+                void syncBackgroundNotifications(true);
               }}
               className="size-4 accent-accent"
             />
-            Всплывающие уведомления Windows, когда приложение свёрнуто
+            {IS_ANDROID ? "Уведомления на телефоне, даже когда приложение закрыто" : "Всплывающие уведомления Windows, когда приложение свёрнуто"}
           </label>
         </div>
       )}

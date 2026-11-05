@@ -2,7 +2,9 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { NotificationDto } from "@twm/shared";
 import { api } from "./api";
 import { useAuth } from "./auth-context";
+import { androidNotify, syncBackgroundNotifications } from "./background-notify";
 import { appInBackground, showSystemNotification } from "./desktop-notify";
+import { IS_ANDROID } from "./platform";
 
 const POLL_MS = 8_000;
 
@@ -45,10 +47,16 @@ export function UpdatesProvider({ children }: { children: ReactNode }) {
       setUnreadMessages(result.unreadMessages);
       setUnreadNotifications(result.unreadNotifications);
       cursor.current = result.cursor;
+      if (IS_ANDROID) {
+        // Android: уведомления Android по нажатию открывают нужный экран;
+        // фоновая проверка не покажет то, что приложение уже получило.
+        const hidden = result.notifications.length > 0 && (await appInBackground());
+        await androidNotify(result.notifications, result.cursor, hidden);
+      }
       if (result.notifications.length > 0) {
         setVersion((v) => v + 1);
         setLatest(result.notifications);
-        if (await appInBackground()) {
+        if (!IS_ANDROID && (await appInBackground())) {
           const first = result.notifications[0]!;
           const more = result.notifications.length - 1;
           await showSystemNotification(first.title, more > 0 ? `${first.body}\nИ ещё ${more}` : first.body);
@@ -60,6 +68,11 @@ export function UpdatesProvider({ children }: { children: ReactNode }) {
       busy.current = false;
     }
   }, []);
+
+  // Android: фоновая проверка уведомлений, пока игрок вошёл в аккаунт.
+  useEffect(() => {
+    if (status === "authed") void syncBackgroundNotifications(true);
+  }, [status]);
 
   useEffect(() => {
     if (status !== "authed") {

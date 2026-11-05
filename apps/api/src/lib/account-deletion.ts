@@ -66,6 +66,7 @@ export async function deleteAccount(
 
     // Личное и служебное — только этого игрока.
     await tx`DELETE FROM sessions WHERE user_id = ${userId}`;
+    await tx`DELETE FROM push_devices WHERE user_id = ${userId}`;
     await tx`DELETE FROM email_codes WHERE user_id = ${userId}`;
     await tx`DELETE FROM favorites WHERE user_id = ${userId}`;
     await tx`DELETE FROM saved_searches WHERE user_id = ${userId}`;

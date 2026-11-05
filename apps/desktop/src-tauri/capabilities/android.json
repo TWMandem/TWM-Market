@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/mobile-schema.json",
   "identifier": "android",
-  "description": "Только на Android: скачать обновление внутри приложения и открыть установщик.",
+  "description": "Только на Android: обновление внутри приложения и фоновая проверка уведомлений.",
   "platforms": [
     "android"
   ],
@@ -9,6 +9,7 @@
     "main"
   ],
   "permissions": [
-    "apk-update:default"
+    "apk-update:default",
+    "background-notify:default"
   ]
 }

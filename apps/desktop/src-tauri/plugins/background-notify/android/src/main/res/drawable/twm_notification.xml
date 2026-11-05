@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Значок в строке уведомлений: знак TW и столбики, одним цветом. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="1024"
+    android:viewportHeight="1024">
+    <group android:translateX="-39" android:translateY="-5">
+        <path android:fillColor="#FFFFFFFF" android:pathData="M168,250h296v84h-296z" />
+        <path android:fillColor="#FFFFFFFF" android:pathData="M274,250h84v380h-84z" />
+        <path android:fillColor="#FFFFFFFF" android:pathData="M488,250h88l52,236l50,-186h66l50,186l52,-236h88l-98,380h-78l-46,-170l-46,170h-78z" />
+        <path android:fillColor="#73FFFFFF" android:pathData="M392,736h64v48h-64z" />
+        <path android:fillColor="#B3FFFFFF" android:pathData="M480,704h64v80h-64z" />
+        <path android:fillColor="#FFFFFFFF" android:pathData="M568,660h64v124h-64z" />
+    </group>
+</vector>

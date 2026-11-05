@@ -2,7 +2,9 @@ import { useState } from "react";
 import { Alert, Card } from "../../components/ui";
 import { api } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
+import { syncBackgroundNotifications } from "../../lib/background-notify";
 import { notificationsEnabled, setNotificationsEnabled } from "../../lib/desktop-notify";
+import { IS_ANDROID } from "../../lib/platform";
 import { attempt } from "../../lib/use-load";
 
 /** Что присылать: изменения в избранном (на сервере) и всплывающие окна Windows (на этом компьютере). */
@@ -44,12 +46,17 @@ export function NotificationsSection() {
           onChange={(e) => {
             setNotificationsEnabled(e.target.checked);
             setSystem(e.target.checked);
+            void syncBackgroundNotifications(true);
           }}
           className="mt-1 size-4 accent-[var(--color-accent)]"
         />
         <span className="flex flex-col gap-0.5">
-          Всплывающие уведомления Windows
-          <span className="text-[13px] text-muted">Когда приложение свёрнуто или в трее. Настройка этого компьютера.</span>
+          {IS_ANDROID ? "Уведомления на телефоне" : "Всплывающие уведомления Windows"}
+          <span className="text-[13px] text-muted">
+            {IS_ANDROID
+              ? "И когда приложение закрыто: телефон проверяет новые сообщения примерно раз в 15 минут. Настройка этого телефона."
+              : "Когда приложение свёрнуто или в трее. Настройка этого компьютера."}
+          </span>
         </span>
       </label>
       {error && <Alert>{error}</Alert>}
