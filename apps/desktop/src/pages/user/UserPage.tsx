@@ -43,8 +43,8 @@ export function UserPage() {
         <span aria-hidden="true" className="flex size-16 items-center justify-center rounded-full bg-line text-xl font-extrabold uppercase">
           {p.login.slice(0, 2)}
         </span>
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <h1 className="m-0 font-display text-[26px] font-bold">{p.login}</h1>
+        <div className="flex min-w-[200px] flex-1 flex-col gap-1">
+          <h1 className="m-0 break-all font-display text-[26px] font-bold">{p.login}</h1>
           <span className="text-sm text-muted">
             На площадке с {date(p.memberSince)} · сделок: {p.deals} · активных объявлений: {p.activeListings}
           </span>

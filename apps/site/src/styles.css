@@ -149,6 +149,28 @@
     transform: translateY(1px);
   }
 
+  /* Вторая кнопка скачивания (Android): рамка вместо заливки. */
+  .btn-secondary {
+    display: inline-flex;
+    height: 54px;
+    align-items: center;
+    gap: 10px;
+    border-radius: 14px;
+    border: 1px solid var(--color-line);
+    padding: 0 22px;
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--color-ink);
+    text-decoration: none;
+    transition: border-color 0.15s, transform 0.15s;
+  }
+  .btn-secondary:hover {
+    border-color: var(--color-faint);
+  }
+  .btn-secondary:active {
+    transform: translateY(1px);
+  }
+
   /* Ссылка со стрелкой, которая сдвигается при наведении. */
   .link-arrow {
     display: inline-flex;

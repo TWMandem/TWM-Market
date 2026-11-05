@@ -122,3 +122,87 @@ jobs:
             --target "${{ github.sha }}" `
             --title "TWM Market $env:TAG" `
             --notes-file notes.md
+
+  # Приложение для Android: собирается после черновика и добавляется в него.
+  # Подписывается ключом владельца (секреты ANDROID_KEYSTORE_BASE64,
+  # ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS). Обновление поверх
+  # установленного приложения возможно, только если ключ тот же.
+  # Без ключа шаг пропускается: выпуск для Windows от этого не зависит.
+  android:
+    name: Android-приложение в черновик релиза
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ключ подписи задан?
+        id: key
+        env:
+          HAS_KEY: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' && secrets.ANDROID_KEYSTORE_PASSWORD != '' && secrets.ANDROID_KEY_ALIAS != '' }}
+        run: |
+          echo "ok=$HAS_KEY" >> "$GITHUB_OUTPUT"
+          if [ "$HAS_KEY" != "true" ]; then
+            echo "::warning::Ключ подписи Android не задан — APK в этот выпуск не добавлен (см. deploy/README.md, раздел Android)."
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.key.outputs.ok == 'true'
+
+      - uses: pnpm/action-setup@v4
+        if: steps.key.outputs.ok == 'true'
+
+      - uses: actions/setup-node@v4
+        if: steps.key.outputs.ok == 'true'
+        with:
+          node-version: 22
+
+      - uses: actions/setup-java@v4
+        if: steps.key.outputs.ok == 'true'
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: dtolnay/rust-toolchain@stable
+        if: steps.key.outputs.ok == 'true'
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi
+
+      - name: Установка зависимостей
+        if: steps.key.outputs.ok == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Проект Android
+        if: steps.key.outputs.ok == 'true'
+        working-directory: apps/desktop
+        run: bash ../../deploy/android-prepare.sh
+
+      - name: Сборка APK
+        if: steps.key.outputs.ok == 'true'
+        working-directory: apps/desktop
+        env:
+          VITE_API_URL: ${{ vars.API_URL }}
+        run: pnpm tauri android build --apk --target aarch64 --target armv7 --ci
+
+      - name: Подпись и загрузка в черновик
+        if: steps.key.outputs.ok == 'true'
+        working-directory: apps/desktop
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          version="$(node -p "require('./src-tauri/tauri.conf.json').version")"
+          tag="v$version"
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          export ANDROID_KEYSTORE_FILE="$RUNNER_TEMP/release.jks"
+          export ANDROID_KEY_PASSWORD="$ANDROID_KEYSTORE_PASSWORD"
+          mkdir -p "$RUNNER_TEMP/out"
+          name="TWM-Market_${version}_android.apk"
+          bash ../../deploy/android-sign.sh "$RUNNER_TEMP/out/$name"
+          rm -f "$RUNNER_TEMP/release.jks"
+          # Постоянное имя: ссылка с сайта и проверка обновлений в приложении.
+          cp "$RUNNER_TEMP/out/$name" "$RUNNER_TEMP/out/TWM-Market.apk"
+          cd "$RUNNER_TEMP/out"
+          gh release download "$tag" --repo "${{ github.repository }}" --pattern SHA256SUMS.txt
+          sha256sum "$name" TWM-Market.apk >> SHA256SUMS.txt
+          cat SHA256SUMS.txt
+          gh release upload "$tag" --repo "${{ github.repository }}" --clobber "$name" TWM-Market.apk SHA256SUMS.txt

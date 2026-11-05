@@ -223,7 +223,7 @@ export function CatalogPage({ section }: { section: SectionCode | "search" }) {
             options={OPERATIONS_BY_SECTION[section].map((op) => [op, op ? OPERATION_LABELS[op] : "Все"])}
             onChange={(operation) => set({ operation })}
           />
-            <div role="group" aria-label="Вид" className="flex rounded-xl border border-line bg-surface p-1">
+            <div role="group" aria-label="Вид" className="flex rounded-xl border border-line bg-surface p-1 max-md:hidden">
               {(
                 [
                   ["grid", "Плиткой"],
@@ -431,8 +431,16 @@ export function CatalogPage({ section }: { section: SectionCode | "search" }) {
           )}
           {result && result.items.length > 0 && (
             <div className={`transition-opacity ${loading ? "opacity-50" : ""}`}>
+              {/* На телефоне — всегда плиткой: в строку списка не помещаются цена и продавец. */}
               {view === "list" ? (
-                <ListingList items={result.items} onToggleFavorite={(l) => void toggleFavorite(l)} />
+                <>
+                  <div className="max-md:hidden">
+                    <ListingList items={result.items} onToggleFavorite={(l) => void toggleFavorite(l)} />
+                  </div>
+                  <div className="md:hidden">
+                    <ListingGrid items={result.items} onToggleFavorite={(l) => void toggleFavorite(l)} />
+                  </div>
+                </>
               ) : (
                 <ListingGrid items={result.items} onToggleFavorite={(l) => void toggleFavorite(l)} />
               )}

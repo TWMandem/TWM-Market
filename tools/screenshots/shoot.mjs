@@ -179,9 +179,6 @@ await shot(phone, "phone-catalog", "Телефон: каталог", "/items");
 await shot(phone, "phone-catalog-filters", "Телефон: каталог, фильтры открыты", "/items", async (page) => {
   await page.getByRole("button", { name: "Фильтры" }).click();
 });
-await shot(phone, "phone-catalog-list", "Телефон: каталог списком", "/items", async (page) => {
-  await page.getByRole("button", { name: "Списком" }).click();
-});
 await shot(phone, "phone-listing", "Телефон: объявление", `/listing/${L.ivanCar}`);
 await shot(phone, "phone-chats", "Телефон: сообщения", "/chats");
 await shot(phone, "phone-chat", "Телефон: переписка", `/chats/${seed.offerConversation}`);
