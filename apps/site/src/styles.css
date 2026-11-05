@@ -1147,10 +1147,93 @@
   position: absolute;
   inset: 0;
   z-index: -1;
+}
+.hw-scene {
+  overflow: hidden;
+  background: #1a0f2b;
+}
+.hw-scene-art {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
   object-position: 72% 100%;
+}
+.hw-star {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #fff6dc;
+  box-shadow: 0 0 6px 1px rgb(255 246 220 / 0.8);
+  will-change: opacity;
+  animation: hw-twinkle 3.2s ease-in-out infinite;
+}
+.hw-witch-path {
+  position: absolute;
+  top: 14%;
+  left: 0;
+  width: 110px;
+  will-change: transform;
+  animation: hw-witch-fly 24s linear infinite;
+}
+.hw-witch {
+  width: 100%;
+  height: auto;
+  animation: hw-witch-bob 3s ease-in-out infinite;
+}
+.hw-flock {
+  position: absolute;
+  left: 0;
+  width: 30px;
+  height: 13px;
+  color: #0b0612;
+  will-change: transform;
+  animation: hw-flock-fly 15s linear infinite;
+}
+.hw-flock-bat {
+  position: static;
+  width: 100%;
+  height: 100%;
+}
+.hw-flock-0 { top: 30%; }
+.hw-flock-1 { top: 22%; width: 22px; height: 10px; animation-delay: -0.8s; }
+.hw-flock-2 { top: 38%; width: 26px; height: 11px; animation-delay: -1.5s; }
+.hw-flock-3 { top: 18%; width: 18px; height: 8px; animation-delay: -7s; animation-duration: 19s; }
+.hw-flock-4 { top: 26%; width: 20px; height: 9px; animation-delay: -8s; animation-duration: 19s; }
+.hw-scene-fog {
+  position: absolute;
+  left: -20%;
+  bottom: -30px;
+  width: 140%;
+  height: 90px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgb(200 182 234 / 0.16), transparent);
+  will-change: transform;
+  animation: hw-fog-drift 18s ease-in-out infinite alternate;
+}
+@keyframes hw-twinkle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.15; }
+}
+@keyframes hw-witch-fly {
+  from { transform: translateX(calc(100vw + 40px)); }
+  to { transform: translateX(-160px); }
+}
+@keyframes hw-witch-bob {
+  0%, 100% { transform: translateY(0) rotate(-3deg); }
+  50% { transform: translateY(-10px) rotate(3deg); }
+}
+@keyframes hw-flock-fly {
+  0% { transform: translate(-60px, 20px); }
+  50% { transform: translate(50vw, -10px); }
+  100% { transform: translate(calc(100vw + 60px), 15px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hw-star, .hw-witch-path, .hw-witch, .hw-flock, .hw-scene-fog { animation: none; }
+  .hw-witch-path { transform: translateX(55vw); }
+  .hw-flock { display: none; }
 }
 .hw-strip-text {
   display: flex;
@@ -1202,7 +1285,7 @@
   width: 150%;
   height: 160px;
   border-radius: 50%;
-  background: radial-gradient(closest-side, rgb(185 166 220 / 0.13), transparent);
+  background: radial-gradient(closest-side, rgb(185 166 220 / 0.09), transparent);
   /* Без blur и mask: туман должен быть дешёвым для слабых телефонов —
      двигается только transform (на видеокарте). */
   will-change: transform;
@@ -1211,7 +1294,7 @@
 .hw-fog-2 {
   bottom: -70px;
   height: 200px;
-  background: radial-gradient(closest-side, rgb(255 138 31 / 0.07), transparent);
+  background: radial-gradient(closest-side, rgb(255 138 31 / 0.05), transparent);
   animation-duration: 34s;
   animation-direction: alternate-reverse;
 }

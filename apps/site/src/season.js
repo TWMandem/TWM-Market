@@ -182,15 +182,57 @@ function ghostHunt(counter) {
   schedule(6000);
 }
 
+const WITCH = `<g fill="#0b0612" transform="translate(96 0) scale(-1 1)">
+  <path d="M0 30 L78 22" stroke="#0b0612" stroke-width="3" stroke-linecap="round"/><path d="M74 22 l22 -9 l-4 9 l5 6 l-23 -2z"/>
+  <path d="M30 26 C 28 14, 40 6, 48 10 C 54 14, 56 22, 52 28 z"/><path d="M48 12 C 58 14, 66 20, 70 28 L 60 24 z"/>
+  <circle cx="36" cy="6" r="5"/><path d="M27 2 L46 0 L35 -16 z"/><path d="M24 3 L48 1" stroke="#0b0612" stroke-width="3" stroke-linecap="round"/>
+  <path d="M33 26 l-6 8 M40 26 l-2 9" stroke="#0b0612" stroke-width="2.4" stroke-linecap="round"/></g>`;
+
+const STARS = [[8, 12], [17, 30], [26, 8], [41, 22], [52, 6], [63, 27], [71, 12], [88, 20], [94, 7], [33, 40]];
+
+/**
+ * Сцена: неподвижный рисунок и поверх — ведьма, стая летучих мышей, звёзды и
+ * туман. Двигаются только transform и opacity: рисунок не перерисовывается.
+ */
+function scene() {
+  const box = document.createElement("div");
+  box.className = "hw-scene hw-strip-scene";
+  box.setAttribute("aria-hidden", "true");
+  const art = document.createElement("img");
+  art.src = "/img/halloween-scene.svg";
+  art.alt = "";
+  art.className = "hw-scene-art";
+  box.append(art);
+  STARS.forEach(([left, top], i) => {
+    const star = document.createElement("span");
+    star.className = "hw-star";
+    star.style.setProperty("left", `${left}%`);
+    star.style.setProperty("top", `${top}%`);
+    star.style.setProperty("animation-delay", `${-(i * 0.7)}s`);
+    box.append(star);
+  });
+  const witchPath = document.createElement("div");
+  witchPath.className = "hw-witch-path";
+  witchPath.append(svg("-4 -20 104 58", WITCH, "hw-witch"));
+  box.append(witchPath);
+  for (let i = 0; i < 5; i++) {
+    const flock = document.createElement("div");
+    flock.className = `hw-flock hw-flock-${i}`;
+    flock.append(svg("0 0 64 26", BAT, "hw-bat hw-flock-bat"));
+    box.append(flock);
+  }
+  const fog = document.createElement("span");
+  fog.className = "hw-scene-fog";
+  box.append(fog);
+  return box;
+}
+
 /** Полоса со сценой (луна, ведьма, дом с привидениями) после первого экрана главной. */
 function sceneStrip(hero) {
   const strip = document.createElement("section");
   strip.className = "hw-strip";
   strip.setAttribute("aria-label", "Хеллоуин");
-  const img = document.createElement("img");
-  img.src = "/img/halloween-scene.svg";
-  img.alt = "";
-  img.className = "hw-strip-scene";
+  const img = scene();
   const text = document.createElement("div");
   text.className = "hw-strip-text";
   const kicker = document.createElement("span");

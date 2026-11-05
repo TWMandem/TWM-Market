@@ -160,7 +160,7 @@ function HalloweenBanner() {
   if (hidden) return null;
   return (
     <section aria-label="Хеллоуин" className="hw-banner relative isolate overflow-hidden rounded-2xl">
-      <HalloweenScene className="absolute inset-0 -z-10 size-full object-cover object-[72%_100%]" />
+      <HalloweenScene className="absolute inset-0 -z-10" />
       <div className="flex min-h-[230px] flex-col justify-start gap-2 bg-gradient-to-r from-[#0f0820]/85 via-[#0f0820]/40 to-transparent px-6 py-5 max-sm:min-h-[260px] max-sm:from-[#0f0820]/70 max-sm:px-5 sm:max-w-[640px]">
         <span className="flex items-center gap-2 text-[12px] font-extrabold tracking-[0.12em] text-[#ffb46b]">
           <Pumpkin lit className="hw-flicker size-5" /> ХЕЛЛОУИН В ИГРЕ

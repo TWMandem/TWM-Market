@@ -254,18 +254,50 @@ export function WitchHat({ className = "" }: { className?: string }) {
   );
 }
 
-/** Большая анимированная сцена: луна, ведьма, дом с привидениями, кладбище, тыквы. */
-export function HalloweenScene({ className = "" }: { className?: string }) {
-  return <img src={`${import.meta.env.BASE_URL}halloween/scene.svg`} alt="" aria-hidden="true" className={className} draggable={false} />;
+/** Ведьма на метле (силуэт), летит влево. */
+export function Witch({ className = "" }: { className?: string }) {
+  return (
+    <svg aria-hidden="true" viewBox="-4 -20 104 58" className={className}>
+      <g fill="#0b0612" transform="translate(96 0) scale(-1 1)">
+        <path d="M0 30 L78 22" stroke="#0b0612" strokeWidth="3" strokeLinecap="round" />
+        <path d="M74 22 l22 -9 l-4 9 l5 6 l-23 -2z" />
+        <path d="M30 26 C 28 14, 40 6, 48 10 C 54 14, 56 22, 52 28 z" />
+        <path d="M48 12 C 58 14, 66 20, 70 28 L 60 24 z" />
+        <circle cx="36" cy="6" r="5" />
+        <path d="M27 2 L46 0 L35 -16 z" />
+        <path d="M24 3 L48 1" stroke="#0b0612" strokeWidth="3" strokeLinecap="round" />
+        <path d="M33 26 l-6 8 M40 26 l-2 9" stroke="#0b0612" strokeWidth="2.4" strokeLinecap="round" />
+      </g>
+    </svg>
+  );
 }
 
-/** Летучие мыши для главной (в приветствии). */
-export function Bats() {
+const STARS = [
+  [8, 12], [17, 30], [26, 8], [41, 22], [52, 6], [63, 27], [71, 12], [88, 20], [94, 7], [33, 40],
+] as const;
+
+/**
+ * Большая сцена: неподвижный рисунок (луна, дом с привидениями, кладбище,
+ * тыквы) и поверх — движение лёгкими элементами: ведьма, стая летучих мышей,
+ * мерцающие звёзды, туман. Анимируются только transform и opacity — это
+ * делает видеокарта, рисунок заново не перерисовывается (бережёт батарею).
+ */
+export function HalloweenScene({ className = "" }: { className?: string }) {
   return (
-    <span aria-hidden="true" className="hw-bats pointer-events-none absolute -top-6 right-0 flex gap-6 max-md:-top-4">
-      <Bat className="hw-bat size-12 text-[var(--hw-bat)] max-md:size-9" />
-      <Bat className="hw-bat hw-bat-2 size-8 text-[var(--hw-bat)] max-md:size-6" />
-      <Bat className="hw-bat hw-bat-3 size-10 text-[var(--hw-bat)] max-md:size-7" />
-    </span>
+    <div aria-hidden="true" className={`hw-scene ${className}`}>
+      <img src={`${import.meta.env.BASE_URL}halloween/scene.svg`} alt="" className="hw-scene-art" draggable={false} />
+      {STARS.map(([left, top], i) => (
+        <span key={i} className="hw-star" style={{ left: `${left}%`, top: `${top}%`, animationDelay: `${-(i * 0.7)}s` } as CSSProperties} />
+      ))}
+      <div className="hw-witch-path">
+        <Witch className="hw-witch" />
+      </div>
+      {[0, 1, 2, 3, 4].map((i) => (
+        <div key={i} className={`hw-flock hw-flock-${i}`}>
+          <Bat className="hw-bat size-full text-[#0b0612]" />
+        </div>
+      ))}
+      <span className="hw-scene-fog" />
+    </div>
   );
 }
