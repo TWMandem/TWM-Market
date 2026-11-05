@@ -1,10 +1,12 @@
 import { defineConfig, type HtmlTagDescriptor, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
+import { readFileSync } from "node:fs";
 
 // Сборка веб-приложения (twm-market.ru/app/, для iPhone и браузеров):
 // VITE_WEB=1 vite build --base /app/ --outDir dist-web (скрипт build:web).
 const WEB = process.env.VITE_WEB === "1";
+const VERSION = (JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8")) as { version: string }).version;
 
 /** Веб-приложение: значок, манифест и настройки для экрана «Домой» iPhone. */
 function webAppHead(): Plugin {
@@ -46,6 +48,8 @@ export default defineConfig({
     },
   },
   envPrefix: ["VITE_", "TAURI_ENV_"],
+  // Номер версии для подвала веб-версии (в приложении его даёт Tauri).
+  define: { __APP_VERSION__: JSON.stringify(VERSION) },
   build: {
     target: WEB ? ["chrome110", "safari16.4", "firefox115"] : "chrome110",
     sourcemap: false,

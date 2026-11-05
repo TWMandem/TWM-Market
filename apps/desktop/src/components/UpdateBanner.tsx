@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useAppUpdate } from "../lib/app-update";
-import { IS_ANDROID } from "../lib/platform";
+import { IS_ANDROID, IS_WEB_APP } from "../lib/platform";
 import { Modal } from "./ReportDialog";
 import { Button } from "./ui";
 
@@ -119,6 +119,17 @@ export function UpdateBanner() {
 /** Версия и ручная проверка обновлений — в подвале. */
 export function VersionInfo() {
   const { version, status, checkNow, available } = useAppUpdate();
+  // Веб-версия обновляется сама: после выпуска сразу открывается новая.
+  if (IS_WEB_APP) {
+    return (
+      <span className="flex flex-wrap items-center gap-1.5">
+        Веб-версия {__APP_VERSION__} ·
+        <a href="/" className="text-muted underline-offset-2 hover:text-ink hover:underline">
+          приложение для Windows и Android
+        </a>
+      </span>
+    );
+  }
   if (!version) return null;
   const label =
     status === "checking"

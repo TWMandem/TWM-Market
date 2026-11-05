@@ -323,6 +323,23 @@ describe("ограничение частоты запросов", { skip: skipW
     await env.close();
   });
 
+  test("в списке входов видно, какая версия вошла: приложение или веб-версия", async () => {
+    const user = await registerUser(env, { login: "client_kind", email: "client_kind@example.com" });
+    const login = (client?: string) =>
+      env.app.inject({
+        method: "POST",
+        url: "/v1/auth/login",
+        headers: { "user-agent": "Mozilla/5.0 (Windows NT 10.0) Chrome/130.0 Safari/537.36", ...(client ? { "x-twm-client": client } : {}) },
+        payload: { identifier: "client_kind", password: user.password },
+      });
+    assert.equal((await login("web")).statusCode, 200);
+    assert.equal((await login("hacker <b>")).statusCode, 200);
+    const rows = await env.database.sql<{ userAgent: string }[]>`
+      SELECT s.user_agent FROM sessions s JOIN users u ON u.id = s.user_id WHERE u.login = 'client_kind' ORDER BY s.created_at`;
+    assert.ok(rows.some((r) => r.userAgent.endsWith(" TWMClient/web")), "веб-версия помечена");
+    assert.ok(rows.every((r) => !r.userAgent.includes("hacker")), "чужие значения не записываются");
+  });
+
   test("после 10 попыток входа в минуту — 429", async () => {
     let last = 0;
     for (let i = 0; i < 11; i++) {

@@ -2,21 +2,8 @@ import { useCallback, useEffect, useState } from "react";
 import { changePasswordSchema, PASSWORD_MIN, type SessionDto } from "@twm/shared";
 import { Alert, Button, Card, Field } from "../../components/ui";
 import { ApiError, api } from "../../lib/api";
+import { describeDevice } from "../../lib/device-name";
 import { useForm } from "../../lib/use-form";
-
-/** Понятное название устройства по строке User-Agent. */
-export function describeDevice(userAgent: string | null): string {
-  if (!userAgent) return "Неизвестное устройство";
-  const os = /Windows/i.test(userAgent)
-    ? "Windows"
-    : /Mac OS X/i.test(userAgent)
-      ? "macOS"
-      : /Linux/i.test(userAgent)
-        ? "Linux"
-        : "другая система";
-  const app = /Edg\//.test(userAgent) ? "TWM Market" : /Chrome\//.test(userAgent) ? "браузер" : "клиент";
-  return `${app} · ${os}`;
-}
 
 const formatDate = (iso: string) =>
   new Date(iso).toLocaleString("ru-RU", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });

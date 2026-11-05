@@ -343,6 +343,75 @@ await admin.context.close();
   }
 }
 
+// ── Веб-версия в браузере на компьютере (Chromium) ──
+if (process.env.WEB_URL) {
+  const WEB = process.env.WEB_URL.replace(/\/+$/, "");
+  const context = await browser.newContext({ viewport: { width: 1280, height: 820 }, locale: "ru-RU", timezoneId: "Europe/Moscow" });
+  await context.addInitScript(() => {
+    try {
+      window.localStorage.setItem("twm:server", "1");
+    } catch {}
+  });
+  const page = await context.newPage();
+  const problems = [];
+  page.on("console", (m) => {
+    if (m.type() === "error") problems.push(`console: ${m.text()}`);
+  });
+  page.on("pageerror", (e) => problems.push(`ошибка страницы: ${e.message}`));
+  const s = { role: "веб-версия, компьютер", page, context, problems };
+  const shotWeb = async (name, title, path, act) => {
+    counter += 1;
+    const file = `${String(counter).padStart(2, "0")}-${name}.png`;
+    const before = problems.length;
+    const entry = { file, title, role: s.role, path, ok: true, problems: [] };
+    try {
+      await page.goto(`${WEB}/#${path}`);
+      await settle(page);
+      if (act) {
+        await act(page);
+        await settle(page);
+      }
+      await page.screenshot({ path: SCREENS + file, fullPage: true });
+    } catch (error) {
+      entry.ok = false;
+      entry.problems.push(`не снят: ${error.message.split("\n")[0]}`);
+    }
+    entry.problems.push(...problems.slice(before));
+    results.push(entry);
+    console.log(`${entry.ok ? "✓" : "✗"} ${file} ${title}`);
+  };
+  try {
+    await page.goto(`${WEB}/#/login`);
+    await page.getByLabel("Логин или email").fill(seed.maks.login);
+    await page.getByLabel("Пароль", { exact: true }).fill(seed.password);
+    await page.getByRole("button", { name: "Войти" }).click();
+    await page.waitForURL((url) => !url.hash.startsWith("#/login"), { timeout: 15_000 });
+    await settle(page);
+    await shotWeb("web-home", "Веб-версия: главная", "/");
+    await shotWeb("web-notifications", "Веб-версия: уведомления", "/", async (p) => {
+      await p.getByRole("button", { name: /^Уведомления/ }).click();
+    });
+    await shotWeb("web-account", "Веб-версия: личный кабинет", "/account");
+    // Две вкладки одновременно обновляют вход — сессия не должна закрыться.
+    const second = await context.newPage();
+    await Promise.all([page.reload(), second.goto(`${WEB}/#/account`)]);
+    await Promise.all([settle(page), settle(second)]);
+    await page.reload();
+    await settle(page);
+    const footer = await page.locator("footer").innerText();
+    const still = await page.getByRole("button", { name: /^Аккаунт / }).count();
+    const entry = { file: "—", title: "Веб-версия: две вкладки, подвал с версией", role: s.role, path: null, ok: true, problems: [] };
+    if (!/Веб-версия \d+\.\d+\.\d+/.test(footer)) entry.problems.push(`в подвале нет версии: ${footer.slice(0, 120)}`);
+    if (still === 0) entry.problems.push("после открытия второй вкладки вход потерян");
+    entry.ok = entry.problems.length === 0;
+    results.push(entry);
+    console.log(`${entry.ok ? "✓" : "✗"} ${entry.title} ${entry.problems.join("; ")}`);
+  } catch (error) {
+    results.push({ file: "—", title: "Веб-версия: вход", role: s.role, path: null, ok: false, problems: [error.message.split("\n")[0], ...problems] });
+  }
+  await context.close();
+}
+
 await browser.close();
 
 // ── Веб-приложение на iPhone (twm-market.ru/app/): движок Safari (WebKit) ──

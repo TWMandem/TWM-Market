@@ -16,7 +16,9 @@ export function isTauri(): boolean {
 }
 
 const WEB = import.meta.env?.VITE_WEB === "1";
-const DEV_KEY = WEB ? "twm:refresh-token" : "twm:dev-refresh-token";
+/** Ключ refresh-токена в localStorage веб-версии. */
+export const REFRESH_TOKEN_KEY = "twm:refresh-token";
+const DEV_KEY = WEB ? REFRESH_TOKEN_KEY : "twm:dev-refresh-token";
 const storage = (): Storage => (WEB ? window.localStorage : window.sessionStorage);
 
 export const tokenStore = {

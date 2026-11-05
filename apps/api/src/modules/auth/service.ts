@@ -31,10 +31,16 @@ export function toMeDto(user: UserRow): MeDto {
   };
 }
 
+/** Какая версия TWM Market вошла: приложение для Windows, для Android или веб-версия. */
+const CLIENTS = new Set(["windows", "android", "web"]);
+
 function clientInfo(request: FastifyRequest) {
   const ua = request.headers["user-agent"];
+  const client = request.headers["x-twm-client"];
+  // Помечаем строку устройства, чтобы в списке входов было видно, приложение это или браузер.
+  const mark = typeof client === "string" && CLIENTS.has(client) ? ` TWMClient/${client}` : "";
   return {
-    userAgent: typeof ua === "string" ? ua.slice(0, 300) : null,
+    userAgent: typeof ua === "string" ? `${ua.slice(0, 280)}${mark}` : mark ? mark.trim() : null,
     ip: request.ip ?? null,
   };
 }

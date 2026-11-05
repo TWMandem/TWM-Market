@@ -52,7 +52,8 @@ import type {
   TwoFactorStatusDto,
 } from "@twm/shared";
 import { API_URL } from "./config";
-import { tokenStore } from "./token-store";
+import { IS_ANDROID, IS_WEB_APP } from "./platform";
+import { isTauri, REFRESH_TOKEN_KEY, tokenStore } from "./token-store";
 
 export type GameServer = ServerDto;
 
@@ -78,7 +79,8 @@ export class ApiError extends Error {
 const NETWORK_ERROR = "Нет связи с сервером. Проверьте интернет и попробуйте ещё раз.";
 
 // ── Токены ────────────────────────────────────────────────────────────────
-// Токен доступа живёт только в памяти. Refresh-токен — в хранилище Windows.
+// Токен доступа живёт только в памяти. Refresh-токен — в хранилище Windows,
+// в личной папке приложения на Android, в localStorage сайта в веб-версии.
 
 let accessToken: string | null = null;
 let refreshing: Promise<AuthResponseDto | null> | null = null;
@@ -87,6 +89,28 @@ let onSessionEnded: (() => void) | null = null;
 /** Вызывается, когда сервер закрыл сессию (выход на другом устройстве, блокировка). */
 export function setSessionEndedHandler(handler: (() => void) | null): void {
   onSessionEnded = handler;
+}
+
+// Веб-версия: вышли из аккаунта (или сессия закрыта) в другой вкладке —
+// выходим и в этой, а не ждём ошибки при следующем запросе.
+if (IS_WEB_APP && typeof window !== "undefined") {
+  window.addEventListener("storage", (event) => {
+    if (event.key === REFRESH_TOKEN_KEY && event.newValue === null && accessToken) {
+      accessToken = null;
+      onSessionEnded?.();
+    }
+  });
+}
+
+/**
+ * Веб-версия: все вкладки браузера делят один refresh-токен. Если две вкладки
+ * обновят его одновременно, вторая предъявит уже заменённый токен — сервер
+ * сочтёт его украденным и закроет сессию. Поэтому вкладки обновляют токен по
+ * очереди (Web Locks), и каждая берёт из хранилища самый свежий.
+ */
+function oneTabAtATime<T>(task: () => Promise<T>): Promise<T> {
+  if (!IS_WEB_APP || typeof navigator === "undefined" || !("locks" in navigator)) return task();
+  return navigator.locks.request("twm-refresh-token", task) as unknown as Promise<T>;
 }
 
 export async function applyAuth(auth: AuthResponseDto): Promise<void> {
@@ -104,7 +128,7 @@ export async function clearAuth(): Promise<void> {
  * иначе второй запрос предъявил бы уже заменённый токен и сессия закрылась бы.
  */
 export function refreshSession(): Promise<AuthResponseDto | null> {
-  refreshing ??= (async () => {
+  refreshing ??= oneTabAtATime(async () => {
     try {
       const token = await tokenStore.get();
       if (!token) return null;
@@ -123,11 +147,13 @@ export function refreshSession(): Promise<AuthResponseDto | null> {
     } finally {
       refreshing = null;
     }
-  })();
+  });
   return refreshing;
 }
 
 // ── Запросы ───────────────────────────────────────────────────────────────
+
+const CLIENT = isTauri() ? (IS_ANDROID ? "android" : "windows") : IS_WEB_APP ? "web" : null;
 
 async function rawFetch(path: string, init: RequestInit = {}): Promise<Response> {
   const controller = new AbortController();
@@ -137,6 +163,8 @@ async function rawFetch(path: string, init: RequestInit = {}): Promise<Response>
   headers.set("Accept", "application/json");
   // Для FormData заголовок с границей частей браузер выставит сам.
   if (init.body !== undefined && !(init.body instanceof FormData)) headers.set("Content-Type", "application/json");
+  // При входе сервер запоминает, какая версия вошла, — для списка устройств в личном кабинете.
+  if (path.startsWith("/v1/auth/") && CLIENT) headers.set("X-TWM-Client", CLIENT);
   try {
     return await fetch(`${API_URL}${path}`, { ...init, headers, signal: controller.signal });
   } catch {
