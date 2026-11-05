@@ -144,6 +144,7 @@ jobs:
         run: |
           pnpm --filter @twm/api build
           pnpm --filter @twm/desktop exec vite build
+          pnpm --filter @twm/site build
 
       - name: Запуск сервера
         working-directory: apps/api

@@ -299,6 +299,47 @@ await admin.context.close();
   }
 }
 
+// ── Сайт twm-market.ru из сборки (apps/site/dist), без отдельного сервера ──
+{
+  const DIST = new URL("../../apps/site/dist/", import.meta.url);
+  const TYPES = { html: "text/html", js: "text/javascript", css: "text/css", svg: "image/svg+xml", webp: "image/webp", jpg: "image/jpeg", png: "image/png", woff2: "font/woff2", json: "application/json", txt: "text/plain", xml: "application/xml" };
+  for (const [name, viewport] of [
+    ["site-page", { width: 1280, height: 900 }],
+    ["site-page-phone", { width: 390, height: 844 }],
+  ]) {
+    try {
+      const context = await browser.newContext({ viewport, locale: "ru-RU" });
+      await context.route("http://site.test/**", async (route) => {
+        let path = new URL(route.request().url()).pathname;
+        if (path.endsWith("/")) path += "index.html";
+        try {
+          const body = await readFile(new URL(`.${path}`, DIST));
+          await route.fulfill({ body, contentType: TYPES[path.split(".").pop()] ?? "application/octet-stream" });
+        } catch {
+          await route.fulfill({ status: 404, body: "" });
+        }
+      });
+      const page = await context.newPage();
+      await page.goto("http://site.test/");
+      await page.waitForTimeout(1500);
+      // Анимации появления при прокрутке: проходим страницу, чтобы всё показалось.
+      await page.evaluate(async () => {
+        for (let y = 0; y < document.body.scrollHeight; y += 600) {
+          window.scrollTo(0, y);
+          await new Promise((r) => setTimeout(r, 120));
+        }
+        window.scrollTo(0, 0);
+      });
+      await page.waitForTimeout(800);
+      await page.screenshot({ path: `${SCREENS}${name}.png`, fullPage: true });
+      await context.close();
+      console.log(`✓ ${name}`);
+    } catch (error) {
+      console.log(`✗ ${name}: ${error.message.split("\n")[0]}`);
+    }
+  }
+}
+
 await browser.close();
 
 // ── Отчёт ─────────────────────────────────────────────────────────────────
