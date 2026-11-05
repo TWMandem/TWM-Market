@@ -486,6 +486,8 @@ if (process.env.WEB_URL) {
         } catch (error) {
           entry.ok = false;
           entry.problems.push(`не снят: ${error.message.split("\n")[0]}`);
+          // Подробности Playwright (что перехватывает нажатие и т. п.) — в журнал.
+          console.log(error.message.split("\n").slice(0, 25).join("\n"));
           await page.screenshot({ path: SCREENS + file }).catch(() => {});
         }
         entry.problems.push(...problems.slice(before));
