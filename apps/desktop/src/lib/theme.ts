@@ -20,9 +20,10 @@ const KEY = "theme";
 const listeners = new Set<() => void>();
 let preference: ThemePreference = readPreference();
 
+/** По умолчанию — тёмная, как было до появления выбора темы. */
 function readPreference(): ThemePreference {
   const value = readSetting(KEY);
-  return value === "dark" || value === "light" ? value : "system";
+  return value === "system" || value === "light" ? value : "dark";
 }
 
 function systemTheme(): Theme {
@@ -79,7 +80,7 @@ export function useTheme(): { preference: ThemePreference; theme: Theme; setPref
   const snapshot = useSyncExternalStore(
     subscribe,
     () => `${preference}:${resolveTheme(preference)}`,
-    () => "system:dark",
+    () => "dark:dark",
   );
   const [pref, theme] = snapshot.split(":") as [ThemePreference, Theme];
   return { preference: pref, theme, setPreference: setThemePreference };

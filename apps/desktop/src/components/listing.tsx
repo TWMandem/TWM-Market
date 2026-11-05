@@ -100,10 +100,13 @@ export function ListingCard({
       <Link to={`/listing/${listing.id}`} className="flex flex-1 flex-col text-ink no-underline">
         <div className="relative h-[150px] bg-surface-2">
           <Media media={listing.image} alt={listing.title} fit={isItem && listing.image?.kind !== "image" ? "contain" : "cover"} className="size-full" />
-          <OperationBadge operation={listing.operation} className="absolute left-3 top-3" />
+          {/* Подложка цвета карточки: плашки читаются поверх любого фото в обеих темах. */}
+          <span className="absolute left-3 top-3 rounded-lg bg-surface/90 backdrop-blur">
+            <OperationBadge operation={listing.operation} />
+          </span>
           {listing.belowAverage && (
-            <span className="absolute bottom-3 left-3 rounded-lg bg-success/20 px-2.5 py-1 text-xs font-bold text-success backdrop-blur">
-              Ниже средней
+            <span className="absolute bottom-3 left-3 rounded-lg bg-surface/90 backdrop-blur">
+              <span className="block rounded-lg bg-success/20 px-2.5 py-1 text-xs font-bold text-success">Ниже средней</span>
             </span>
           )}
         </div>
@@ -134,11 +137,13 @@ export function ListingCard({
           aria-label={listing.favorite ? "Убрать из избранного" : "В избранное"}
           aria-pressed={listing.favorite}
           onClick={() => onToggleFavorite(listing)}
-          className={`absolute right-1.5 top-1.5 flex size-11 items-center justify-center rounded-xl ${
+          className={`group/fav absolute right-1.5 top-1.5 flex size-11 items-center justify-center rounded-xl ${
             listing.favorite ? "text-accent-ink" : "text-ink"
-          } hover:bg-black/30`}
+          }`}
         >
-          <Icon name="heart" size={20} fill={listing.favorite ? "currentColor" : "none"} />
+          <span className="flex size-8 items-center justify-center rounded-full bg-surface/85 backdrop-blur transition-colors group-hover/fav:bg-surface">
+            <Icon name="heart" size={18} fill={listing.favorite ? "currentColor" : "none"} />
+          </span>
         </button>
       )}
     </article>

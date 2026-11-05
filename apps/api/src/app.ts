@@ -33,7 +33,7 @@ import { savedSearchRoutes } from "./modules/saved-searches/routes.js";
 import { verificationRoutes } from "./modules/game-profiles/verification.js";
 import { errorRoutes } from "./modules/errors/routes.js";
 
-export const API_VERSION = "0.15.0";
+export const API_VERSION = "0.16.0";
 
 export interface BuildOptions {
   config: Config;

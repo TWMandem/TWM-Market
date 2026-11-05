@@ -151,7 +151,7 @@ export function AccountPage() {
                 <Card id="appearance" className="flex scroll-mt-24 flex-col gap-3">
                   <h2 className="m-0 text-[17px] font-extrabold">Оформление</h2>
                   <p className="m-0 text-[13px] text-muted">Тема запоминается на этом компьютере. «Как в Windows» — меняется вместе с темой системы.</p>
-                  <div className="max-w-[460px]">
+                  <div className="max-w-[520px]">
                     <ThemePicker />
                   </div>
                 </Card>
