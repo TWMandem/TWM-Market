@@ -303,7 +303,6 @@
 }
 .hw-mist {
   overflow: hidden;
-  mask-image: linear-gradient(to top, black 30%, transparent);
 }
 .hw-fog {
   position: absolute;
@@ -313,7 +312,9 @@
   height: 160px;
   border-radius: 50%;
   background: radial-gradient(closest-side, rgb(185 166 220 / 0.13), transparent);
-  filter: blur(6px);
+  /* Без blur и mask: туман должен быть дешёвым для слабых телефонов —
+     двигается только transform (на видеокарте). */
+  will-change: transform;
   animation: hw-fog-drift 26s ease-in-out infinite alternate;
 }
 .hw-fog-2 {
@@ -333,6 +334,7 @@
   background: #ffb347;
   box-shadow: 0 0 8px 2px rgb(255 140 40 / 0.6);
   opacity: 0;
+  will-change: transform, opacity;
   animation: hw-rise 9s linear infinite;
 }
 .hw-ghost-flight {
