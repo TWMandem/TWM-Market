@@ -22,3 +22,14 @@ rm -f "$res"/mipmap-*/ic_launcher*.png "$res"/mipmap-*/ic_launcher*.webp "$res"/
 rm -f "$res"/values/ic_launcher_background.xml
 cp -r src-tauri/icons/android/res/. "$res/"
 find "$res" -name 'ic_launcher*' | sort
+
+# Без сжатия кода (R8) в выпуске: R8 ломает библиотеки, которые создают свои
+# классы по имени (WorkManager для фоновых уведомлений падал при запуске
+# приложения). APK немного больше, зато поведение как при разработке.
+gradle=src-tauri/gen/android/app/build.gradle.kts
+sed -i -E 's/isMinifyEnabled[[:space:]]*=[[:space:]]*true/isMinifyEnabled = false/; s/isShrinkResources[[:space:]]*=[[:space:]]*true/isShrinkResources = false/' "$gradle"
+grep -nE 'isMinifyEnabled|isShrinkResources' "$gradle" || true
+if grep -qE 'isMinifyEnabled[[:space:]]*=[[:space:]]*true' "$gradle"; then
+  echo "Не удалось выключить сжатие кода в $gradle" >&2
+  exit 1
+fi
