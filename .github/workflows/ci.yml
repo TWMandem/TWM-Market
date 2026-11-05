@@ -304,6 +304,12 @@ jobs:
           grep -q 'android:host="twm-market.ru"' AndroidManifest.xml
           grep -q 'android:scheme="twm-market"' AndroidManifest.xml
           grep -B2 -A12 'autoVerify' AndroidManifest.xml
+          # Обновление внутри приложения: разрешение и провайдер файла в итоговом манифесте.
+          merged="$(find ../../build/intermediates -name AndroidManifest.xml -path '*merged_manifest*' | head -n 1)"
+          echo "$merged"
+          grep -q 'REQUEST_INSTALL_PACKAGES' "$merged"
+          grep -q 'ru.twmmarket.apkupdate.ApkFileProvider' "$merged"
+          grep -q 'ru.twmmarket.app.apkupdate' "$merged"
 
       - name: Подпись временным ключом
         working-directory: apps/desktop

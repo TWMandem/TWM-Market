@@ -77,6 +77,9 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init());
 
+    #[cfg(target_os = "android")]
+    let builder = builder.plugin(tauri_plugin_apk_update::init());
+
     #[cfg(desktop)]
     let builder = builder
         .plugin(tauri_plugin_updater::Builder::new().build())

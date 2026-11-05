@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Открыть установщик для скачанного обновления. Android всё равно спросит игрока. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
+    <application>
+        <!-- Отдаёт установщику скачанный APK из личной папки приложения. -->
+        <provider
+            android:name="ru.twmmarket.apkupdate.ApkFileProvider"
+            android:authorities="${applicationId}.apkupdate"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/apk_update_paths" />
+        </provider>
+    </application>
+</manifest>

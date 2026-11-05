@@ -14,5 +14,11 @@ fi
 echo "NDK_HOME=$NDK_HOME" >> "${GITHUB_ENV:-/dev/null}"
 
 pnpm tauri android init --ci
-# Иконки приложения для Android из общей картинки.
-pnpm tauri icon src-tauri/icons/icon.png
+
+# Иконки для Android — свои, адаптивные (src-tauri/icons/android, make.py):
+# знак вписан в безопасную зону, поэтому маска лаунчера его не обрезает.
+res=src-tauri/gen/android/app/src/main/res
+rm -f "$res"/mipmap-*/ic_launcher*.png "$res"/mipmap-*/ic_launcher*.webp "$res"/mipmap-anydpi-v26/ic_launcher*.xml
+rm -f "$res"/values/ic_launcher_background.xml
+cp -r src-tauri/icons/android/res/. "$res/"
+find "$res" -name 'ic_launcher*' | sort
