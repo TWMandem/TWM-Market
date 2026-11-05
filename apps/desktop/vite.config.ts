@@ -1,4 +1,4 @@
-import { defineConfig, type Plugin } from "vite";
+import { defineConfig, type HtmlTagDescriptor, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
@@ -10,10 +10,10 @@ const WEB = process.env.VITE_WEB === "1";
 function webAppHead(): Plugin {
   return {
     name: "twm-web-app-head",
-    transformIndexHtml() {
+    transformIndexHtml(): HtmlTagDescriptor[] {
       if (!WEB) return [];
       const base = "/app/";
-      const meta = (name: string, content: string) => ({ tag: "meta", attrs: { name, content }, injectTo: "head" as const });
+      const meta = (name: string, content: string): HtmlTagDescriptor => ({ tag: "meta", attrs: { name, content }, injectTo: "head" });
       return [
         { tag: "link", attrs: { rel: "manifest", href: `${base}manifest.webmanifest` }, injectTo: "head" },
         { tag: "link", attrs: { rel: "icon", type: "image/png", href: `${base}icons/icon-192.png` }, injectTo: "head" },

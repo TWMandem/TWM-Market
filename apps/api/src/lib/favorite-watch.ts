@@ -42,9 +42,9 @@ interface Delivery {
 async function deliver(sql: Sql, items: Delivery[]): Promise<number> {
   if (items.length === 0) return 0;
   const rows = items.map((d) => ({ user_id: d.userId, kind: d.kind, title: d.title.slice(0, 120), body: d.body.slice(0, 300), link: d.link }));
-  const saved = await sql<{ id: string; userId: string; title: string; body: string; link: string | null }[]>`
+  const saved = (await sql`
     INSERT INTO notifications ${sql(rows, "user_id", "kind", "title", "body", "link")}
-    RETURNING id, user_id, title, body, link`;
+    RETURNING id, user_id, title, body, link`) as unknown as Array<{ id: string; userId: string; title: string; body: string; link: string | null }>;
   // Веб-приложению (iPhone) — сразу через Web Push, без ожидания.
   for (const n of saved) void sendWebPush(sql, n.userId, { id: Number(n.id), title: n.title, body: n.body, link: n.link });
   return items.length;
