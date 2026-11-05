@@ -178,8 +178,15 @@ jobs:
           cat "$RUNNER_TEMP/ui.log" "$RUNNER_TEMP/web.log"; exit 1
 
       - name: Браузеры Chromium и WebKit (Safari)
-        timeout-minutes: 10
-        run: pnpm --filter @twm/screenshots exec playwright install --with-deps chromium webkit
+        timeout-minutes: 15
+        # Установка иногда зависает на стороне GitHub — до трёх попыток по 4 минуты.
+        run: |
+          for attempt in 1 2 3; do
+            if timeout 240 pnpm --filter @twm/screenshots exec playwright install --with-deps chromium webkit; then exit 0; fi
+            echo "Попытка $attempt не удалась, повторяю"
+            sleep 5
+          done
+          exit 1
 
       - name: Тестовые данные
         run: pnpm --filter @twm/screenshots seed
