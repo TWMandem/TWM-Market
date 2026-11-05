@@ -53,7 +53,7 @@ export function AppHeader() {
           >
             TW
           </span>
-          <span className="font-display text-[17px] font-bold md:max-[1100px]:sr-only">TWM Market</span>
+          <span className="font-display text-[17px] font-bold max-[1100px]:sr-only">TWM Market</span>
         </NavLink>
 
         <nav aria-label="Разделы" className="flex shrink-0 gap-1 max-md:hidden">

@@ -9,6 +9,9 @@ import { ReportDialog } from "../../components/ReportDialog";
 import { Alert, Button } from "../../components/ui";
 import { ApiError, api, mediaSrc } from "../../lib/api";
 import { useLoad } from "../../lib/use-load";
+
+/** Узкий экран (телефон): короче подсказки. */
+const NARROW = typeof window !== "undefined" && window.matchMedia?.("(max-width: 767px)").matches === true;
 import { useUpdates } from "../../lib/updates-context";
 
 const THREAD_POLL_MS = 4_000;
@@ -328,7 +331,7 @@ function Thread({ id, onChange }: { id: string; onChange: (c: ConversationDto) =
           )}
           <LastSeen at={c.counterpart.lastSeenAt} className="text-xs" />
         </div>
-        <div className="flex flex-col items-end gap-1">
+        <div className="flex flex-col items-end gap-1 max-md:w-full max-md:flex-row max-md:justify-end max-md:gap-4">
           <button
             type="button"
             onClick={() => setReport({ type: "user", id: c.counterpart.login })}
@@ -379,7 +382,7 @@ function Thread({ id, onChange }: { id: string; onChange: (c: ConversationDto) =
         </div>
       ) : (
       <form
-        className="relative flex items-end gap-2 border-t border-line-soft p-3"
+        className="relative flex items-end gap-2 border-t border-line-soft p-3 max-md:gap-1.5 max-md:p-2"
         onSubmit={(e) => {
           e.preventDefault();
           void send();
@@ -390,7 +393,7 @@ function Thread({ id, onChange }: { id: string; onChange: (c: ConversationDto) =
           aria-label="Отправить скриншот"
           title="Скриншот (или Ctrl+V в поле ввода)"
           onClick={() => fileInput.current?.click()}
-          className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-line text-lg text-ink-2 hover:border-faint"
+          className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-line text-lg text-ink-2 hover:border-faint max-md:size-10"
         >
           <span aria-hidden="true">＋</span>
         </button>
@@ -404,7 +407,7 @@ function Thread({ id, onChange }: { id: string; onChange: (c: ConversationDto) =
               setTemplatesOpen(false);
               setOfferOpen((v) => !v);
             }}
-            className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-line font-mono text-[17px] font-bold text-ink-2 hover:border-faint"
+            className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-line font-mono text-[17px] font-bold text-ink-2 hover:border-faint max-md:size-10"
           >
             <span aria-hidden="true">₽</span>
           </button>
@@ -429,7 +432,7 @@ function Thread({ id, onChange }: { id: string; onChange: (c: ConversationDto) =
             setOfferOpen(false);
             setTemplatesOpen((v) => !v);
           }}
-          className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-line text-ink-2 hover:border-faint"
+          className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-line text-ink-2 hover:border-faint max-md:size-10"
         >
           <Icon name="chat" size={18} />
         </button>
@@ -471,7 +474,7 @@ function Thread({ id, onChange }: { id: string; onChange: (c: ConversationDto) =
           rows={1}
           maxLength={MESSAGE_MAX}
           value={text}
-          placeholder="Сообщение… Enter — отправить, Shift+Enter — новая строка"
+          placeholder={NARROW ? "Сообщение…" : "Сообщение… Enter — отправить, Shift+Enter — новая строка"}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={onKeyDown}
           onPaste={(e) => {
@@ -481,10 +484,11 @@ function Thread({ id, onChange }: { id: string; onChange: (c: ConversationDto) =
               void sendImage(file.name ? file : new File([file], `screenshot-${Date.now()}.png`, { type: file.type }));
             }
           }}
-          className="max-h-40 min-h-11 flex-1 resize-y rounded-xl border border-line bg-ground px-3.5 py-2.5 text-ink outline-none focus:border-accent"
+          className="max-h-40 min-h-11 min-w-0 flex-1 resize-y rounded-xl border border-line bg-ground px-3.5 py-2.5 text-ink outline-none focus:border-accent max-md:min-h-10 max-md:resize-none max-md:px-3 max-md:py-2"
         />
-        <Button type="submit" loading={sending} disabled={!text.trim()} className="h-11">
-          Отправить
+        <Button type="submit" loading={sending} disabled={!text.trim()} aria-label="Отправить" className="h-11 max-md:h-10 max-md:px-3">
+          <span className="max-md:hidden">Отправить</span>
+          <Icon name="arrowRight" size={18} className="md:hidden" />
         </Button>
       </form>
       )}

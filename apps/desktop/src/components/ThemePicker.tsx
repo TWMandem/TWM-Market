@@ -17,7 +17,7 @@ export function ThemePicker({ compact = false }: { compact?: boolean }) {
             aria-label={compact ? o.label : undefined}
             title={compact ? o.label : undefined}
             onClick={() => setPreference(o.value)}
-            className={`flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-lg font-bold transition-colors ${compact ? "h-8 text-[13px]" : "h-10 px-3 text-sm"} ${
+            className={`flex min-w-0 flex-1 items-center justify-center gap-2 rounded-lg text-center font-bold leading-tight transition-colors ${compact ? "h-8 text-[13px]" : "min-h-10 px-2 py-1.5 text-sm max-sm:flex-col max-sm:gap-1 max-sm:text-[12px]"} ${
               active ? "bg-surface-2 text-ink shadow-sm" : "text-muted hover:text-ink"
             }`}
           >

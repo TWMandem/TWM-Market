@@ -82,9 +82,13 @@ export function ListingPage() {
         </Alert>
       )}
 
-      <div className="flex flex-wrap items-start gap-7">
-        <section aria-label="Изображения и описание" className="flex min-w-0 flex-[999_1_560px] flex-col gap-4">
-          <Gallery listing={listing} />
+      {/* На телефоне: фото, затем цена и продавец, затем остальное. */}
+      <div className="flex flex-wrap items-start gap-7 max-md:flex-col max-md:flex-nowrap max-md:items-stretch max-md:gap-4">
+        <section aria-label="Изображения и описание" className="flex min-w-0 flex-[999_1_560px] flex-col gap-4 max-md:contents">
+          <div className="max-md:order-1">
+            <Gallery listing={listing} />
+          </div>
+          <div className="flex min-w-0 flex-col gap-4 max-md:order-3">
 
           {listing.catalogItem && <ItemPreviewCard item={listing.catalogItem} />}
 
@@ -122,9 +126,10 @@ export function ListingPage() {
               <p className="m-0 whitespace-pre-line leading-relaxed text-ink-2">{listing.description}</p>
             </Card>
           )}
+          </div>
         </section>
 
-        <aside aria-label="Цена и продавец" className="flex min-w-0 flex-[1_1_340px] flex-col gap-4 lg:max-w-[420px]">
+        <aside aria-label="Цена и продавец" className="flex min-w-0 flex-[1_1_340px] flex-col gap-4 lg:max-w-[420px] max-md:order-2">
           <PriceCard listing={listing} onChange={setData} />
           <StickyBar listing={listing} />
           {listing.warnings.length > 0 && (
@@ -630,19 +635,20 @@ function StickyBar({ listing }: { listing: ListingDetailDto }) {
   return (
     <div
       aria-hidden={!visible}
-      className={`fixed inset-x-0 top-[69px] z-20 border-b border-line-soft bg-ground/95 backdrop-blur-md transition-all duration-200 ${
+      className={`fixed inset-x-0 top-[69px] z-20 border-b border-line-soft bg-ground/95 backdrop-blur-md transition-all duration-200 max-md:bottom-16 max-md:top-auto max-md:border-b-0 max-md:border-t ${
         visible ? "translate-y-0 opacity-100" : "pointer-events-none -translate-y-2 opacity-0"
       }`}
     >
-      <div className="mx-auto flex max-w-[1280px] items-center gap-4 px-6 py-2.5">
-        <span className="min-w-0 flex-1 truncate font-bold">{listing.title}</span>
-        <span className="flex items-center gap-1.5 text-[13px] text-muted">
+      <div className="mx-auto flex max-w-[1280px] items-center gap-4 px-6 py-2.5 max-md:gap-3 max-md:px-4">
+        <span className="min-w-0 flex-1 truncate font-bold max-md:hidden">{listing.title}</span>
+        <span className="flex items-center gap-1.5 text-[13px] text-muted max-md:hidden">
           <ServerDot color={listing.server.color} /> {listing.server.name}
         </span>
-        <span className="font-mono text-lg font-bold text-accent-soft tabular">{priceText(listing.price, listing.operation)}</span>
+        <span className="font-mono text-lg font-bold text-accent-soft tabular max-md:min-w-0 max-md:flex-1 max-md:truncate">{priceText(listing.price, listing.operation)}</span>
         <Button loading={busy} tabIndex={visible ? 0 : -1} onClick={() => void write()} className="h-10">
           <Icon name="chat" size={17} />
-          {listing.operation === "buy" ? "Написать покупателю" : "Написать продавцу"}
+          <span className="max-md:hidden">{listing.operation === "buy" ? "Написать покупателю" : "Написать продавцу"}</span>
+          <span className="md:hidden">Написать</span>
         </Button>
       </div>
     </div>

@@ -98,7 +98,7 @@ export function ListingCard({
   return (
     <article className="group relative flex flex-col overflow-hidden rounded-[18px] border border-line bg-surface transition-colors hover:border-faint">
       <Link to={`/listing/${listing.id}`} className="flex flex-1 flex-col text-ink no-underline">
-        <div className="relative h-[150px] bg-surface-2">
+        <div className="relative h-[150px] bg-surface-2 max-sm:h-[118px]">
           <Media media={listing.image} alt={listing.title} fit={isItem && listing.image?.kind !== "image" ? "contain" : "cover"} className="size-full" />
           {/* Подложка цвета карточки: плашки читаются поверх любого фото в обеих темах. */}
           <span className="absolute left-3 top-3 rounded-lg bg-surface/90 backdrop-blur">
@@ -110,10 +110,10 @@ export function ListingCard({
             </span>
           )}
         </div>
-        <div className="flex flex-1 flex-col gap-1.5 px-4 pb-4 pt-3.5">
-          <h3 className="m-0 line-clamp-2 text-base font-bold leading-snug">{listing.title}</h3>
+        <div className="flex flex-1 flex-col gap-1.5 px-4 pb-4 pt-3.5 max-sm:px-3 max-sm:pb-3 max-sm:pt-2.5">
+          <h3 className="m-0 line-clamp-2 text-base font-bold leading-snug max-sm:text-[14px]">{listing.title}</h3>
           {isItem && listing.quantity > 1 && <span className="text-[13px] text-muted">{listing.quantity} шт.</span>}
-          <span className="mt-1 font-mono text-[19px] font-bold text-accent-soft tabular" title={listing.price ? formatPrice(listing.price) : undefined}>
+          <span className="mt-1 font-mono text-[19px] font-bold text-accent-soft tabular max-sm:text-[16px]" title={listing.price ? formatPrice(listing.price) : undefined}>
             {listing.price !== null && listing.price >= 10_000_000 ? formatPriceShort(listing.price) : priceText(listing.price, listing.operation)}
           </span>
           {priceNote}
@@ -127,7 +127,7 @@ export function ListingCard({
                 </span>
               )}
             </span>
-            <span className="shrink-0">{timeAgo(listing.publishedAt)}</span>
+            <span className="shrink-0 max-sm:hidden">{timeAgo(listing.publishedAt)}</span>
           </div>
         </div>
       </Link>
@@ -160,7 +160,7 @@ export function ListingGrid<T extends ListingCardDto>({
   priceNote?: ((listing: T) => ReactNode) | undefined;
 }) {
   return (
-    <div className="grid grid-cols-[repeat(auto-fill,minmax(230px,1fr))] gap-4">
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-[repeat(auto-fill,minmax(230px,1fr))] sm:gap-4">
       {items.map((item) => (
         <ListingCard key={item.id} listing={item} onToggleFavorite={onToggleFavorite} priceNote={priceNote?.(item)} />
       ))}

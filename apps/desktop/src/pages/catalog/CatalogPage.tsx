@@ -51,6 +51,8 @@ export function CatalogPage({ section }: { section: SectionCode | "search" }) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [subscribing, setSubscribing] = useState(false);
+  // На телефоне фильтры свёрнуты в кнопку, чтобы объявления были сразу на экране.
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const { status } = useAuth();
   const [view, setViewState] = useState<"grid" | "list">(() => (readSetting("catalogView") === "list" ? "list" : "grid"));
   const setView = (v: "grid" | "list") => {
@@ -197,7 +199,7 @@ export function CatalogPage({ section }: { section: SectionCode | "search" }) {
 
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex flex-col gap-1.5">
-          <h1 className="m-0 font-display text-[32px] font-bold">
+          <h1 className="m-0 font-display text-[32px] font-bold max-md:text-[26px]">
             {section === "search" && get("q") ? `Поиск: «${get("q")}»` : TITLES[section]}
           </h1>
           <span className="text-muted">
@@ -206,9 +208,13 @@ export function CatalogPage({ section }: { section: SectionCode | "search" }) {
           </span>
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
+          <Button variant="secondary" onClick={() => setFiltersOpen((v) => !v)} aria-expanded={filtersOpen} className="md:hidden">
+            <Icon name="list" size={17} /> {filtersOpen ? "Скрыть фильтры" : "Фильтры"}
+            {chips.length > 0 && <span className="rounded-md bg-accent px-1.5 text-xs font-extrabold text-on-accent">{chips.length}</span>}
+          </Button>
           {status === "authed" && (
             <Button variant="secondary" onClick={() => setSubscribing(true)}>
-              <Icon name="bookmark" size={17} /> Подписаться на поиск
+              <Icon name="bookmark" size={17} /> <span className="max-md:sr-only">Подписаться на поиск</span>
             </Button>
           )}
           <Segmented
@@ -276,7 +282,7 @@ export function CatalogPage({ section }: { section: SectionCode | "search" }) {
       <div className="flex flex-wrap items-start gap-6">
         <aside
           aria-label="Фильтры"
-          className="flex min-w-0 flex-[1_1_250px] flex-col gap-5 rounded-[var(--radius-card)] border border-line bg-surface p-5 lg:sticky lg:top-24 lg:max-h-[calc(100vh-112px)] lg:max-w-[290px] lg:overflow-y-auto"
+          className={`flex min-w-0 flex-[1_1_250px] flex-col gap-5 rounded-[var(--radius-card)] border border-line bg-surface p-5 ${filtersOpen ? "" : "max-md:hidden"} lg:sticky lg:top-24 lg:max-h-[calc(100vh-112px)] lg:max-w-[290px] lg:overflow-y-auto`}
           style={{ scrollbarWidth: "thin" }}
         >
           {categorySection && categories.length > 0 && (
@@ -433,7 +439,7 @@ export function CatalogPage({ section }: { section: SectionCode | "search" }) {
             </div>
           )}
           {!result && loading && (
-            <div aria-hidden="true" className="grid grid-cols-[repeat(auto-fill,minmax(230px,1fr))] gap-4">
+            <div aria-hidden="true" className="grid grid-cols-2 gap-3 sm:grid-cols-[repeat(auto-fill,minmax(230px,1fr))] sm:gap-4">
               {Array.from({ length: 6 }, (_, i) => (
                 <div key={i} className="flex animate-pulse flex-col overflow-hidden rounded-[18px] border border-line bg-surface">
                   <div className="h-[150px] bg-surface-2" />
