@@ -55,7 +55,7 @@ export function AppHeader() {
             className="relative flex size-9 items-center justify-center rounded-[10px] bg-accent font-display text-[13px] font-bold text-on-accent"
           >
             TW
-            {season === "halloween" && <Pumpkin lit className="absolute -bottom-1.5 -right-2 size-[18px] drop-shadow" />}
+            {season === "halloween" && <Pumpkin lit className="absolute -bottom-2 -right-2.5 size-[22px] drop-shadow" />}
           </span>
           <span className="font-display text-[17px] font-bold max-[1100px]:sr-only">TWM Market</span>
         </NavLink>

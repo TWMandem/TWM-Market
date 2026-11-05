@@ -87,9 +87,9 @@ export function SeasonDecor() {
 export function Bats() {
   return (
     <span aria-hidden="true" className="hw-bats pointer-events-none absolute -top-6 right-0 flex gap-6 max-md:-top-4">
-      <Bat className="hw-bat size-9 text-[var(--hw-bat)]" />
-      <Bat className="hw-bat hw-bat-2 size-6 text-[var(--hw-bat)]" />
-      <Bat className="hw-bat hw-bat-3 size-7 text-[var(--hw-bat)]" />
+      <Bat className="hw-bat size-12 text-[var(--hw-bat)] max-md:size-9" />
+      <Bat className="hw-bat hw-bat-2 size-8 text-[var(--hw-bat)] max-md:size-6" />
+      <Bat className="hw-bat hw-bat-3 size-10 text-[var(--hw-bat)] max-md:size-7" />
     </span>
   );
 }
