@@ -44,7 +44,7 @@ export function AppHeader() {
   }, []);
 
   return (
-    <header className="sticky top-0 z-30 border-b border-line-soft bg-ground/90 backdrop-blur-md">
+    <header className="sticky top-0 z-30 border-b border-line-soft bg-ground/90 pt-[var(--safe-top,0px)] backdrop-blur-md">
       <div className="mx-auto flex max-w-[1280px] items-center gap-2.5 px-6 py-3 max-md:flex-wrap max-md:gap-2 max-md:px-4 max-md:py-2.5">
         <NavLink to="/" className="flex shrink-0 items-center gap-2.5 text-ink no-underline">
           <span
@@ -268,7 +268,7 @@ export function BottomTabs() {
   return (
     <nav
       aria-label="Основные разделы"
-      className="fixed inset-x-0 bottom-0 z-30 flex h-16 items-stretch border-t border-line-soft bg-ground/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden"
+      className="fixed inset-x-0 bottom-0 z-30 flex h-[calc(4rem+var(--safe-bottom,0px))] items-stretch border-t border-line-soft bg-ground/95 pb-[var(--safe-bottom,0px)] backdrop-blur-md md:hidden"
     >
       <NavLink to="/" end className={tab}>
         <Icon name="box" size={22} />

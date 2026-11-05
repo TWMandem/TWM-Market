@@ -635,7 +635,7 @@ function StickyBar({ listing }: { listing: ListingDetailDto }) {
   return (
     <div
       aria-hidden={!visible}
-      className={`fixed inset-x-0 top-[69px] z-20 border-b border-line-soft bg-ground/95 backdrop-blur-md transition-all duration-200 max-md:bottom-16 max-md:top-auto max-md:border-b-0 max-md:border-t ${
+      className={`fixed inset-x-0 top-[69px] z-20 border-b border-line-soft bg-ground/95 backdrop-blur-md transition-all duration-200 max-md:bottom-[calc(4rem+var(--safe-bottom,0px))] max-md:top-auto max-md:border-b-0 max-md:border-t ${
         visible ? "translate-y-0 opacity-100" : "pointer-events-none -translate-y-2 opacity-0"
       }`}
     >

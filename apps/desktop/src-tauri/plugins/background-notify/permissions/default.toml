@@ -1,5 +1,5 @@
 "$schema" = "schemas/schema.json"
 
 [default]
-description = "Включить и выключить фоновую проверку уведомлений, показать уведомление Android."
-permissions = ["allow-start", "allow-stop", "allow-status", "allow-seen", "allow-notify"]
+description = "Фоновая проверка уведомлений, уведомления Android, отступы под строку состояния и цвет её значков."
+permissions = ["allow-start", "allow-stop", "allow-status", "allow-seen", "allow-notify", "allow-insets", "allow-status-bar"]

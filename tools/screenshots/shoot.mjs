@@ -189,6 +189,9 @@ await shot(phone, "phone-account", "Телефон: личный кабинет"
 await shot(phone, "phone-menu", "Телефон: меню аккаунта", "/", async (page) => {
   await page.getByRole("button", { name: /^Аккаунт / }).click();
 });
+await shot(phone, "phone-notifications", "Телефон: уведомления", "/", async (page) => {
+  await page.getByRole("button", { name: /^Уведомления/ }).click();
+});
 await shot(phone, "phone-server", "Телефон: выбор сервера", "/", async (page) => {
   await page.getByRole("button", { name: /^Мой сервер/ }).click();
 });

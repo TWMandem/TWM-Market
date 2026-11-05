@@ -48,9 +48,21 @@ async fn notify<R: Runtime>(app: AppHandle<R>, id: i64, title: String, body: Str
         .map_err(|e| e.to_string())
 }
 
+/// Высота строки состояния и панели жестов Android в пикселях CSS: { top, bottom }.
+#[tauri::command]
+async fn insets<R: Runtime>(app: AppHandle<R>) -> Result<Value, String> {
+    handle(&app).run_mobile_plugin("insets", ()).map_err(|e| e.to_string())
+}
+
+/// Значки строки состояния: тёмные (светлая тема) или светлые (тёмная тема).
+#[tauri::command]
+async fn status_bar<R: Runtime>(app: AppHandle<R>, light: bool) -> Result<Value, String> {
+    handle(&app).run_mobile_plugin("statusBar", serde_json::json!({ "light": light })).map_err(|e| e.to_string())
+}
+
 pub fn init<R: Runtime>() -> TauriPlugin<R> {
     Builder::new("background-notify")
-        .invoke_handler(tauri::generate_handler![start, stop, status, seen, notify])
+        .invoke_handler(tauri::generate_handler![start, stop, status, seen, notify, insets, status_bar])
         .setup(|app, api| {
             #[cfg(target_os = "android")]
             {

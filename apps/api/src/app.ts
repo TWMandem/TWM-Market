@@ -34,7 +34,7 @@ import { verificationRoutes } from "./modules/game-profiles/verification.js";
 import { errorRoutes } from "./modules/errors/routes.js";
 import { pushRoutes } from "./modules/push/routes.js";
 
-export const API_VERSION = "0.19.1";
+export const API_VERSION = "0.19.2";
 
 export interface BuildOptions {
   config: Config;

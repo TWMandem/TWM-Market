@@ -68,7 +68,7 @@ export function NotificationsMenu() {
         {unreadNotifications > 0 && <Badge count={unreadNotifications} />}
       </button>
       {open && (
-        <div className="absolute right-0 top-12 z-40 flex w-[360px] max-w-[calc(100vw-32px)] flex-col overflow-hidden rounded-[var(--radius-card)] border border-line bg-surface shadow-2xl">
+        <div className="absolute right-0 top-12 z-40 flex w-[360px] max-w-[calc(100vw-32px)] flex-col overflow-hidden rounded-[var(--radius-card)] border border-line bg-surface shadow-2xl max-md:fixed max-md:inset-x-3 max-md:top-[calc(var(--safe-top,0px)+64px)] max-md:w-auto max-md:max-w-none">
           <div className="flex items-center justify-between border-b border-line-soft px-4 py-3">
             <span className="font-bold">Уведомления</span>
             {unreadNotifications > 0 && (
@@ -77,7 +77,7 @@ export function NotificationsMenu() {
               </button>
             )}
           </div>
-          <ul className="m-0 flex max-h-[420px] list-none flex-col overflow-y-auto p-1.5">
+          <ul className="m-0 flex max-h-[420px] list-none flex-col overflow-y-auto p-1.5 max-md:max-h-[55vh]">
             {items === null && <li className="p-3 text-sm text-muted">Загружаю…</li>}
             {items?.length === 0 && <li className="p-3 text-sm text-muted">Уведомлений пока нет</li>}
             {items?.map((n) => (

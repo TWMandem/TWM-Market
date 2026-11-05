@@ -312,21 +312,22 @@ function Thread({ id, onChange }: { id: string; onChange: (c: ConversationDto) =
             {c.listing.title}
           </Link>
           <span className="flex flex-wrap items-center gap-x-2 text-[13px] text-muted">
-            <span className="font-mono font-bold text-accent-soft">{c.listing.price !== null ? formatPrice(c.listing.price) : "Обмен"}</span>
+            <span className="whitespace-nowrap font-mono font-bold text-accent-soft">{c.listing.price !== null ? formatPrice(c.listing.price) : "Обмен"}</span>
             <span className="flex items-center gap-1">
               <ServerDot color={c.listing.server.color} /> {c.listing.server.name}
             </span>
             {c.listing.status !== "active" && <span className="text-danger-ink">объявление снято</span>}
           </span>
         </div>
-        <div className="flex flex-col items-end gap-0.5 text-right">
+        {/* На телефоне собеседник — отдельной строкой, чтобы длинный ник не наезжал на цену. */}
+        <div className="flex flex-col items-end gap-0.5 text-right max-md:w-full max-md:min-w-0 max-md:flex-row max-md:flex-wrap max-md:items-center max-md:gap-x-3 max-md:border-t max-md:border-line-soft max-md:pt-2.5 max-md:text-left">
           <Link to={`/user/${encodeURIComponent(c.counterpart.login)}`} className="text-sm font-bold text-ink hover:text-accent-ink">
             {c.counterpart.login}
           </Link>
           {c.counterpart.nickname && (
             <span className="flex items-center gap-0.5">
               <CopyButton text={c.counterpart.nickname} label="Скопировать ник" done={`Ник ${c.counterpart.nickname} скопирован`} className="!size-7" />
-              <span className="select-all font-mono text-xs text-muted">{c.counterpart.nickname}</span>
+              <span className="select-all break-all font-mono text-xs text-muted">{c.counterpart.nickname}</span>
             </span>
           )}
           <LastSeen at={c.counterpart.lastSeenAt} className="text-xs" />

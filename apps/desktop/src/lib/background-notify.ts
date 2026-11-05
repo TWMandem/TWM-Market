@@ -49,9 +49,9 @@ export async function stopBackgroundNotifications(): Promise<void> {
 }
 
 /**
- * Приложение открыто и само получило уведомления: показать их как уведомления
- * Android (по нажатию — нужный экран) и сдвинуть отметку, чтобы фоновая
- * проверка их не повторила.
+ * Приложение само получило уведомления: Android-часть покажет их как
+ * уведомления Android, если приложение свёрнуто (на экране — не показывает),
+ * и сдвинет отметку, чтобы фоновая проверка их не повторила.
  */
 export async function androidNotify(items: NotificationDto[], cursor: number, show: boolean): Promise<void> {
   if (!isAndroidApp()) return;
@@ -65,4 +65,27 @@ export async function androidNotify(items: NotificationDto[], cursor: number, sh
   } catch {
     // Плагина нет (старая сборка) — не страшно.
   }
+}
+
+/**
+ * Android рисует приложение под строкой состояния и панелью жестов: их высота
+ * приходит CSS-переменными --safe-top / --safe-bottom (шапка и нижняя панель
+ * отступают на эту высоту). Здесь — первое значение при запуске.
+ */
+export async function initAndroidInsets(): Promise<void> {
+  if (!isAndroidApp()) return;
+  try {
+    const { top, bottom } = await invoke<{ top: number; bottom: number }>("plugin:background-notify|insets");
+    const root = document.documentElement.style;
+    if (top > 0) root.setProperty("--safe-top", `${top}px`);
+    if (bottom > 0) root.setProperty("--safe-bottom", `${bottom}px`);
+  } catch {
+    // Старая сборка — без отступов.
+  }
+}
+
+/** Цвет значков строки состояния под тему: тёмные значки на светлой теме. */
+export function setAndroidStatusBar(light: boolean): void {
+  if (!isAndroidApp()) return;
+  invoke("plugin:background-notify|status_bar", { light }).catch(() => {});
 }

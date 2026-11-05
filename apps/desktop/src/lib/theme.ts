@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { readSetting, writeSetting } from "./storage";
+import { IS_ANDROID } from "./platform";
 import { isTauri } from "./token-store";
 
 /**
@@ -43,8 +44,13 @@ function apply(): void {
   const root = document.documentElement;
   root.dataset.theme = theme;
   root.style.colorScheme = theme;
-  // Заголовок окна Windows — в тон приложению (null — как в системе).
-  if (isTauri()) {
+  // Android: значки строки состояния под тему.
+  if (IS_ANDROID) {
+    if (isTauri()) {
+      import("./background-notify").then(({ setAndroidStatusBar }) => setAndroidStatusBar(theme === "light")).catch(() => {});
+    }
+  } else if (isTauri()) {
+    // Заголовок окна Windows — в тон приложению (null — как в системе).
     import("@tauri-apps/api/window")
       .then(({ getCurrentWindow }) => getCurrentWindow().setTheme(preference === "system" ? null : preference))
       .catch(() => {});

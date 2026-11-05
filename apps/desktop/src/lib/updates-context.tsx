@@ -48,10 +48,9 @@ export function UpdatesProvider({ children }: { children: ReactNode }) {
       setUnreadNotifications(result.unreadNotifications);
       cursor.current = result.cursor;
       if (IS_ANDROID) {
-        // Android: уведомления Android по нажатию открывают нужный экран;
-        // фоновая проверка не покажет то, что приложение уже получило.
-        const hidden = result.notifications.length > 0 && (await appInBackground());
-        await androidNotify(result.notifications, result.cursor, hidden);
+        // Android: если приложение свёрнуто, Android-часть покажет уведомления
+        // (по нажатию — нужный экран); фоновая проверка их не повторит.
+        await androidNotify(result.notifications, result.cursor, true);
       }
       if (result.notifications.length > 0) {
         setVersion((v) => v + 1);

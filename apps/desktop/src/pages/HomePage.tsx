@@ -253,9 +253,9 @@ function Attention() {
       <h2 id="attention-title" className="m-0 font-display text-[22px] font-bold">
         Ждёт вашего ответа
       </h2>
-      <ul className="m-0 grid list-none gap-2.5 p-0 lg:grid-cols-2">
+      <ul className="m-0 grid list-none grid-cols-[minmax(0,1fr)] gap-2.5 p-0 lg:grid-cols-[repeat(2,minmax(0,1fr))]">
         {tasks.map((t) => (
-          <li key={t.key}>
+          <li key={t.key} className="min-w-0">
             <Link
               to={t.to}
               className="group flex items-center gap-3.5 rounded-2xl border border-line bg-surface p-3 pr-4 text-ink no-underline transition-colors hover:border-faint"
@@ -272,7 +272,7 @@ function Attention() {
                 <span className="truncate text-[13px] text-muted">{t.detail}</span>
               </span>
               <span className="flex shrink-0 items-center gap-1 text-sm font-bold text-accent-ink">
-                {t.action}
+                <span className="max-sm:sr-only">{t.action}</span>
                 <Icon name="arrowRight" size={16} className="transition-transform group-hover:translate-x-0.5" />
               </span>
             </Link>

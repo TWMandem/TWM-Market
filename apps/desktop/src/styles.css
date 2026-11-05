@@ -116,6 +116,8 @@
 
   body {
     margin: 0;
+    /* Ничего не вылезает вбок: на телефоне не появляется горизонтальная прокрутка. */
+    overflow-x: clip;
     background: var(--color-ground);
     color: var(--color-ink);
     font-family: var(--font-sans);

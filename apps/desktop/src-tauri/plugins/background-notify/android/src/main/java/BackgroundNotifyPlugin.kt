@@ -11,9 +11,13 @@ import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.webkit.WebView
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
@@ -137,7 +141,8 @@ class PollWorker(context: Context, params: WorkerParameters) : Worker(context, p
             connection.disconnect()
             val json = JSONObject(text)
             val items = json.optJSONArray("items")
-            if (items != null) {
+            // Приложение на экране — уведомления показывает оно само.
+            if (items != null && !BackgroundNotifyPlugin.foreground) {
                 for (i in 0 until items.length()) {
                     val item = items.getJSONObject(i)
                     val link = if (item.isNull("link")) null else item.optString("link")
@@ -169,6 +174,11 @@ class SeenArgs {
 }
 
 @InvokeArg
+class StatusBarArgs {
+    var light: Boolean = false
+}
+
+@InvokeArg
 class NotifyArgs {
     var id: Long = 0
     var title: String = ""
@@ -179,6 +189,65 @@ class NotifyArgs {
 @TauriPlugin
 class BackgroundNotifyPlugin(private val activity: Activity) : Plugin(activity) {
     private val context: Context get() = activity.applicationContext
+
+    companion object {
+        /** Приложение на экране (не свёрнуто): тогда уведомления Android не нужны. */
+        @Volatile
+        var foreground = false
+    }
+
+    // Отступы под строку состояния и панель жестов, в пикселях CSS.
+    @Volatile private var safeTop = 0f
+    @Volatile private var safeBottom = 0f
+
+    override fun onResume() {
+        foreground = true
+    }
+
+    override fun onPause() {
+        foreground = false
+    }
+
+    /**
+     * Android 15 рисует приложение под строкой состояния и панелью жестов.
+     * Передаём их высоту в интерфейс CSS-переменными --safe-top / --safe-bottom.
+     */
+    override fun load(webView: WebView) {
+        super.load(webView)
+        foreground = true
+        val density = activity.resources.displayMetrics.density
+        ViewCompat.setOnApplyWindowInsetsListener(webView) { view, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
+            safeTop = bars.top / density
+            safeBottom = bars.bottom / density
+            (view as WebView).evaluateJavascript(
+                "document.documentElement.style.setProperty('--safe-top','${safeTop}px');" +
+                    "document.documentElement.style.setProperty('--safe-bottom','${safeBottom}px');",
+                null,
+            )
+            insets
+        }
+        ViewCompat.requestApplyInsets(webView)
+    }
+
+    @Command
+    fun insets(invoke: Invoke) {
+        val result = JSObject()
+        result.put("top", safeTop.toDouble())
+        result.put("bottom", safeBottom.toDouble())
+        invoke.resolve(result)
+    }
+
+    @Command
+    fun statusBar(invoke: Invoke) {
+        val args = invoke.parseArgs(StatusBarArgs::class.java)
+        activity.runOnUiThread {
+            val controller = WindowCompat.getInsetsController(activity.window, activity.window.decorView)
+            controller.isAppearanceLightStatusBars = args.light
+            controller.isAppearanceLightNavigationBars = args.light
+        }
+        invoke.resolve(JSObject())
+    }
 
     @Command
     fun start(invoke: Invoke) {
@@ -230,7 +299,8 @@ class BackgroundNotifyPlugin(private val activity: Activity) : Plugin(activity) 
     @Command
     fun notify(invoke: Invoke) {
         val args = invoke.parseArgs(NotifyArgs::class.java)
-        Notifier.show(context, args.id, args.title, args.body, args.link)
+        // Свёрнуто — показать уведомление Android; на экране — игрок видит его в приложении.
+        if (!foreground) Notifier.show(context, args.id, args.title, args.body, args.link)
         Store.advance(context, args.id)
         invoke.resolve(JSObject())
     }

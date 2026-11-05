@@ -1,6 +1,6 @@
 {
   "name": "@twm/shared",
-  "version": "0.19.1",
+  "version": "0.19.2",
   "private": true,
   "description": "Общий код приложения и сервера: цены, справочные значения, схемы проверки данных",
   "type": "module",
