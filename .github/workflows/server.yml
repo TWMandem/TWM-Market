@@ -96,8 +96,8 @@ jobs:
           test -f "$out/site/app/icons/apple-touch-icon.png"
           grep -q 'rel="manifest" href="/app/manifest.webmanifest"' "$out/site/app/index.html"
           grep -q 'src="/app/assets/' "$out/site/app/index.html"
-          # Собрано для настоящего сервера, а не для localhost.
-          if grep -rq "localhost:3000" "$out/site/app/assets"; then echo "веб-приложение собрано с адресом localhost"; exit 1; fi
+          # Адрес сервера API попал в сборку (адрес localhost в ней тоже есть — это запасной адрес для разработки).
+          grep -rqF "${{ vars.API_URL || 'https://api.twm-market.ru' }}" "$out/site/app/assets"
           if grep -rq "include:" "$out/site" --include=*.html; then echo "не подставлены шапка или подвал"; exit 1; fi
           if grep -rqE "<script>|<script type=\"module\">" "$out/site" --include=*.html; then echo "встроенный скрипт в сайте"; exit 1; fi
           tar -czf twm-server-linux-x64.tar.gz -C bundle twm-server
