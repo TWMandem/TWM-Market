@@ -106,7 +106,7 @@ jobs:
     if: ${{ !failure() && !cancelled() }}
     runs-on: ubuntu-latest
     # Обычно ~8 минут; зависшая установка браузеров не держит проверку часами.
-    timeout-minutes: 30
+    timeout-minutes: 45
     services:
       postgres:
         image: postgres:17-alpine
@@ -182,15 +182,19 @@ jobs:
           cat "$RUNNER_TEMP/ui.log" "$RUNNER_TEMP/web.log"; exit 1
 
       - name: Браузеры Chromium и WebKit (Safari)
-        timeout-minutes: 15
+        timeout-minutes: 25
         # Установка иногда зависает на стороне GitHub — до трёх попыток по 4 минуты.
         run: |
           # Зеркало Ubuntu иногда «застревает» на загрузке: apt сам обрывает
           # медленное соединение и повторяет, а зависший apt-get перед новой
           # попыткой останавливается (иначе он держит блокировку dpkg).
           printf 'Acquire::Retries "5";\nAcquire::http::Timeout "20";\nAcquire::https::Timeout "20";\n' | sudo tee /etc/apt/apt.conf.d/99twm-network >/dev/null
+          # Зеркало Azure бывает очень медленным — сначала основное зеркало Ubuntu.
+          if [ -f /etc/apt/apt-mirrors.txt ]; then
+            printf 'http://archive.ubuntu.com/ubuntu/\tpriority:1\nhttp://azure.archive.ubuntu.com/ubuntu/\tpriority:2\n' | sudo tee /etc/apt/apt-mirrors.txt >/dev/null
+          fi
           for attempt in 1 2 3; do
-            if timeout -k 10 240 pnpm --filter @twm/screenshots exec playwright install-deps chromium webkit \
+            if timeout -k 10 420 pnpm --filter @twm/screenshots exec playwright install-deps chromium webkit \
               && timeout -k 10 240 pnpm --filter @twm/screenshots exec playwright install chromium webkit; then exit 0; fi
             echo "Попытка $attempt не удалась, повторяю"
             sudo pkill -9 -f "apt-get|dpkg" || true
