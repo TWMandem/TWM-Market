@@ -1001,3 +1001,107 @@
     animation: none !important;
   }
 }
+
+/* ── Праздничное оформление: Хеллоуин (src/season.js, <html data-season="halloween">) ── */
+:root[data-season="halloween"] body {
+  background-image:
+    radial-gradient(1100px 460px at 50% -140px, rgb(124 58 237 / 0.18), transparent 70%),
+    radial-gradient(900px 380px at 90% 105%, rgb(255 122 26 / 0.08), transparent 70%);
+  background-attachment: fixed;
+}
+:root[data-season="halloween"] body > header {
+  border-bottom-color: transparent;
+  box-shadow: 0 1px 0 0 rgb(255 122 26 / 0.45), 0 2px 18px -6px rgb(124 58 237 / 0.5);
+}
+.hw-logo {
+  position: relative;
+  display: inline-flex;
+}
+.hw-logo-pumpkin {
+  position: absolute;
+  right: -8px;
+  bottom: -6px;
+  width: 20px;
+  height: 20px;
+  filter: drop-shadow(0 1px 2px rgb(0 0 0 / 0.5));
+}
+.hw-layer {
+  pointer-events: none;
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 0;
+  z-index: 5;
+}
+.hw-web {
+  position: absolute;
+  left: 0;
+  top: 77px;
+  width: 150px;
+  height: 150px;
+  color: rgb(220 214 240 / 0.16);
+}
+.hw-spider {
+  position: absolute;
+  right: 8%;
+  top: 77px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: #b9a6dc;
+  transform-origin: top center;
+  animation: hw-swing 6s ease-in-out infinite;
+}
+.hw-thread {
+  width: 1px;
+  height: 80px;
+  background: rgb(220 214 240 / 0.22);
+  animation: hw-drop 9s ease-in-out infinite;
+}
+.hw-spider-body {
+  width: 32px;
+  height: 32px;
+}
+.hw-bats {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  color: #b9a6dc;
+}
+.hw-bat {
+  position: absolute;
+  animation: hw-flap 2.6s ease-in-out infinite;
+}
+.hw-bat-1 { width: 46px; height: 19px; top: 34px; left: 52%; }
+.hw-bat-2 { width: 30px; height: 12px; top: 70px; left: 60%; animation-delay: -0.9s; }
+.hw-bat-3 { width: 36px; height: 15px; top: 22px; left: 74%; animation-delay: -1.7s; }
+.hw-bat-4 { width: 24px; height: 10px; top: 92px; left: 84%; animation-delay: -0.4s; }
+.hw-pumpkins {
+  pointer-events: none;
+  position: absolute;
+  left: max(20px, calc(50% - 580px));
+  bottom: 12px;
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  opacity: 0.95;
+}
+.hw-pumpkin-big { width: 56px; height: 56px; }
+.hw-pumpkin-small { width: 36px; height: 36px; }
+@keyframes hw-swing {
+  0%, 100% { transform: rotate(-3deg); }
+  50% { transform: rotate(3deg); }
+}
+@keyframes hw-drop {
+  0%, 100% { height: 80px; }
+  45%, 55% { height: 140px; }
+}
+@keyframes hw-flap {
+  0%, 100% { transform: translateY(0) scaleX(1); }
+  50% { transform: translateY(-5px) scaleX(0.82); }
+}
+@media (max-width: 640px) {
+  .hw-web, .hw-spider, .hw-bat-3, .hw-bat-4 { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hw-spider, .hw-thread, .hw-bat { animation: none; }
+}

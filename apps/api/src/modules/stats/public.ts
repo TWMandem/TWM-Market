@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import type { PublicStatsDto, PublicTickerItemDto } from "@twm/shared";
 import type { AppContext } from "../../context.js";
 import { ownerActive, searchFrom } from "../listings/search.js";
+import { currentSeason } from "../appearance/routes.js";
 
 /** Табло на сайте обновляется раз в минуту — чаще считать незачем. */
 const CACHE_MS = 60 * 1000;
@@ -56,6 +57,7 @@ export async function publicStatsRoutes(app: FastifyInstance, ctx: AppContext): 
         server: { name: l.serverName, color: l.serverColor },
         at: (l.at ?? new Date()).toISOString(),
       })),
+      season: await currentSeason(sql),
       updatedAt: new Date().toISOString(),
     };
     cached = { at: Date.now(), data };

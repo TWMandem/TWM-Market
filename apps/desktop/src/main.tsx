@@ -8,10 +8,12 @@ import { App } from "./App";
 import { installErrorReporting } from "./lib/error-report";
 import { initAndroidInsets } from "./lib/background-notify";
 import { IS_ANDROID, IS_IOS, IS_WEB_APP } from "./lib/platform";
+import { initSeason } from "./lib/season";
 import { initTheme } from "./lib/theme";
 
 installErrorReporting();
 initTheme();
+initSeason();
 
 // Android: приложение, а не страница — без увеличения двумя пальцами,
 // с отступами под строку состояния и панель жестов.

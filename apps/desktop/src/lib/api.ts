@@ -1,6 +1,9 @@
 import type {
   FavoriteItemDto,
+  AdminAppearanceDto,
   AdminStatsDto,
+  AppearanceDto,
+  Season,
   AdminUserDetailDto,
   AdminUserListItemDto,
   ApiErrorBody,
@@ -384,6 +387,7 @@ export const api = {
   // ── Настройки, шаблоны ответов, чёрный список ───────────────────────────
   deleteAccount: (password: string) => request<void>("/v1/me/delete", { method: "POST", body: { password, confirm: true } }),
   webPushKey: () => request<{ publicKey: string }>("/v1/push/web-key", { auth: false }),
+  appearance: () => request<AppearanceDto>("/v1/appearance", { auth: false }),
   registerWebPush: (subscription: { endpoint: string; keys: { p256dh: string; auth: string } }) =>
     request<{ token: string }>("/v1/me/push-devices", { method: "POST", body: { platform: "web", subscription } }),
   registerPushDevice: () => request<{ token: string }>("/v1/me/push-devices", { method: "POST", body: { platform: "android" } }),
@@ -425,6 +429,10 @@ export const adminApi = {
 
   servers: () => request<{ items: ServerDto[] }>("/v1/admin/servers"),
   createServer: (body: unknown) => request<ServerDto>("/v1/admin/servers", { method: "POST", body }),
+  appearance: () => request<AdminAppearanceDto>("/v1/admin/appearance"),
+  updateAppearance: (body: { season: Season | null; until: string | null }) =>
+    request<AdminAppearanceDto>("/v1/admin/appearance", { method: "PUT", body }),
+
   updateServer: (number: number, body: unknown) =>
     request<ServerDto>(`/v1/admin/servers/${number}`, { method: "PATCH", body }),
 

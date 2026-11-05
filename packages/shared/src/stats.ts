@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { Season } from "./appearance.js";
 import type { SectionCode, ServerRefDto } from "./api-types.js";
 
 // ── Общие типы статистики ──────────────────────────────────────────────────
@@ -176,6 +177,8 @@ export interface PublicStatsDto {
   dealsMonth: number;
   /** Свежие объявления для табло на сайте (без ников и логинов). */
   latest: PublicTickerItemDto[];
+  /** Праздничное оформление сайта (например, "halloween") или null. */
+  season: Season | null;
   updatedAt: string;
 }
 

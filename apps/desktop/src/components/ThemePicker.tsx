@@ -1,3 +1,5 @@
+import { SEASON_LABELS } from "@twm/shared";
+import { setSeasonDecorEnabled, useSeason } from "../lib/season";
 import { THEME_OPTIONS, useTheme } from "../lib/theme";
 import { Icon } from "./Icon";
 
@@ -27,5 +29,25 @@ export function ThemePicker({ compact = false }: { compact?: boolean }) {
         );
       })}
     </div>
+  );
+}
+
+/** Праздничное оформление (если администратор его включил): игрок может скрыть его у себя. */
+export function SeasonToggle() {
+  const { season, enabled } = useSeason();
+  if (!season) return null;
+  return (
+    <label className="flex items-start gap-3 text-[15px]">
+      <input
+        type="checkbox"
+        checked={enabled}
+        onChange={(e) => setSeasonDecorEnabled(e.target.checked)}
+        className="mt-1 size-4 accent-[var(--color-accent)]"
+      />
+      <span className="flex flex-col gap-0.5">
+        Праздничное оформление: {SEASON_LABELS[season]}
+        <span className="text-[13px] text-muted">Тыквы, летучие мыши и паутина на время праздника в игре. Настройка этого устройства.</span>
+      </span>
+    </label>
   );
 }

@@ -6,6 +6,8 @@ import { Icon, type IconName } from "./Icon";
 import { Badge, NotificationsMenu } from "./NotificationsMenu";
 import { ServerSwitcher } from "./ServerSwitcher";
 import { ThemePicker } from "./ThemePicker";
+import { Pumpkin } from "./Halloween";
+import { useSeason } from "../lib/season";
 
 const NAV = [
   { to: "/items", label: "Предметы" },
@@ -20,6 +22,7 @@ const NAV = [
  */
 export function AppHeader() {
   const { status, user } = useAuth();
+  const { active: season } = useSeason();
   const { unreadMessages } = useUpdates();
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
@@ -49,9 +52,10 @@ export function AppHeader() {
         <NavLink to="/" className="flex shrink-0 items-center gap-2.5 text-ink no-underline">
           <span
             aria-hidden="true"
-            className="flex size-9 items-center justify-center rounded-[10px] bg-accent font-display text-[13px] font-bold text-on-accent"
+            className="relative flex size-9 items-center justify-center rounded-[10px] bg-accent font-display text-[13px] font-bold text-on-accent"
           >
             TW
+            {season === "halloween" && <Pumpkin lit className="absolute -bottom-1.5 -right-2 size-[18px] drop-shadow" />}
           </span>
           <span className="font-display text-[17px] font-bold max-[1100px]:sr-only">TWM Market</span>
         </NavLink>

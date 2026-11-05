@@ -25,6 +25,7 @@ import { ForgotPasswordPage } from "./pages/auth/ForgotPasswordPage";
 import { AccountPage } from "./pages/account/AccountPage";
 import { AdminLayout } from "./pages/admin/AdminLayout";
 import { AuditPage } from "./pages/admin/AuditPage";
+import { AppearancePage } from "./pages/admin/AppearancePage";
 import { CategoriesPage } from "./pages/admin/CategoriesPage";
 import { DashboardPage } from "./pages/admin/DashboardPage";
 import { AdminListingsPage } from "./pages/admin/AdminListingsPage";
@@ -142,6 +143,7 @@ const router = createHashRouter([
           { path: "moderation", element: <ModerationPage /> },
           { path: "listings", element: <AdminListingsPage /> },
           { path: "errors", element: <ErrorsPage /> },
+          { path: "appearance", element: <AppearancePage /> },
           { path: "stop-words", element: <StopWordsPage /> },
         ],
       },

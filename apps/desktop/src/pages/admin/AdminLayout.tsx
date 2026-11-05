@@ -21,6 +21,7 @@ const NAV: Array<{ to: string; label: string; min: Role; group?: string }> = [
   { to: "/admin/stop-words", label: "Стоп-слова", min: "moderator" },
   { to: "/admin/audit", label: "Журнал действий", min: "admin" },
   { to: "/admin/errors", label: "Ошибки", min: "admin" },
+  { to: "/admin/appearance", label: "Оформление", min: "admin" },
   { to: "/admin/servers", label: "Серверы", min: "moderator", group: "Справочники" },
   { to: "/admin/structure", label: "Разделы и типы", min: "moderator", group: "Справочники" },
   { to: "/admin/categories", label: "Категории и предметы", min: "moderator", group: "Справочники" },

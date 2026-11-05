@@ -248,6 +248,7 @@ await shot(admin, "admin-listings", "Все объявления", "/admin/listi
 await shot(admin, "admin-users", "Пользователи", "/admin/users");
 await shot(admin, "admin-user", "Игрок: активность", `/admin/users/${seed.ivan.id}`);
 await shot(admin, "admin-errors", "Ошибки", "/admin/errors");
+await shot(admin, "admin-appearance", "Оформление (праздники)", "/admin/appearance");
 await admin.context.close();
 
 // ── Снимки для сайта twm-market.ru ────────────────────────────────────────
@@ -314,6 +315,12 @@ await admin.context.close();
       const context = await browser.newContext({ viewport, locale: "ru-RU" });
       await context.route("http://site.test/**", async (route) => {
         let path = new URL(route.request().url()).pathname;
+        // Цифры площадки и праздничное оформление — с сервера API, как nginx на сайте.
+        if (path === "/stats.json") {
+          const response = await fetch(`${API}/v1/public/stats`);
+          await route.fulfill({ status: response.status, body: await response.text(), contentType: "application/json" });
+          return;
+        }
         if (path.endsWith("/")) path += "index.html";
         try {
           const body = await readFile(new URL(`.${path}`, DIST));

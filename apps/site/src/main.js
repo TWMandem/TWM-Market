@@ -4,6 +4,7 @@ import "@fontsource-variable/jetbrains-mono";
 import { initBoard } from "./board.js";
 import { initDeal } from "./deal.js";
 import { initPrice } from "./price.js";
+import { initSeason } from "./season.js";
 import { initTour } from "./tour.js";
 
 const REPO = "TWMandem/TWM-Market";
@@ -56,3 +57,4 @@ initBoard();
 initTour();
 initPrice();
 initDeal();
+void initSeason();

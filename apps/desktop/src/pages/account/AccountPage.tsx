@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router";
 import { Icon } from "../../components/Icon";
-import { ThemePicker } from "../../components/ThemePicker";
+import { SeasonToggle, ThemePicker } from "../../components/ThemePicker";
 import { Alert, Card } from "../../components/ui";
 import { useAuth } from "../../lib/auth-context";
 import { THEME_OPTIONS } from "../../lib/theme";
@@ -155,6 +155,7 @@ export function AccountPage() {
                   <div className="max-w-[520px]">
                     <ThemePicker />
                   </div>
+                  <SeasonToggle />
                 </Card>
               </>
             ),

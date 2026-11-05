@@ -33,8 +33,9 @@ import { savedSearchRoutes } from "./modules/saved-searches/routes.js";
 import { verificationRoutes } from "./modules/game-profiles/verification.js";
 import { errorRoutes } from "./modules/errors/routes.js";
 import { pushRoutes } from "./modules/push/routes.js";
+import { appearanceRoutes } from "./modules/appearance/routes.js";
 
-export const API_VERSION = "0.21.0";
+export const API_VERSION = "0.22.0";
 
 export interface BuildOptions {
   config: Config;
@@ -147,6 +148,7 @@ export async function buildApp({ config, sql, mailer }: BuildOptions): Promise<F
   await verificationRoutes(app, ctx);
   await errorRoutes(app, ctx);
   await pushRoutes(app, ctx);
+  await appearanceRoutes(app, ctx);
 
   return app;
 }

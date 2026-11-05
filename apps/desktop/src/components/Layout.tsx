@@ -6,6 +6,7 @@ import { registerServiceWorker } from "../lib/web-push";
 import { AppHeader, BottomTabs } from "./AppHeader";
 import { ConnectionStatus } from "./ConnectionStatus";
 import { ErrorBoundary } from "./ErrorBoundary";
+import { SeasonDecor } from "./Halloween";
 import { UpdateBanner, VersionInfo } from "./UpdateBanner";
 import { WelcomeDialog } from "./WelcomeDialog";
 
@@ -30,6 +31,7 @@ export function Layout() {
   return (
     <div className="flex min-h-full flex-col">
       <AppHeader />
+      <SeasonDecor />
       <WelcomeDialog />
       <UpdateBanner />
       {showVerifyBanner && (

@@ -10,6 +10,8 @@ import { useServers } from "../lib/server-context";
 import { readSetting, writeSetting } from "../lib/storage";
 import { useUpdates } from "../lib/updates-context";
 import { SECTIONS, type SectionKey } from "./sections";
+import { Bats, Pumpkin } from "../components/Halloween";
+import { useSeason } from "../lib/season";
 
 /**
  * Главная приложения — рабочий экран: разделы с числом объявлений,
@@ -46,14 +48,31 @@ export function HomePage() {
     }, []),
   );
 
+  const { active: season } = useSeason();
   const hour = new Date().getHours();
-  const greeting = hour < 5 ? "Доброй ночи" : hour < 12 ? "Доброе утро" : hour < 18 ? "Добрый день" : "Добрый вечер";
+  const greeting =
+    season === "halloween"
+      ? hour < 5
+        ? "Жуткой ночи"
+        : hour < 12
+          ? "Страшно доброе утро"
+          : hour < 18
+            ? "Страшно добрый день"
+            : "Страшно добрый вечер"
+      : hour < 5
+        ? "Доброй ночи"
+        : hour < 12
+          ? "Доброе утро"
+          : hour < 18
+            ? "Добрый день"
+            : "Добрый вечер";
 
   return (
     <div className="flex flex-col gap-10">
       <section className="flex flex-col gap-5">
         <div className="flex flex-wrap items-end justify-between gap-3">
-          <div className="flex flex-col gap-1">
+          <div className={`relative flex flex-col gap-1 ${season === "halloween" ? "pr-[150px] max-md:pr-[110px]" : ""}`}>
+            {season === "halloween" && <Bats />}
             <h1 className="m-0 font-display text-[clamp(26px,3vw,34px)] font-bold leading-tight">
               {status === "authed" && user ? `${greeting}, ${user.login}` : "Рынок игроков Amazing Online"}
             </h1>
@@ -90,6 +109,8 @@ export function HomePage() {
           ))}
         </div>
       </section>
+
+      {season === "halloween" && <HalloweenBanner />}
 
       <ServerPrompt />
 
@@ -128,6 +149,42 @@ export function HomePage() {
         </span>
       </section>
     </div>
+  );
+}
+
+/** Приветствие праздника на главной; закрывается крестиком (запоминается). */
+function HalloweenBanner() {
+  const key = "seasonBanner:halloween-2026";
+  const [hidden, setHidden] = useState(() => readSetting(key) === "hidden");
+  if (hidden) return null;
+  return (
+    <section aria-label="Хеллоуин" className="hw-banner relative flex items-center gap-5 overflow-hidden rounded-2xl px-5 py-4 max-sm:flex-col max-sm:items-start">
+      <span className="flex shrink-0 items-end gap-1">
+        <Pumpkin lit className="size-14" />
+        <Pumpkin className="size-9" />
+      </span>
+      <span className="flex min-w-0 flex-1 flex-col gap-1">
+        <b className="font-display text-[17px]">В игре празднуют Хеллоуин</b>
+        <span className="hw-banner-muted text-sm leading-relaxed">
+          TWM Market на время праздника в тыквах и паутине. Торгуйте спокойно — пугаем только оформлением. Скрыть его можно в{" "}
+          <Link to="/account#appearance" className="font-bold text-[#ffb46b] underline-offset-2 hover:underline">
+            личном кабинете
+          </Link>
+          .
+        </span>
+      </span>
+      <button
+        type="button"
+        aria-label="Закрыть"
+        onClick={() => {
+          writeSetting(key, "hidden");
+          setHidden(true);
+        }}
+        className="hw-banner-muted absolute right-2 top-2 flex size-8 items-center justify-center rounded-lg hover:bg-white/10"
+      >
+        <Icon name="close" size={16} />
+      </button>
+    </section>
   );
 }
 

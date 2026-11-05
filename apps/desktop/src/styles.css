@@ -196,3 +196,88 @@
     transform: scale(0.98);
   }
 }
+
+/* ── Праздничное оформление: Хеллоуин (<html data-season="halloween">) ──
+   Включает администратор; игрок может скрыть в личном кабинете. */
+:root[data-season="halloween"] {
+  --hw-glow-1: rgb(124 58 237 / 0.16);
+  --hw-glow-2: rgb(255 122 26 / 0.09);
+  --hw-bat: #2a1838;
+  --hw-web: rgb(220 214 240 / 0.16);
+  --hw-banner-bg: linear-gradient(115deg, #24123a 0%, #1a1022 45%, #2b1405 100%);
+  --hw-banner-ink: #f3ecff;
+  --hw-banner-muted: #c9b8e6;
+}
+:root[data-season="halloween"]:not([data-theme="light"]) {
+  --hw-bat: #b9a6dc;
+}
+:root[data-season="halloween"][data-theme="light"] {
+  --hw-glow-1: rgb(124 58 237 / 0.10);
+  --hw-glow-2: rgb(255 122 26 / 0.10);
+  --hw-bat: #3b2356;
+  --hw-web: rgb(60 40 90 / 0.18);
+}
+
+/* Фиолетовое свечение сверху и тыквенное — снизу. */
+:root[data-season="halloween"] body {
+  background-image:
+    radial-gradient(1100px 420px at 50% -120px, var(--hw-glow-1), transparent 70%),
+    radial-gradient(900px 360px at 85% 110%, var(--hw-glow-2), transparent 70%);
+  background-attachment: fixed;
+}
+/* Полоска под шапкой: тыква → фиолетовый. */
+:root[data-season="halloween"] header.sticky {
+  border-bottom-color: transparent;
+  box-shadow: 0 1px 0 0 rgb(255 122 26 / 0.45), 0 2px 18px -6px rgb(124 58 237 / 0.5);
+}
+
+.hw-web {
+  color: var(--hw-web);
+}
+.hw-spider {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: var(--hw-bat);
+  transform-origin: top center;
+  animation: hw-swing 6s ease-in-out infinite;
+}
+.hw-thread {
+  width: 1px;
+  height: 70px;
+  background: var(--hw-web);
+  animation: hw-drop 9s ease-in-out infinite;
+}
+.hw-bat {
+  animation: hw-flap 2.6s ease-in-out infinite;
+}
+.hw-bat-2 {
+  animation-delay: -0.9s;
+  margin-top: 14px;
+}
+.hw-bat-3 {
+  animation-delay: -1.7s;
+  margin-top: 4px;
+}
+.hw-banner {
+  background: var(--hw-banner-bg);
+  color: var(--hw-banner-ink);
+}
+.hw-banner-muted {
+  color: var(--hw-banner-muted);
+}
+@keyframes hw-swing {
+  0%, 100% { transform: rotate(-3deg); }
+  50% { transform: rotate(3deg); }
+}
+@keyframes hw-drop {
+  0%, 100% { height: 70px; }
+  45%, 55% { height: 130px; }
+}
+@keyframes hw-flap {
+  0%, 100% { transform: translateY(0) scaleX(1); }
+  50% { transform: translateY(-5px) scaleX(0.82); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hw-spider, .hw-thread, .hw-bat { animation: none; }
+}
