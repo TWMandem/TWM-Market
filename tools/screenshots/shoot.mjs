@@ -526,72 +526,13 @@ if (process.env.WEB_URL) {
           await go(`${tag}-chat`, `${role}: переписка`, `/chats/${seed.offerConversation}`);
           await go(`${tag}-new-listing`, `${role}: новое объявление`, "/listings/new");
         }
-        // Плавность главной в WebKit: кадров в секунду с праздничной анимацией и без неё.
-        const fps = async () =>
-          page.evaluate(
-            () =>
-              new Promise((resolve) => {
-                let frames = 0;
-                const start = performance.now();
-                const tick = () => {
-                  frames += 1;
-                  if (performance.now() - start < 2000) requestAnimationFrame(tick);
-                  else resolve(Math.round(frames / ((performance.now() - start) / 1000)));
-                };
-                requestAnimationFrame(tick);
-              }),
-          );
-        await page.goto(`${WEB}/#/`);
-        await settle(page);
-        // Что мешает отрисовке: по очереди прячем части оформления и меряем.
-        const variants = [
-          ["всё оформление", ""],
-          ["без сцены", ".hw-scene{display:none!important}"],
-          ["без тумана и искр", ".hw-mist{display:none!important}"],
-          ["без will-change", "*{will-change:auto!important}"],
-          ["без фона fixed", "body{background-attachment:scroll!important;background-image:none!important}"],
-          ["без паутинок разделов", ".hw-tile::after{display:none!important}"],
-          ["без анимаций вообще", "*,*::before,*::after{animation:none!important}"],
-        ];
-        const measured = [];
-        for (const [name, css] of variants) {
-          const handle = css ? await page.addStyleTag({ content: css }) : null;
-          const value = await Promise.race([fps(), new Promise((r) => setTimeout(() => r("нет кадров"), 6000))]);
-          measured.push(`${name}: ${value}`);
-          if (handle) await handle.evaluate((el) => el.remove());
-        }
-        const measure = () => Promise.race([fps(), new Promise((r) => setTimeout(() => r("нет кадров"), 6000))]);
-        {
-          const handle = await page.addStyleTag({ content: '[class*="hw-"]{display:none!important}' });
-          measured.push(`всё оформление скрыто разом: ${await measure()}`);
-          await handle.evaluate((el) => el.remove());
-        }
-        await page.goto(`${WEB}/#/account`);
-        await settle(page);
-        measured.push(`личный кабинет: ${await measure()}`);
-        await page.goto(`${WEB}/#/search`);
-        await settle(page);
-        measured.push(`каталог: ${await measure()}`);
-        // Праздничное оформление выключено в настройках — его элементов нет вовсе.
-        await page.evaluate(() => {
-          for (const key of Object.keys(localStorage)) if (/seasonDecor/.test(key)) localStorage.setItem(key, "off");
-          localStorage.setItem("twm:seasonDecor", "off");
-          localStorage.setItem("seasonDecor", "off");
+        // WebKit на сервере GitHub не рисует кадры (requestAnimationFrame стоит на любой
+        // странице, даже без праздничного оформления — проверено 06.11.2026), поэтому
+        // проверка «элемент неподвижен» не завершается. Нажимаем без неё.
+        await go(`${tag}-notifications`, `${role}: уведомления`, "/", async (p) => {
+          await p.getByRole("button", { name: /^Уведомления/ }).click({ force: true });
+          await p.getByText("Прочитать все").first().waitFor({ timeout: 10_000 });
         });
-        await page.goto(`${WEB}/?nodecor#/`);
-        await settle(page);
-        measured.push(`главная без праздника: ${await measure()} (season=${await page.evaluate(() => document.documentElement.dataset.season ?? "нет")})`);
-        await page.evaluate(() => {
-          for (const key of Object.keys(localStorage)) if (/seasonDecor/.test(key)) localStorage.setItem(key, "on");
-        });
-        console.log(`  ${role}: главная, кадров/с — ${measured.join("; ")}`);
-        results.push({ file: "—", title: `${role}: плавность главной (кадров/с)`, role, path: null, ok: true, problems: measured });
-        await page.goto(`${WEB}/#/account`);
-        await page.emulateMedia({ reducedMotion: "reduce" });
-        await go(`${tag}-notifications`, `${role}: уведомления (без анимации)`, "/", async (p) => {
-          await p.getByRole("button", { name: /^Уведомления/ }).click();
-        });
-        await page.emulateMedia({ reducedMotion: "no-preference" });
         await go(`${tag}-account`, `${role}: личный кабинет, уведомления`, "/account");
         // Служебный скрипт уведомлений и манифест на месте.
         const check = await page.evaluate(async () => {
