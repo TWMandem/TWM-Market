@@ -113,7 +113,8 @@ const ivanCar = await listing(ivan, "vehicle", car.id, 18_200_000, { description
   await picture(car.name, ["#1d3b6a", "#0e1014"]),
   await picture(`${car.name} — салон`, ["#3a3220", "#0e1014"]),
 ]);
-await listing(ivan, "item", accessory.id, 350_000);
+const ivanWithdrawn = await listing(ivan, "item", accessory.id, 350_000);
+await api("POST", `/v1/listings/${ivanWithdrawn.id}/withdraw`, ivan.token);
 await listing(ivan, "item", caseItem.id, 120_000);
 await listing(kirill, "item", deadpool, 2_800_000);
 await listing(maks, "item", deadpool, 2_600_000);

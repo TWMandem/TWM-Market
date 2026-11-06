@@ -108,6 +108,25 @@ async function shot(s, name, title, path, act) {
   console.log(`${entry.ok ? "✓" : "✗"} ${file} ${title}`);
 }
 
+/** Меню действий на телефоне не выходит за экран и не попадает под нижние вкладки. */
+async function expectMobileMenuVisible(page) {
+  const menu = page.getByRole("menu");
+  await menu.waitFor();
+  const box = await menu.boundingBox();
+  const viewport = page.viewportSize();
+  if (!box || !viewport) throw new Error("Не удалось измерить меню действий");
+  const bottomTabs = 64;
+  const tolerance = 1;
+  if (
+    box.x < -tolerance ||
+    box.x + box.width > viewport.width + tolerance ||
+    box.y < -tolerance ||
+    box.y + box.height > viewport.height - bottomTabs + tolerance
+  ) {
+    throw new Error(`Меню вне видимой области: ${JSON.stringify({ box, viewport })}`);
+  }
+}
+
 const L = seed.listings;
 
 // ── Гость ─────────────────────────────────────────────────────────────────
@@ -200,6 +219,20 @@ const phoneGuest = await session("гость, телефон", null, { phone: tr
 await shot(phoneGuest, "phone-login", "Телефон: вход", "/login");
 await shot(phoneGuest, "phone-user", "Телефон: профиль продавца", `/user/${seed.ivan.login}`);
 await phoneGuest.context.close();
+
+// Два положения меню действий, в которых оно раньше уходило за экран или под
+// нижнюю навигацию Android.
+const phoneSeller = await session("продавец, телефон", seed.ivan.login, { phone: true });
+await shot(phoneSeller, "phone-my-listings-menu", "Телефон: действия активного объявления", "/my/listings", async (page) => {
+  await page.getByRole("button", { name: /^Ещё действия/ }).first().click();
+  await expectMobileMenuVisible(page);
+});
+await shot(phoneSeller, "phone-withdrawn-menu", "Телефон: действия снятого объявления", "/my/listings", async (page) => {
+  await page.getByRole("tab", { name: /Снято с продажи/ }).click();
+  await page.getByRole("button", { name: /^Ещё действия/ }).first().click();
+  await expectMobileMenuVisible(page);
+});
+await phoneSeller.context.close();
 
 // ── Продавец ──────────────────────────────────────────────────────────────
 const seller = await session("продавец", seed.ivan.login);
