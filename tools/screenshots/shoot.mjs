@@ -543,11 +543,30 @@ if (process.env.WEB_URL) {
           );
         await page.goto(`${WEB}/#/`);
         await settle(page);
-        const fpsAnimated = await fps();
+        // Что мешает отрисовке: по очереди прячем части оформления и меряем.
+        const variants = [
+          ["всё оформление", ""],
+          ["без сцены", ".hw-scene{display:none!important}"],
+          ["без тумана и искр", ".hw-mist{display:none!important}"],
+          ["без will-change", "*{will-change:auto!important}"],
+          ["без фона fixed", "body{background-attachment:scroll!important;background-image:none!important}"],
+          ["без паутинок разделов", ".hw-tile::after{display:none!important}"],
+          ["без анимаций вообще", "*,*::before,*::after{animation:none!important}"],
+        ];
+        const measured = [];
+        for (const [name, css] of variants) {
+          const handle = css ? await page.addStyleTag({ content: css }) : null;
+          const value = await Promise.race([fps(), new Promise((r) => setTimeout(() => r("нет кадров"), 6000))]);
+          measured.push(`${name}: ${value}`);
+          if (handle) await handle.evaluate((el) => el.remove());
+        }
+        await page.evaluate(() => document.documentElement.removeAttribute("data-season"));
+        const plain = await Promise.race([fps(), new Promise((r) => setTimeout(() => r("нет кадров"), 6000))]);
+        measured.push(`без праздника: ${plain}`);
+        console.log(`  ${role}: главная, кадров/с — ${measured.join("; ")}`);
+        results.push({ file: "—", title: `${role}: плавность главной (кадров/с)`, role, path: null, ok: true, problems: measured });
+        await page.goto(`${WEB}/#/account`);
         await page.emulateMedia({ reducedMotion: "reduce" });
-        const fpsCalm = await fps();
-        console.log(`  ${role}: главная, кадров/с — с анимацией ${fpsAnimated}, без анимации ${fpsCalm}`);
-        results.push({ file: "—", title: `${role}: плавность главной (кадров/с)`, role, path: null, ok: true, problems: [`с анимацией ${fpsAnimated}, без анимации ${fpsCalm}`] });
         await go(`${tag}-notifications`, `${role}: уведомления (без анимации)`, "/", async (p) => {
           await p.getByRole("button", { name: /^Уведомления/ }).click();
         });
