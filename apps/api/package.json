@@ -39,6 +39,7 @@
   },
   "files": [
     "dist",
-    "migrations"
+    "migrations",
+    "skin-icons"
   ]
 }

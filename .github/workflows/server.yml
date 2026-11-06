@@ -86,6 +86,9 @@ jobs:
           echo "$version" > "$out/VERSION"
           test -f "$out/app/dist/index.js"
           test -f "$out/app/migrations/0001_init.sql"
+          test -f "$out/app/migrations/0018_new_skins.sql"
+          test -f "$out/app/skin-icons/2918.png"
+          test -f "$out/app/skin-icons/2999.png"
           test -f "$out/site/index.html" && test -f "$out/site/rules/index.html" && test -f "$out/site/privacy/index.html"
           # Шапка и подвал подставлены, встроенных скриптов нет (их запрещает CSP сайта).
           grep -q "support@twm-market.ru" "$out/site/index.html"

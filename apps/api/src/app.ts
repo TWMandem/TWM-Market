@@ -3,8 +3,10 @@ import cors from "@fastify/cors";
 import multipart from "@fastify/multipart";
 import rateLimit from "@fastify/rate-limit";
 import fastifyStatic from "@fastify/static";
-import { mkdir } from "node:fs/promises";
-import { resolve } from "node:path";
+import { copyFile, mkdir } from "node:fs/promises";
+import { constants } from "node:fs";
+import { resolve, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { Config } from "./config.js";
 import type { AppContext } from "./context.js";
 import type { Sql } from "./db/client.js";
@@ -70,6 +72,18 @@ export async function buildApp({ config, sql, mailer }: BuildOptions): Promise<F
 
   const uploadDir = resolve(config.UPLOAD_DIR);
   await mkdir(uploadDir, { recursive: true });
+  // Иконки новых игровых скинов входят в сборку сервера. Копируем их в
+  // хранилище, из которого nginx и Fastify раздают /media/.
+  const seedIconDir = fileURLToPath(new URL("../skin-icons/", import.meta.url));
+  const installedIconDir = join(uploadDir, "seed-skins");
+  await mkdir(installedIconDir, { recursive: true });
+  for (const id of [2918, 2919, 2963, 2997, 2998, 2999]) {
+    try {
+      await copyFile(join(seedIconDir, `${id}.png`), join(installedIconDir, `${id}.png`), constants.COPYFILE_EXCL);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+    }
+  }
   const privateDir = resolve(config.PRIVATE_DIR ?? `${uploadDir}-private`);
   await mkdir(privateDir, { recursive: true, mode: 0o700 });
   const ctx: AppContext = { config, sql, mailer: mailer ?? new ConsoleMailer(app.log), uploadDir, privateDir };
