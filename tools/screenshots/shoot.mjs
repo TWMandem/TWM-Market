@@ -560,9 +560,30 @@ if (process.env.WEB_URL) {
           measured.push(`${name}: ${value}`);
           if (handle) await handle.evaluate((el) => el.remove());
         }
-        await page.evaluate(() => document.documentElement.removeAttribute("data-season"));
-        const plain = await Promise.race([fps(), new Promise((r) => setTimeout(() => r("нет кадров"), 6000))]);
-        measured.push(`без праздника: ${plain}`);
+        const measure = () => Promise.race([fps(), new Promise((r) => setTimeout(() => r("нет кадров"), 6000))]);
+        {
+          const handle = await page.addStyleTag({ content: '[class*="hw-"]{display:none!important}' });
+          measured.push(`всё оформление скрыто разом: ${await measure()}`);
+          await handle.evaluate((el) => el.remove());
+        }
+        await page.goto(`${WEB}/#/account`);
+        await settle(page);
+        measured.push(`личный кабинет: ${await measure()}`);
+        await page.goto(`${WEB}/#/search`);
+        await settle(page);
+        measured.push(`каталог: ${await measure()}`);
+        // Праздничное оформление выключено в настройках — его элементов нет вовсе.
+        await page.evaluate(() => {
+          for (const key of Object.keys(localStorage)) if (/seasonDecor/.test(key)) localStorage.setItem(key, "off");
+          localStorage.setItem("twm:seasonDecor", "off");
+          localStorage.setItem("seasonDecor", "off");
+        });
+        await page.goto(`${WEB}/?nodecor#/`);
+        await settle(page);
+        measured.push(`главная без праздника: ${await measure()} (season=${await page.evaluate(() => document.documentElement.dataset.season ?? "нет")})`);
+        await page.evaluate(() => {
+          for (const key of Object.keys(localStorage)) if (/seasonDecor/.test(key)) localStorage.setItem(key, "on");
+        });
         console.log(`  ${role}: главная, кадров/с — ${measured.join("; ")}`);
         results.push({ file: "—", title: `${role}: плавность главной (кадров/с)`, role, path: null, ok: true, problems: measured });
         await page.goto(`${WEB}/#/account`);
