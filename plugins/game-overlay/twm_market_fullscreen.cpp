@@ -156,7 +156,9 @@ DWORD WINAPI worker(void*) {
     const auto initialize = reinterpret_cast<HookInit>(GetProcAddress(minhook, "MH_Initialize"));
     const auto create = reinterpret_cast<CreateHook>(GetProcAddress(minhook, "MH_CreateHook"));
     const auto enable = reinterpret_cast<EnableHook>(GetProcAddress(minhook, "MH_EnableHook"));
-    if (!initialize || !create || !enable || initialize() != 0) return 3;
+    if (!initialize || !create || !enable) return 3;
+    const int initialized = initialize();
+    if (initialized != 0 && initialized != 1) return 3; // Другой модуль уже мог инициализировать MinHook.
     HWND dummy = CreateWindowExW(0, L"STATIC", L"", WS_POPUP, 0, 0, 8, 8, nullptr, nullptr, nullptr, nullptr);
     if (!dummy) return 4;
     auto* d3d = Direct3DCreate9(D3D_SDK_VERSION);
@@ -169,6 +171,8 @@ DWORD WINAPI worker(void*) {
     HRESULT result = d3d->CreateDevice(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, dummy,
                                        D3DCREATE_SOFTWARE_VERTEXPROCESSING, &parameters, &device);
     if (FAILED(result)) result = d3d->CreateDevice(D3DADAPTER_DEFAULT, D3DDEVTYPE_REF, dummy,
+                                                    D3DCREATE_SOFTWARE_VERTEXPROCESSING, &parameters, &device);
+    if (FAILED(result)) result = d3d->CreateDevice(D3DADAPTER_DEFAULT, D3DDEVTYPE_NULLREF, dummy,
                                                     D3DCREATE_SOFTWARE_VERTEXPROCESSING, &parameters, &device);
     if (SUCCEEDED(result)) {
         void* end_scene = (*reinterpret_cast<void***>(device))[42];
