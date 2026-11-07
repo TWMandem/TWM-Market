@@ -1,6 +1,6 @@
 {
   "name": "@twm/site",
-  "version": "0.23.2",
+  "version": "0.23.3",
   "private": true,
   "description": "Сайт twm-market.ru: страница приложения, правила, конфиденциальность",
   "type": "module",

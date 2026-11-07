@@ -52,6 +52,7 @@ function FeedbackAdminCard({ item, onSaved }: { item: FeedbackDto; onSaved: () =
   const [status, setStatus] = useState(item.status);
   const [response, setResponse] = useState(item.response);
   const [saving, setSaving] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -62,6 +63,14 @@ function FeedbackAdminCard({ item, onSaved }: { item: FeedbackDto; onSaved: () =
   const save = async () => {
     setSaving(true);
     const problem = await attempt(() => adminApi.updateFeedback(item.id, { status, response }));
+    setError(problem);
+    setSaving(false);
+    if (!problem) await onSaved();
+  };
+
+  const remove = async () => {
+    setSaving(true);
+    const problem = await attempt(() => adminApi.deleteFeedback(item.id));
     setError(problem);
     setSaving(false);
     if (!problem) await onSaved();
@@ -102,9 +111,20 @@ function FeedbackAdminCard({ item, onSaved }: { item: FeedbackDto; onSaved: () =
         />
       </label>
       {error && <Alert>{error}</Alert>}
-      <Button variant="secondary" loading={saving} onClick={() => void save()} className="self-start">
-        Сохранить статус и ответ
-      </Button>
+      <div className="flex flex-wrap items-center gap-3">
+        <Button variant="secondary" loading={saving} onClick={() => void save()}>
+          Сохранить статус и ответ
+        </Button>
+        {confirmingDelete ? (
+          <>
+            <span className="text-sm text-muted">Удалить предложение навсегда?</span>
+            <Button variant="danger" loading={saving} onClick={() => void remove()}>Да, удалить</Button>
+            <Button variant="secondary" disabled={saving} onClick={() => setConfirmingDelete(false)}>Отмена</Button>
+          </>
+        ) : (
+          <Button variant="danger" disabled={saving} onClick={() => setConfirmingDelete(true)}>Удалить</Button>
+        )}
+      </div>
     </Card>
   );
 }

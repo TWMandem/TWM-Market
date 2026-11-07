@@ -426,6 +426,7 @@ export const adminApi = {
   feedback: (status?: FeedbackStatus) => request<{ items: FeedbackDto[] }>(`/v1/admin/feedback${qs({ status })}`),
   updateFeedback: (id: string, body: { status: FeedbackStatus; response: string }) =>
     request<FeedbackDto>(`/v1/admin/feedback/${encodeURIComponent(id)}`, { method: "PATCH", body }),
+  deleteFeedback: (id: string) => request<void>(`/v1/admin/feedback/${encodeURIComponent(id)}`, { method: "DELETE" }),
 
   users: (params: { query?: string; role?: string; status?: string; page?: number }) =>
     request<Paged<AdminUserListItemDto>>(`/v1/admin/users${qs(params)}`),

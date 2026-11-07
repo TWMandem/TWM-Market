@@ -50,6 +50,14 @@ describe("предложения по улучшению", { skip: skipWithoutDb
 
     const mineAfter = await env.app.inject({ method: "GET", url: "/v1/me/feedback", headers: bearer(player.accessToken) });
     assert.equal((mineAfter.json() as { items: FeedbackDto[] }).items[0]?.response, "Добавим в одну из следующих версий.");
+
+    const path = `/v1/admin/feedback/${item.id}`;
+    assert.equal((await env.app.inject({ method: "DELETE", url: path, headers: bearer(player.accessToken) })).statusCode, 403);
+    assert.equal((await env.app.inject({ method: "DELETE", url: path, headers: bearer(moderator.accessToken) })).statusCode, 403);
+    assert.equal((await env.app.inject({ method: "DELETE", url: path, headers: bearer(admin.accessToken) })).statusCode, 204);
+    assert.equal((await env.app.inject({ method: "DELETE", url: path, headers: bearer(admin.accessToken) })).statusCode, 404);
+    const mineDeleted = await env.app.inject({ method: "GET", url: "/v1/me/feedback", headers: bearer(player.accessToken) });
+    assert.equal((mineDeleted.json() as { items: FeedbackDto[] }).items.length, 0);
   });
 });
 

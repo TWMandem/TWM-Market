@@ -104,5 +104,13 @@ export async function feedbackRoutes(app: FastifyInstance, ctx: AppContext): Pro
     }
     return toDto(row);
   });
+
+  app.delete("/v1/admin/feedback/:id", { preHandler: requireStaff(ctx, "admin") }, async (request, reply) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
+    const [removed] = await sql<{ id: string }[]>`DELETE FROM feedback WHERE id = ${id} RETURNING id`;
+    if (!removed) throw errors.notFound("Предложение не найдено");
+    await writeAudit(ctx, request, "feedback.deleted", { type: "feedback", id });
+    reply.code(204).send();
+  });
 }
 
