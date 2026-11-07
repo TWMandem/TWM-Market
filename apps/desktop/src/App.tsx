@@ -23,6 +23,7 @@ import { RegisterPage } from "./pages/auth/RegisterPage";
 import { VerifyEmailPage } from "./pages/auth/VerifyEmailPage";
 import { ForgotPasswordPage } from "./pages/auth/ForgotPasswordPage";
 import { AccountPage } from "./pages/account/AccountPage";
+import { FeedbackPage } from "./pages/account/FeedbackPage";
 import { AdminLayout } from "./pages/admin/AdminLayout";
 import { AuditPage } from "./pages/admin/AuditPage";
 import { AppearancePage } from "./pages/admin/AppearancePage";
@@ -35,6 +36,7 @@ import { ServersPage } from "./pages/admin/ServersPage";
 import { StructurePage } from "./pages/admin/StructurePage";
 import { UserDetailPage } from "./pages/admin/UserDetailPage";
 import { UsersPage } from "./pages/admin/UsersPage";
+import { FeedbackAdminPage } from "./pages/admin/FeedbackAdminPage";
 
 // Hash-маршруты (#/items) надёжно работают внутри Tauri:
 // приложение всегда загружает один index.html.
@@ -125,6 +127,14 @@ const router = createHashRouter([
         ),
       },
       {
+        path: "feedback",
+        element: (
+          <RequireAuth>
+            <FeedbackPage />
+          </RequireAuth>
+        ),
+      },
+      {
         path: "admin",
         element: (
           <RequireAuth>
@@ -143,6 +153,7 @@ const router = createHashRouter([
           { path: "moderation", element: <ModerationPage /> },
           { path: "listings", element: <AdminListingsPage /> },
           { path: "errors", element: <ErrorsPage /> },
+          { path: "feedback", element: <FeedbackAdminPage /> },
           { path: "appearance", element: <AppearancePage /> },
           { path: "stop-words", element: <StopWordsPage /> },
         ],
@@ -167,3 +178,4 @@ export function App() {
     </AppUpdateProvider>
   );
 }
+

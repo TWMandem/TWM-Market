@@ -36,8 +36,9 @@ import { verificationRoutes } from "./modules/game-profiles/verification.js";
 import { errorRoutes } from "./modules/errors/routes.js";
 import { pushRoutes } from "./modules/push/routes.js";
 import { appearanceRoutes } from "./modules/appearance/routes.js";
+import { feedbackRoutes } from "./modules/feedback/routes.js";
 
-export const API_VERSION = "0.23.1";
+export const API_VERSION = "0.23.2";
 
 export interface BuildOptions {
   config: Config;
@@ -163,6 +164,8 @@ export async function buildApp({ config, sql, mailer }: BuildOptions): Promise<F
   await errorRoutes(app, ctx);
   await pushRoutes(app, ctx);
   await appearanceRoutes(app, ctx);
+  await feedbackRoutes(app, ctx);
 
   return app;
 }
+

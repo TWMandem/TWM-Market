@@ -1,6 +1,6 @@
 [package]
 name = "twm-market"
-version = "0.23.1"
+version = "0.23.2"
 description = "TWM Market — торговая площадка игроков Amazing Online"
 authors = ["TWM Market contributors"]
 license = "MIT"
@@ -53,3 +53,4 @@ lto = true
 opt-level = "s"
 panic = "abort"
 strip = true
+

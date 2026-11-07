@@ -33,7 +33,9 @@ test("уведомление Android открывает экран из бело
   assert.equal(routeFromDeepLink("twm-market://open/my/listings"), "/my/listings");
   assert.equal(routeFromDeepLink("twm-market://open/admin/moderation"), "/admin/moderation");
   assert.equal(routeFromDeepLink("twm-market://open/account"), "/account");
+  assert.equal(routeFromDeepLink("twm-market://open/feedback"), "/feedback");
   assert.equal(routeFromDeepLink("twm-market://open/../../etc"), null);
   assert.equal(routeFromDeepLink("twm-market://open/settings/delete"), null);
   assert.equal(routeFromDeepLink("twm-market://open/"), null);
 });
+

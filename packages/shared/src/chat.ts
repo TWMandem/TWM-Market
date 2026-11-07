@@ -166,7 +166,8 @@ export type NotificationKind =
   | "nickname_rejected"
   | "favorite_price"
   | "favorite_closed"
-  | "favorite_back";
+  | "favorite_back"
+  | "feedback_updated";
 
 export interface NotificationDto {
   id: number;
@@ -528,3 +529,4 @@ export interface AppErrorGroupDto {
   firstAt: string;
   lastAt: string;
 }
+

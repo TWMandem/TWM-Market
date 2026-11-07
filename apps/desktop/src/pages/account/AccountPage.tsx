@@ -110,6 +110,9 @@ export function AccountPage() {
           <Link to="/my/searches" className="flex items-center gap-2.5 rounded-xl px-3.5 py-2 text-[14px] font-semibold text-muted no-underline hover:text-ink">
             <Icon name="bookmark" size={16} /> Подписки на поиск
           </Link>
+          <Link to="/feedback" className="flex items-center gap-2.5 rounded-xl px-3.5 py-2 text-[14px] font-semibold text-muted no-underline hover:text-ink">
+            <Icon name="tools" size={16} /> Предложить улучшение
+          </Link>
           <button
             type="button"
             onClick={() => void signOut()}
@@ -167,3 +170,4 @@ export function AccountPage() {
     </div>
   );
 }
+

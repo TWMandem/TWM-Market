@@ -1,5 +1,8 @@
 import type {
   FavoriteItemDto,
+  FeedbackDto,
+  FeedbackCategory,
+  FeedbackStatus,
   AdminAppearanceDto,
   AdminStatsDto,
   AppearanceDto,
@@ -259,6 +262,10 @@ export const api = {
   changePassword: (body: { currentPassword: string; newPassword: string }) =>
     request<void>("/v1/me/password", { method: "POST", body }),
 
+  createFeedback: (body: { category: FeedbackCategory; title: string; description: string }) =>
+    request<FeedbackDto>("/v1/feedback", { method: "POST", body }),
+  feedback: () => request<{ items: FeedbackDto[] }>("/v1/me/feedback"),
+
   gameProfiles: () => request<{ items: GameProfileDto[] }>("/v1/me/game-profiles"),
   createGameProfile: (body: { nickname: string; serverNumber: number }) =>
     request<GameProfileDto>("/v1/me/game-profiles", { method: "POST", body }),
@@ -416,6 +423,9 @@ const qs = (params: Record<string, string | number | undefined>) => {
 /** Методы админ-панели. Сервер проверяет роль и двухфакторный вход на каждом запросе. */
 export const adminApi = {
   stats: (days: StatsPeriod) => request<AdminStatsDto>(`/v1/admin/stats${qs({ days })}`),
+  feedback: (status?: FeedbackStatus) => request<{ items: FeedbackDto[] }>(`/v1/admin/feedback${qs({ status })}`),
+  updateFeedback: (id: string, body: { status: FeedbackStatus; response: string }) =>
+    request<FeedbackDto>(`/v1/admin/feedback/${encodeURIComponent(id)}`, { method: "PATCH", body }),
 
   users: (params: { query?: string; role?: string; status?: string; page?: number }) =>
     request<Paged<AdminUserListItemDto>>(`/v1/admin/users${qs(params)}`),
@@ -512,3 +522,4 @@ export const adminApi = {
     request<StopWordDto>("/v1/admin/stop-words", { method: "POST", body }),
   deleteStopWord: (id: number) => request<void>(`/v1/admin/stop-words/${id}`, { method: "DELETE" }),
 };
+

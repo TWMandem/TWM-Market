@@ -12,7 +12,7 @@ import { isTauri } from "./token-store";
 const OPEN_PATHS = [
   /^\/chats(?:\/[0-9a-f-]{36})?$/,
   /^\/listing\/[0-9a-f-]{36}$/,
-  /^\/(?:account|favorites|my\/listings|my\/searches)$/,
+  /^\/(?:account|favorites|feedback|my\/listings|my\/searches)$/,
   /^\/admin(?:\/[a-z-]{1,30})?$/,
 ];
 
@@ -51,3 +51,4 @@ export async function installDeepLinks(navigate: (path: string) => void): Promis
   // Ссылка пришла, когда приложение уже открыто.
   await onOpenUrl(open);
 }
+

@@ -189,6 +189,7 @@ function AccountMenu() {
     { to: "/favorites", label: "Избранное", icon: "heart" },
     { to: "/my/searches", label: "Подписки на поиск", icon: "bookmark" },
     { to: "/account", label: "Личный кабинет", icon: "user" },
+    { to: "/feedback", label: "Предложить улучшение", icon: "tools" },
     ...(staff ? [{ to: "/admin", label: "Админ-панель", icon: "shield" as const }] : []),
   ];
 
@@ -308,3 +309,4 @@ export function BottomTabs() {
     </nav>
   );
 }
+

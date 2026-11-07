@@ -39,6 +39,7 @@ export async function setupTestEnv(env: Record<string, string> = {}): Promise<Te
              conversations, messages, deals, reviews, notifications, reports,
              listing_views_daily, user_activity_daily, price_snapshots, saved_searches,
              chat_templates, user_blocks, nickname_verifications, app_errors, price_offers, push_devices CASCADE`;
+    await database.sql`TRUNCATE feedback CASCADE`;
   // Праздничное оформление в тестах выключено (его строка ссылается на users и очищается вместе с ними).
   await database.sql`INSERT INTO app_appearance (id, season) VALUES (1, 'none') ON CONFLICT (id) DO UPDATE SET season = 'none', until = NULL`;
   resetActivityCache();
@@ -115,3 +116,4 @@ export async function createStaff(
   if (enable.statusCode !== 200) throw new Error(`2FA не включилась: ${enable.body}`);
   return { ...user, totpSecret: secret };
 }
+
