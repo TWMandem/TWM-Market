@@ -1,5 +1,6 @@
 mod credentials;
 mod game_models;
+mod game_overlay;
 
 /// Трей и окно — только на компьютере.
 #[cfg(desktop)]
@@ -104,6 +105,7 @@ pub fn run() {
             game_models::game_detect,
             game_models::game_check,
             game_models::game_ped_model,
+            game_overlay::game_overlay_write,
         ])
         .run(tauri::generate_context!())
         .expect("не удалось запустить приложение TWM Market");
