@@ -12,18 +12,24 @@ const REPO = "TWMandem/TWM-Market";
 const STABLE_ASSET = "TWM-Market-setup.exe";
 /** Приложение для Android (с выпусков после 0.16.0, если в выпуске есть APK). */
 const ANDROID_ASSET = "TWM-Market.apk";
+const latestAssetUrl = (name) => `https://github.com/${REPO}/releases/latest/download/${name}`;
 
 for (const el of document.querySelectorAll("[data-year]")) el.textContent = String(new Date().getFullYear());
 
 const mb = (bytes) => `${(bytes / 1024 / 1024).toLocaleString("ru-RU", { maximumFractionDigits: 1 })} МБ`;
 
 /**
- * Кнопки «Скачать» без скриптов ведут на страницу последней версии на GitHub.
- * Здесь они заменяются прямой ссылкой на установщик и подписывается версия.
+ * Кнопки сразу ведут на установщики последней версии, даже если GitHub API
+ * недоступен. API нужен только для точного URL, номера версии и размера файлов.
  */
 async function resolveDownload() {
   const links = document.querySelectorAll("[data-download]");
   if (links.length === 0) return;
+  for (const link of links) link.href = latestAssetUrl(STABLE_ASSET);
+  for (const link of document.querySelectorAll("[data-download-android]")) {
+    link.href = latestAssetUrl(ANDROID_ASSET);
+    link.hidden = false;
+  }
   try {
     const response = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, {
       headers: { Accept: "application/vnd.github+json" },
@@ -48,7 +54,7 @@ async function resolveDownload() {
         : `Версия ${version}, ${mb(asset.size)}. Бесплатно, для Windows 10 и 11`;
     }
   } catch {
-    // GitHub недоступен — остаётся ссылка на страницу версии.
+    // GitHub API недоступен — постоянные прямые ссылки продолжают работать.
   }
 }
 
@@ -58,3 +64,4 @@ initTour();
 initPrice();
 initDeal();
 void initSeason();
+
