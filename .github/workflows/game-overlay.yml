@@ -17,7 +17,7 @@ jobs:
           arch: x86
       - name: Сборка 32-битной DLL
         shell: cmd
-        run: cl /nologo /std:c++17 /EHsc /W4 /LD /DUNICODE /D_UNICODE plugins\game-overlay\twm_market.cpp /Fe:twm_market.dll /link user32.lib shell32.lib
+        run: cl /nologo /std:c++17 /EHsc /W4 /LD plugins\game-overlay\twm_market.cpp /Fe:twm_market.dll /link user32.lib shell32.lib gdi32.lib
       - name: Проверка архитектуры
         shell: pwsh
         run: |
