@@ -82,7 +82,7 @@ jobs:
 
       - name: Сборка DLL для Amazing Online
         shell: cmd
-        run: cl /nologo /std:c++17 /EHsc /W4 /LD plugins\game-overlay\twm_market.cpp /Fe:twm_market.dll /link user32.lib shell32.lib gdi32.lib
+        run: cl /nologo /utf-8 /std:c++17 /EHsc /W4 /LD plugins\game-overlay\twm_market_fullscreen.cpp /Fe:twm_market.dll /link user32.lib shell32.lib gdi32.lib d3d9.lib
 
       - name: Файлы выпуска, контрольные суммы и latest.json
         shell: pwsh
