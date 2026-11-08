@@ -34,6 +34,8 @@ import app.tauri.plugin.Plugin
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
 
 /**
@@ -113,16 +115,16 @@ internal object Notifier {
     }
 }
 
-/** Фоновая проверка: спросить сервер о новых уведомлениях и показать их. */
-class PollWorker(context: Context, params: WorkerParameters) : Worker(context, params) {
-    override fun doWork(): Result {
-        val context = applicationContext
+/** Общий опрос для WorkManager и быстрого режима, пока приложение свёрнуто. */
+internal object PollClient {
+    @Synchronized
+    fun poll(context: Context) {
         val prefs = Store.prefs(context)
-        val api = prefs.getString("apiUrl", null) ?: return Result.success()
-        val token = prefs.getString("token", null) ?: return Result.success()
+        val api = prefs.getString("apiUrl", null) ?: return
+        val token = prefs.getString("token", null) ?: return
         val cursor = prefs.getLong("cursor", Store.NO_CURSOR)
         val query = if (cursor >= 0) "?after=$cursor" else ""
-        return try {
+        try {
             val connection = URL("$api/v1/push/poll$query").openConnection() as HttpURLConnection
             connection.connectTimeout = 15_000
             connection.readTimeout = 20_000
@@ -134,15 +136,21 @@ class PollWorker(context: Context, params: WorkerParameters) : Worker(context, p
                 // приложение зарегистрирует устройство заново при следующем входе.
                 Store.clear(context)
                 WorkManager.getInstance(context).cancelUniqueWork(WORK)
-                return Result.success()
+                connection.disconnect()
+                return
             }
-            if (code != 200) return Result.success()
+            if (code != 200) {
+                connection.disconnect()
+                return
+            }
             val text = connection.inputStream.bufferedReader().use { it.readText() }
             connection.disconnect()
             val json = JSONObject(text)
             val items = json.optJSONArray("items")
-            // Приложение на экране — уведомления показывает оно само.
-            if (items != null && !BackgroundNotifyPlugin.foreground) {
+            // Пока шёл сетевой запрос, игрок мог вернуться в приложение. Тогда
+            // курсор не двигаем: новые данные заберёт интерфейс при своём опросе.
+            if (BackgroundNotifyPlugin.foreground) return
+            if (items != null) {
                 for (i in 0 until items.length()) {
                     val item = items.getJSONObject(i)
                     val link = if (item.isNull("link")) null else item.optString("link")
@@ -150,16 +158,59 @@ class PollWorker(context: Context, params: WorkerParameters) : Worker(context, p
                 }
             }
             Store.advance(context, json.optLong("cursor", cursor))
-            Result.success()
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             // Нет сети и т. п. — попробуем в следующий раз.
-            Result.success()
         }
     }
 
-    companion object {
-        const val WORK = "twm-background-notify"
+    const val WORK = "twm-background-notify"
+}
+
+/** Фоновая проверка после выгрузки приложения: Android запускает её примерно раз в 15 минут. */
+class PollWorker(context: Context, params: WorkerParameters) : Worker(context, params) {
+    override fun doWork(): Result {
+        PollClient.poll(applicationContext)
+        return Result.success()
     }
+
+    companion object {
+        const val WORK = PollClient.WORK
+    }
+}
+
+/**
+ * Пока процесс приложения жив, но окно свёрнуто, опрашиваем сервер нативно.
+ * Таймеры WebView в фоне Android приостанавливает, поэтому JavaScript для этого
+ * ненадёжен. После выгрузки процесса задачу подхватывает WorkManager.
+ */
+internal object MinimizedPolling {
+    private val executor = Executors.newSingleThreadScheduledExecutor()
+    private var task: ScheduledFuture<*>? = null
+
+    @Synchronized
+    fun start(context: Context) {
+        if (task?.isDone == false) return
+        val appContext = context.applicationContext
+        task = executor.scheduleWithFixedDelay(
+            { if (!BackgroundNotifyPlugin.foreground) PollClient.poll(appContext) },
+            2,
+            8,
+            TimeUnit.SECONDS,
+        )
+    }
+
+    @Synchronized
+    fun stop() {
+        task?.cancel(false)
+        task = null
+    }
+}
+
+private fun schedulePeriodic(context: Context) {
+    val request = PeriodicWorkRequest.Builder(PollWorker::class.java, 15, TimeUnit.MINUTES)
+        .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+        .build()
+    WorkManager.getInstance(context).enqueueUniquePeriodicWork(PollWorker.WORK, ExistingPeriodicWorkPolicy.UPDATE, request)
 }
 
 @InvokeArg
@@ -202,10 +253,12 @@ class BackgroundNotifyPlugin(private val activity: Activity) : Plugin(activity) 
 
     override fun onResume() {
         foreground = true
+        MinimizedPolling.stop()
     }
 
     override fun onPause() {
         foreground = false
+        MinimizedPolling.start(context)
     }
 
     /**
@@ -215,6 +268,7 @@ class BackgroundNotifyPlugin(private val activity: Activity) : Plugin(activity) 
     override fun load(webView: WebView) {
         super.load(webView)
         foreground = true
+        MinimizedPolling.stop()
         val density = activity.resources.displayMetrics.density
         ViewCompat.setOnApplyWindowInsetsListener(webView) { view, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
@@ -264,16 +318,24 @@ class BackgroundNotifyPlugin(private val activity: Activity) : Plugin(activity) 
         // Новый ключ — начинаем с текущего момента: старые уведомления не показываем.
         if (!sameToken) editor.putLong("cursor", Store.NO_CURSOR)
         editor.apply()
-        val request = PeriodicWorkRequest.Builder(PollWorker::class.java, 15, TimeUnit.MINUTES)
-            .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
-            .build()
-        WorkManager.getInstance(context).enqueueUniquePeriodicWork(PollWorker.WORK, ExistingPeriodicWorkPolicy.UPDATE, request)
+        schedulePeriodic(context)
+        invoke.resolve(JSObject())
+    }
+
+    /** Восстановить WorkManager после обновления приложения, не создавая новый ключ устройства. */
+    @Command
+    fun ensure(invoke: Invoke) {
+        val prefs = Store.prefs(context)
+        if (prefs.getString("apiUrl", null) != null && prefs.getString("token", null) != null) {
+            schedulePeriodic(context)
+        }
         invoke.resolve(JSObject())
     }
 
     @Command
     fun stop(invoke: Invoke) {
         val token = Store.prefs(context).getString("token", null)
+        MinimizedPolling.stop()
         WorkManager.getInstance(context).cancelUniqueWork(PollWorker.WORK)
         Store.clear(context)
         val result = JSObject()
@@ -305,3 +367,4 @@ class BackgroundNotifyPlugin(private val activity: Activity) : Plugin(activity) 
         invoke.resolve(JSObject())
     }
 }
+

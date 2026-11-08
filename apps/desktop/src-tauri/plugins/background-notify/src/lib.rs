@@ -34,6 +34,12 @@ async fn status<R: Runtime>(app: AppHandle<R>) -> Result<Value, String> {
     handle(&app).run_mobile_plugin("status", ()).map_err(|e| e.to_string())
 }
 
+/// Повторно поставить периодическую задачу после обновления приложения.
+#[tauri::command]
+async fn ensure<R: Runtime>(app: AppHandle<R>) -> Result<Value, String> {
+    handle(&app).run_mobile_plugin("ensure", ()).map_err(|e| e.to_string())
+}
+
 /// Приложение само показало уведомления до номера id — фоновая задача их пропустит.
 #[tauri::command]
 async fn seen<R: Runtime>(app: AppHandle<R>, id: i64) -> Result<Value, String> {
@@ -62,7 +68,7 @@ async fn status_bar<R: Runtime>(app: AppHandle<R>, light: bool) -> Result<Value,
 
 pub fn init<R: Runtime>() -> TauriPlugin<R> {
     Builder::new("background-notify")
-        .invoke_handler(tauri::generate_handler![start, stop, status, seen, notify, insets, status_bar])
+        .invoke_handler(tauri::generate_handler![start, stop, status, ensure, seen, notify, insets, status_bar])
         .setup(|app, api| {
             #[cfg(target_os = "android")]
             {
@@ -77,3 +83,4 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
         })
         .build()
 }
+

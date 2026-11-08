@@ -29,6 +29,10 @@ export async function syncBackgroundNotifications(authed: boolean): Promise<void
       if (!(await plugin.isPermissionGranted())) await plugin.requestPermission();
       const { token } = await api.registerPushDevice();
       await invoke("plugin:background-notify|start", { apiUrl: API_URL, token });
+    } else if (want) {
+      // После обновления Android мог удалить/остановить задачу WorkManager,
+      // хотя ключ устройства сохранился. Без нового ключа ставим её повторно.
+      await invoke("plugin:background-notify|ensure");
     } else if (!want && status.active) {
       await stopBackgroundNotifications();
     }
@@ -89,3 +93,4 @@ export function setAndroidStatusBar(light: boolean): void {
   if (!isAndroidApp()) return;
   invoke("plugin:background-notify|status_bar", { light }).catch(() => {});
 }
+

@@ -2,4 +2,5 @@
 
 [default]
 description = "Фоновая проверка уведомлений, уведомления Android, отступы под строку состояния и цвет её значков."
-permissions = ["allow-start", "allow-stop", "allow-status", "allow-seen", "allow-notify", "allow-insets", "allow-status-bar"]
+permissions = ["allow-start", "allow-stop", "allow-status", "allow-ensure", "allow-seen", "allow-notify", "allow-insets", "allow-status-bar"]
+
