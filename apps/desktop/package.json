@@ -1,6 +1,6 @@
 {
   "name": "@twm/desktop",
-  "version": "0.24.2",
+  "version": "0.24.3",
   "private": true,
   "description": "Настольное приложение TWM Market для Windows (Tauri 2 + React)",
   "type": "module",
