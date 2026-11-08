@@ -10,20 +10,28 @@ const price = (value: number | null) => value === null ? "Цена догово�
 export async function updateGameOverlay(authenticated: boolean): Promise<void> {
   if (!isTauri() || /android/i.test(navigator.userAgent)) return;
   if (!authenticated) {
-    await invoke("game_overlay_write", { text: "Войдите в Windows-приложение TWM Market, чтобы видеть объявления.\fВойдите в Windows-приложение TWM Market, чтобы видеть переписки." });
+    const guest = "Войдите в Windows-приложение TWM Market, чтобы увидеть данные аккаунта.";
+    await invoke("game_overlay_write", { text: [guest, guest, guest, guest, guest].join("\f") });
     return;
   }
   let listings: Awaited<ReturnType<typeof api.myListings>>;
   let conversations: Awaited<ReturnType<typeof api.conversations>>;
+  let favorites: Awaited<ReturnType<typeof api.favorites>>;
+  let notifications: Awaited<ReturnType<typeof api.notifications>>;
   try {
-    [listings, conversations] = await Promise.all([api.myListings("active"), api.conversations()]);
+    [listings, conversations, favorites, notifications] = await Promise.all([
+      api.myListings("active"), api.conversations(), api.favorites(), api.notifications(),
+    ]);
   } catch {
+    const failed = "Не удалось обновить данные. Проверьте соединение TWM Market с сервером.";
     await invoke("game_overlay_write", {
-      text: "Не удалось обновить объявления. Проверьте соединение TWM Market с сервером.\fНе удалось обновить переписки. Проверьте соединение TWM Market с сервером.",
+      text: [failed, failed, failed, failed, failed].join("\f"),
     });
     return;
   }
   const unread = conversations.items.reduce((sum, item) => sum + item.unread, 0);
+  const unreadNotifications = notifications.items.filter((item) => !item.read).length;
+  const listingFavorites = listings.items.reduce((sum, item) => sum + item.favorites, 0);
   const listingLines = listings.items.slice(0, 12).map((item) =>
     `${line(item.title)} — ${price(item.price)} · ${line(item.server.name)}`,
   );
@@ -35,10 +43,28 @@ export async function updateGameOverlay(authenticated: boolean): Promise<void> {
     `${line(item.listing.server.name)} · ${price(item.agreedPrice ?? item.listing.price)}${item.agreedPrice !== null ? " (согласовано)" : ""} · новых: ${item.unread}`,
     "",
   ]) : ["Активных переписок нет. Место и время встречи обсудите в чате TWM Market."];
+  const favoriteLines = favorites.items.slice(0, 7).map((item) =>
+    `${line(item.title)} — ${price(item.price)} · ${line(item.server.name)}`,
+  );
+  const notificationLines = notifications.items.slice(0, 7).map((item) =>
+    `${item.read ? "○" : "●"} ${line(item.title)} — ${line(item.body)}`,
+  );
+  const overview = [
+    "Рынок под рукой, не выходя из игры",
+    "",
+    `Активные объявления: ${listings.items.length}`,
+    `Добавили ваши объявления в избранное: ${listingFavorites}`,
+    `Непрочитанные сообщения: ${unread}`,
+    `Новые уведомления: ${unreadNotifications}`,
+    `В избранном: ${favorites.items.length}`,
+  ];
   const content = [
-    `МОИ ОБЪЯВЛЕНИЯ · сообщений: ${unread}`,
-    ...(listingLines.length ? listingLines : ["Активных объявлений нет"]),
-  ].join("\n") + "\f" + chatLines.join("\n");
+    overview.join("\n"),
+    (listingLines.length ? listingLines : ["Активных объявлений нет"]).join("\n"),
+    chatLines.join("\n"),
+    (favoriteLines.length ? favoriteLines : ["В избранном пока ничего нет"]).join("\n"),
+    (notificationLines.length ? notificationLines : ["Уведомлений пока нет"]).join("\n"),
+  ].join("\f");
   await invoke("game_overlay_write", { text: content });
 }
 

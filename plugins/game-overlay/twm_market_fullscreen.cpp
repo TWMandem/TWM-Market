@@ -16,9 +16,11 @@ using EndScene = HRESULT (WINAPI*)(IDirect3DDevice9*);
 using HookInit = int (WINAPI*)();
 using CreateHook = int (WINAPI*)(void*, void*, void**);
 using EnableHook = int (WINAPI*)(void*);
+using DeviceState = HRESULT (WINAPI*)(IDirectInputDevice8W*, DWORD, LPVOID);
+using DeviceData = HRESULT (WINAPI*)(IDirectInputDevice8W*, DWORD, LPDIDEVICEOBJECTDATA, LPDWORD, DWORD);
 
-constexpr int panel_width = 660;
-constexpr int panel_height = 430;
+constexpr int panel_width = 820;
+constexpr int panel_height = 520;
 constexpr COLORREF ground = RGB(14, 16, 20);
 constexpr COLORREF surface = RGB(22, 25, 32);
 constexpr COLORREF surface_2 = RGB(29, 33, 42);
@@ -35,10 +37,15 @@ IDirect3DDevice9* texture_device = nullptr;
 IDirectInput8W* direct_input = nullptr;
 IDirectInputDevice8W* mouse_device = nullptr;
 HWND mouse_window = nullptr;
+WNDPROC original_wnd_proc = nullptr;
+DeviceState original_mouse_state = nullptr;
+DeviceState original_keyboard_state = nullptr;
+DeviceData original_mouse_data = nullptr;
+DeviceData original_keyboard_data = nullptr;
 bool shown = false;
 bool toggle_down = false;
 bool mouse_down = false;
-int page = 0;
+int page = 0; // 0 — обзор, 1 — объявления, 2 — сообщения, 3 — избранное, 4 — уведомления, 5 — настройки.
 DWORD refreshed = 0;
 float cursor_x = panel_width / 2.0f;
 float cursor_y = panel_height / 2.0f;
@@ -51,6 +58,53 @@ struct Vertex { float x, y, z, rhw, u, v; };
 struct PointerVertex { float x, y, z, rhw; DWORD color; };
 
 bool key(int vk) { return (GetAsyncKeyState(vk) & 0x8000) != 0; }
+
+HRESULT WINAPI hooked_mouse_state(IDirectInputDevice8W* device, DWORD size, LPVOID data) {
+    const HRESULT result = original_mouse_state(device, size, data);
+    if (shown && device != mouse_device && SUCCEEDED(result) && data) ZeroMemory(data, size);
+    return result;
+}
+
+HRESULT WINAPI hooked_keyboard_state(IDirectInputDevice8W* device, DWORD size, LPVOID data) {
+    const HRESULT result = original_keyboard_state(device, size, data);
+    if (shown && SUCCEEDED(result) && data) ZeroMemory(data, size);
+    return result;
+}
+
+HRESULT WINAPI hooked_mouse_data(IDirectInputDevice8W* device, DWORD object_size,
+                                  LPDIDEVICEOBJECTDATA data, LPDWORD count, DWORD flags) {
+    const HRESULT result = original_mouse_data(device, object_size, data, count, flags);
+    if (shown && device != mouse_device && count) *count = 0;
+    return result;
+}
+
+HRESULT WINAPI hooked_keyboard_data(IDirectInputDevice8W* device, DWORD object_size,
+                                     LPDIDEVICEOBJECTDATA data, LPDWORD count, DWORD flags) {
+    const HRESULT result = original_keyboard_data(device, object_size, data, count, flags);
+    if (shown && count) *count = 0;
+    return result;
+}
+
+LRESULT CALLBACK overlay_wnd_proc(HWND window, UINT message, WPARAM w_param, LPARAM l_param) {
+    if (shown) {
+        switch (message) {
+            case WM_INPUT:
+            case WM_MOUSEMOVE:
+            case WM_MOUSEWHEEL:
+            case WM_MOUSEHWHEEL:
+            case WM_LBUTTONDOWN: case WM_LBUTTONUP: case WM_LBUTTONDBLCLK:
+            case WM_RBUTTONDOWN: case WM_RBUTTONUP: case WM_RBUTTONDBLCLK:
+            case WM_MBUTTONDOWN: case WM_MBUTTONUP: case WM_MBUTTONDBLCLK:
+            case WM_XBUTTONDOWN: case WM_XBUTTONUP: case WM_XBUTTONDBLCLK:
+            case WM_KEYDOWN: case WM_KEYUP:
+            case WM_SYSKEYDOWN: case WM_SYSKEYUP:
+            case WM_CHAR: case WM_SYSCHAR:
+                return 0;
+        }
+    }
+    return original_wnd_proc ? CallWindowProcW(original_wnd_proc, window, message, w_param, l_param)
+                             : DefWindowProcW(window, message, w_param, l_param);
+}
 
 std::wstring data_folder() {
     wchar_t folder[MAX_PATH] = {};
@@ -119,6 +173,19 @@ std::wstring snapshot() {
     return std::wstring(chars.begin() + 1, chars.end());
 }
 
+std::vector<std::wstring> split_sections(const std::wstring& data) {
+    std::vector<std::wstring> sections;
+    size_t start = 0;
+    while (start <= data.size()) {
+        const size_t separator = data.find(L'\f', start);
+        sections.push_back(data.substr(start, separator == std::wstring::npos ? data.size() - start : separator - start));
+        if (separator == std::wstring::npos) break;
+        start = separator + 1;
+    }
+    while (sections.size() < 5) sections.push_back(L"Данные пока не готовы");
+    return sections;
+}
+
 void release_texture() {
     if (texture) texture->Release();
     texture = nullptr;
@@ -155,8 +222,8 @@ void label(HDC dc, const wchar_t* text, RECT rect, COLORREF color, UINT align = 
 
 void draw_tab(HDC dc, const wchar_t* text, RECT rect, bool active) {
     if (active) fill_round(dc, rect, 12, surface_2);
-    label(dc, text, rect, active ? ink : muted, DT_CENTER);
-    if (active) fill_round(dc, {rect.left + 14, rect.bottom - 3, rect.right - 14, rect.bottom}, 3, accent);
+    label(dc, text, {rect.left + 18, rect.top, rect.right - 8, rect.bottom}, active ? ink : muted);
+    if (active) fill_round(dc, {rect.left, rect.top + 9, rect.left + 4, rect.bottom - 9}, 4, accent);
 }
 
 void draw_button(HDC dc, const wchar_t* text, RECT rect, bool selected = false) {
@@ -166,21 +233,21 @@ void draw_button(HDC dc, const wchar_t* text, RECT rect, bool selected = false) 
 }
 
 void draw_settings(HDC dc) {
-    label(dc, L"Настройки панели", {28, 112, 620, 142}, ink);
-    label(dc, L"Изменения сохраняются автоматически", {28, 143, 620, 167}, muted);
-    fill_round(dc, {28, 181, 632, 239}, 14, surface_2);
-    label(dc, L"Положение", {44, 181, 218, 239}, ink);
-    draw_button(dc, L"Слева", {230, 190, 340, 230}, position_mode == 1);
-    draw_button(dc, L"По центру", {350, 190, 470, 230}, position_mode == 0);
-    draw_button(dc, L"Справа", {480, 190, 590, 230}, position_mode == 2);
-    fill_round(dc, {28, 251, 632, 309}, 14, surface_2);
-    label(dc, L"Скорость курсора", {44, 251, 218, 309}, ink);
-    draw_button(dc, L"Медленно", {230, 260, 340, 300}, cursor_speed == 0);
-    draw_button(dc, L"Обычно", {350, 260, 470, 300}, cursor_speed == 1);
-    draw_button(dc, L"Быстро", {480, 260, 590, 300}, cursor_speed == 2);
-    fill_round(dc, {28, 321, 632, 371}, 14, surface_2);
-    label(dc, L"Подсказка Ctrl+Alt+F10", {44, 321, 450, 371}, ink);
-    draw_button(dc, show_hint ? L"Включено" : L"Выключено", {488, 327, 610, 365}, show_hint);
+    label(dc, L"Настройки панели", {246, 96, 775, 126}, ink);
+    label(dc, L"Изменения сохраняются автоматически", {246, 126, 775, 150}, muted);
+    fill_round(dc, {238, 166, 786, 226}, 14, surface_2);
+    label(dc, L"Положение", {254, 166, 392, 226}, ink);
+    draw_button(dc, L"Слева", {398, 176, 508, 216}, position_mode == 1);
+    draw_button(dc, L"По центру", {518, 176, 638, 216}, position_mode == 0);
+    draw_button(dc, L"Справа", {648, 176, 766, 216}, position_mode == 2);
+    fill_round(dc, {238, 240, 786, 300}, 14, surface_2);
+    label(dc, L"Скорость курсора", {254, 240, 392, 300}, ink);
+    draw_button(dc, L"Медленно", {398, 250, 508, 290}, cursor_speed == 0);
+    draw_button(dc, L"Обычно", {518, 250, 638, 290}, cursor_speed == 1);
+    draw_button(dc, L"Быстро", {648, 250, 766, 290}, cursor_speed == 2);
+    fill_round(dc, {238, 314, 786, 372}, 14, surface_2);
+    label(dc, L"Подсказка Ctrl+Alt+F10", {254, 314, 620, 372}, ink);
+    draw_button(dc, show_hint ? L"Включено" : L"Выключено", {642, 324, 766, 362}, show_hint);
 }
 
 void update_texture(IDirect3DDevice9* device) {
@@ -188,10 +255,8 @@ void update_texture(IDirect3DDevice9* device) {
     if (!texture && FAILED(device->CreateTexture(panel_width, panel_height, 1, 0, D3DFMT_A8R8G8B8,
                                                   D3DPOOL_MANAGED, &texture, nullptr))) return;
     texture_device = device;
-    const std::wstring data = snapshot();
-    const auto split = data.find(L'\f');
-    const std::wstring content = page == 0 ? data.substr(0, split) :
-        (split == std::wstring::npos ? L"Нет данных о переписках" : data.substr(split + 1));
+    const auto sections = split_sections(snapshot());
+    const std::wstring content = page < 5 ? sections[page] : L"";
 
     HDC dc = CreateCompatibleDC(nullptr);
     if (!dc) return;
@@ -223,27 +288,35 @@ void update_texture(IDirect3DDevice9* device) {
                                    OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
                                    DEFAULT_PITCH, L"Segoe UI");
     SelectObject(dc, title_font);
-    label(dc, L"TWM Market", {76, 16, 270, 60}, ink);
-    draw_button(dc, L"×", {604, 20, 640, 56});
+    label(dc, L"TWM Market", {76, 16, 310, 60}, ink);
+    label(dc, L"Игровая панель", {315, 16, 500, 60}, muted);
+    draw_button(dc, L"×", {764, 20, 800, 56});
 
     HFONT normal_font = CreateFontW(17, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
                                     OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
                                     DEFAULT_PITCH, L"Segoe UI");
     SelectObject(dc, normal_font);
-    draw_tab(dc, L"Мои объявления", {18, 72, 216, 105}, page == 0);
-    draw_tab(dc, L"Переписки", {224, 72, 392, 105}, page == 1);
-    draw_tab(dc, L"Настройки", {400, 72, 548, 105}, page == 2);
+    fill_round(dc, {18, 78, 214, 502}, 16, ground);
+    draw_tab(dc, L"Обзор", {30, 94, 202, 140}, page == 0);
+    draw_tab(dc, L"Мои объявления", {30, 146, 202, 192}, page == 1);
+    draw_tab(dc, L"Сообщения", {30, 198, 202, 244}, page == 2);
+    draw_tab(dc, L"Избранное", {30, 250, 202, 296}, page == 3);
+    draw_tab(dc, L"Уведомления", {30, 302, 202, 348}, page == 4);
+    draw_tab(dc, L"Настройки", {30, 400, 202, 446}, page == 5);
+    label(dc, L"Ctrl+Alt+F10", {48, 458, 184, 484}, muted);
 
-    if (page == 2) {
+    if (page == 5) {
         draw_settings(dc);
     } else {
-        fill_round(dc, {18, 114, 642, 357}, 14, ground);
+        const wchar_t* titles[] = {L"Обзор", L"Мои объявления", L"Сообщения", L"Избранное", L"Уведомления"};
+        label(dc, titles[page], {242, 88, 780, 124}, ink);
+        fill_round(dc, {230, 132, 802, 448}, 16, ground);
         SetTextColor(dc, ink);
-        RECT body = {34, 132, 626, 341};
+        RECT body = {250, 152, 782, 428};
         DrawTextW(dc, content.c_str(), -1, &body, DT_LEFT | DT_WORDBREAK | DT_NOPREFIX);
-        draw_button(dc, L"Открыть в приложении", {18, 371, 228, 413}, true);
+        draw_button(dc, L"Открыть в приложении", {230, 462, 456, 504}, true);
     }
-    if (show_hint) label(dc, L"Ctrl+Alt+F10 — скрыть", {430, 376, 632, 409}, muted, DT_RIGHT);
+    if (show_hint) label(dc, L"Нажмите ещё раз, чтобы скрыть", {520, 466, 790, 500}, muted, DT_RIGHT);
 
     D3DLOCKED_RECT locked = {};
     if (SUCCEEDED(texture->LockRect(0, &locked, nullptr, 0))) {
@@ -265,11 +338,15 @@ void update_texture(IDirect3DDevice9* device) {
 }
 
 void release_mouse() {
+    if (mouse_window && original_wnd_proc && IsWindow(mouse_window)) {
+        SetWindowLongPtrW(mouse_window, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(original_wnd_proc));
+    }
     if (mouse_device) { mouse_device->Unacquire(); mouse_device->Release(); }
     if (direct_input) direct_input->Release();
     mouse_device = nullptr;
     direct_input = nullptr;
     mouse_window = nullptr;
+    original_wnd_proc = nullptr;
 }
 
 bool prepare_mouse(IDirect3DDevice9* device) {
@@ -286,8 +363,44 @@ bool prepare_mouse(IDirect3DDevice9* device) {
         return false;
     }
     mouse_window = creation.hFocusWindow;
+    const auto current_proc = reinterpret_cast<WNDPROC>(GetWindowLongPtrW(mouse_window, GWLP_WNDPROC));
+    if (current_proc != overlay_wnd_proc) {
+        original_wnd_proc = reinterpret_cast<WNDPROC>(SetWindowLongPtrW(
+            mouse_window, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(overlay_wnd_proc)));
+    }
     mouse_device->Acquire();
     return true;
+}
+
+void install_direct_input_hooks(CreateHook create, EnableHook enable) {
+    IDirectInput8W* input = nullptr;
+    IDirectInputDevice8W* mouse = nullptr;
+    IDirectInputDevice8W* keyboard = nullptr;
+    if (FAILED(DirectInput8Create(module_instance, DIRECTINPUT_VERSION, IID_IDirectInput8W,
+                                  reinterpret_cast<void**>(&input), nullptr))) return;
+    input->CreateDevice(GUID_SysMouse, &mouse, nullptr);
+    input->CreateDevice(GUID_SysKeyboard, &keyboard, nullptr);
+    if (mouse) {
+        void** mouse_table = *reinterpret_cast<void***>(mouse);
+        void* state_target = mouse_table[9];
+        void* data_target = mouse_table[10];
+        if (create(state_target, reinterpret_cast<void*>(hooked_mouse_state),
+                   reinterpret_cast<void**>(&original_mouse_state)) == 0) enable(state_target);
+        if (create(data_target, reinterpret_cast<void*>(hooked_mouse_data),
+                   reinterpret_cast<void**>(&original_mouse_data)) == 0) enable(data_target);
+        if (keyboard) {
+            void** keyboard_table = *reinterpret_cast<void***>(keyboard);
+            if (keyboard_table[9] != state_target &&
+                create(keyboard_table[9], reinterpret_cast<void*>(hooked_keyboard_state),
+                       reinterpret_cast<void**>(&original_keyboard_state)) == 0) enable(keyboard_table[9]);
+            if (keyboard_table[10] != data_target &&
+                create(keyboard_table[10], reinterpret_cast<void*>(hooked_keyboard_data),
+                       reinterpret_cast<void**>(&original_keyboard_data)) == 0) enable(keyboard_table[10]);
+        }
+    }
+    if (keyboard) keyboard->Release();
+    if (mouse) mouse->Release();
+    input->Release();
 }
 
 bool update_cursor(IDirect3DDevice9* device, bool& pressed) {
@@ -311,21 +424,28 @@ bool in_rect(float x, float y, int left, int top, int right, int bottom) {
 }
 
 void handle_click() {
-    if (in_rect(cursor_x, cursor_y, 18, 72, 216, 105)) { page = 0; refreshed = 0; }
-    else if (in_rect(cursor_x, cursor_y, 224, 72, 392, 105)) { page = 1; refreshed = 0; }
-    else if (in_rect(cursor_x, cursor_y, 400, 72, 548, 105)) { page = 2; refreshed = 0; }
-    else if (in_rect(cursor_x, cursor_y, 604, 20, 640, 56)) shown = false;
-    else if (page != 2 && in_rect(cursor_x, cursor_y, 18, 371, 228, 413)) {
-        ShellExecuteW(nullptr, L"open", page == 0 ? L"twm-market://open/my/listings" :
-                      L"twm-market://open/chats", nullptr, nullptr, SW_SHOWNORMAL);
-    } else if (page == 2) {
-        if (in_rect(cursor_x, cursor_y, 230, 190, 340, 230)) position_mode = 1;
-        else if (in_rect(cursor_x, cursor_y, 350, 190, 470, 230)) position_mode = 0;
-        else if (in_rect(cursor_x, cursor_y, 480, 190, 590, 230)) position_mode = 2;
-        else if (in_rect(cursor_x, cursor_y, 230, 260, 340, 300)) cursor_speed = 0;
-        else if (in_rect(cursor_x, cursor_y, 350, 260, 470, 300)) cursor_speed = 1;
-        else if (in_rect(cursor_x, cursor_y, 480, 260, 590, 300)) cursor_speed = 2;
-        else if (in_rect(cursor_x, cursor_y, 488, 327, 610, 365)) show_hint = !show_hint;
+    if (in_rect(cursor_x, cursor_y, 30, 94, 202, 140)) { page = 0; refreshed = 0; }
+    else if (in_rect(cursor_x, cursor_y, 30, 146, 202, 192)) { page = 1; refreshed = 0; }
+    else if (in_rect(cursor_x, cursor_y, 30, 198, 202, 244)) { page = 2; refreshed = 0; }
+    else if (in_rect(cursor_x, cursor_y, 30, 250, 202, 296)) { page = 3; refreshed = 0; }
+    else if (in_rect(cursor_x, cursor_y, 30, 302, 202, 348)) { page = 4; refreshed = 0; }
+    else if (in_rect(cursor_x, cursor_y, 30, 400, 202, 446)) { page = 5; refreshed = 0; }
+    else if (in_rect(cursor_x, cursor_y, 764, 20, 800, 56)) shown = false;
+    else if (page < 5 && in_rect(cursor_x, cursor_y, 230, 462, 456, 504)) {
+        const wchar_t* links[] = {
+            L"twm-market://open/account", L"twm-market://open/my/listings",
+            L"twm-market://open/chats", L"twm-market://open/favorites",
+            L"twm-market://open/account",
+        };
+        ShellExecuteW(nullptr, L"open", links[page], nullptr, nullptr, SW_SHOWNORMAL);
+    } else if (page == 5) {
+        if (in_rect(cursor_x, cursor_y, 398, 176, 508, 216)) position_mode = 1;
+        else if (in_rect(cursor_x, cursor_y, 518, 176, 638, 216)) position_mode = 0;
+        else if (in_rect(cursor_x, cursor_y, 648, 176, 766, 216)) position_mode = 2;
+        else if (in_rect(cursor_x, cursor_y, 398, 250, 508, 290)) cursor_speed = 0;
+        else if (in_rect(cursor_x, cursor_y, 518, 250, 638, 290)) cursor_speed = 1;
+        else if (in_rect(cursor_x, cursor_y, 648, 250, 766, 290)) cursor_speed = 2;
+        else if (in_rect(cursor_x, cursor_y, 642, 324, 766, 362)) show_hint = !show_hint;
         else return;
         save_settings();
         refreshed = 0;
@@ -410,6 +530,7 @@ DWORD WINAPI worker(void*) {
     if (!initialize || !create || !enable) return 3;
     const int initialized = initialize();
     if (initialized != 0 && initialized != 1) return 3;
+    install_direct_input_hooks(create, enable);
     HWND dummy = CreateWindowExW(0, L"STATIC", L"", WS_POPUP, 0, 0, 8, 8, nullptr, nullptr, nullptr, nullptr);
     if (!dummy) return 4;
     auto* d3d = Direct3DCreate9(D3D_SDK_VERSION);

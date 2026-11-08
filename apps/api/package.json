@@ -1,6 +1,6 @@
 {
   "name": "@twm/api",
-  "version": "0.24.3",
+  "version": "0.24.4",
   "private": true,
   "description": "Сервер TWM Market: API для настольного приложения",
   "type": "module",
