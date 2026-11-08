@@ -19,7 +19,14 @@ bool shown = false;
 int page = 0;
 DWORD refreshed = 0;
 bool toggle_down = false;
-bool open_down = false;
+bool mouse_down = false;
+constexpr int width = 560;
+constexpr int height = 360;
+
+struct PanelPosition { float left, top; };
+PanelPosition position(const D3DVIEWPORT9& viewport) {
+    return {(viewport.Width > 600 ? (viewport.Width - float(width)) / 2 : 12.0f), 40.0f};
+}
 
 std::wstring snapshot() {
     wchar_t folder[MAX_PATH] = {};
@@ -28,7 +35,23 @@ std::wstring snapshot() {
     const std::wstring path = std::wstring(folder) + L"\\TWM Market\\game-overlay.txt";
     HANDLE file = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE,
                               nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
-    if (file == INVALID_HANDLE_VALUE) return L"Откройте TWM Market и войдите в аккаунт\fНет данных о встрече";
+    if (file == INVALID_HANDLE_VALUE) return
+        L"Нет данных от Windows-приложения.\nУстановите TWM Market 0.24.2 или новее, откройте его и войдите в аккаунт."
+        L"\fПереписки появятся после запуска Windows-приложения TWM Market.";
+    FILETIME modified = {}, now = {};
+    if (GetFileTime(file, nullptr, nullptr, &modified)) {
+        GetSystemTimeAsFileTime(&now);
+        ULARGE_INTEGER last_write = {}, current = {};
+        last_write.LowPart = modified.dwLowDateTime;
+        last_write.HighPart = modified.dwHighDateTime;
+        current.LowPart = now.dwLowDateTime;
+        current.HighPart = now.dwHighDateTime;
+        if (current.QuadPart > last_write.QuadPart + 120ULL * 10000000ULL) {
+            CloseHandle(file);
+            return L"Данные устарели. Запустите Windows-приложение TWM Market и войдите в аккаунт."
+                   L"\fПереписки обновятся после запуска Windows-приложения TWM Market.";
+        }
+    }
     const DWORD size = GetFileSize(file, nullptr);
     if (size < 2 || size > 32768 || (size & 1)) { CloseHandle(file); return L"Данные пока не готовы\f"; }
     std::vector<wchar_t> chars(size / 2);
@@ -44,7 +67,7 @@ void release_texture() { if (texture) texture->Release(); texture = nullptr; tex
 
 void update_texture(IDirect3DDevice9* device) {
     if (texture_device != device) release_texture();
-    if (!texture && FAILED(device->CreateTexture(560, 360, 1, 0, D3DFMT_A8R8G8B8,
+    if (!texture && FAILED(device->CreateTexture(width, height, 1, 0, D3DFMT_A8R8G8B8,
                                                 D3DPOOL_MANAGED, &texture, nullptr))) return;
     texture_device = device;
     const std::wstring data = snapshot();
@@ -55,8 +78,8 @@ void update_texture(IDirect3DDevice9* device) {
     if (!dc) return;
     BITMAPINFO info = {};
     info.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-    info.bmiHeader.biWidth = 560;
-    info.bmiHeader.biHeight = -360;
+    info.bmiHeader.biWidth = width;
+    info.bmiHeader.biHeight = -height;
     info.bmiHeader.biPlanes = 1;
     info.bmiHeader.biBitCount = 32;
     info.bmiHeader.biCompression = BI_RGB;
@@ -64,7 +87,7 @@ void update_texture(IDirect3DDevice9* device) {
     HBITMAP bitmap = CreateDIBSection(dc, &info, DIB_RGB_COLORS, &pixels, nullptr, 0);
     if (!bitmap) { DeleteDC(dc); return; }
     HGDIOBJ old_bitmap = SelectObject(dc, bitmap);
-    RECT area = {0, 0, 560, 360};
+    RECT area = {0, 0, width, height};
     HBRUSH background = CreateSolidBrush(RGB(18, 20, 27));
     FillRect(dc, &area, background);
     DeleteObject(background);
@@ -74,21 +97,30 @@ void update_texture(IDirect3DDevice9* device) {
     HGDIOBJ old_font = SelectObject(dc, font);
     SetBkMode(dc, TRANSPARENT);
     SetTextColor(dc, RGB(245, 245, 247));
-    RECT heading = {18, 12, 545, 46};
-    const wchar_t* title = page == 0 ? L"TWM Market · Мои объявления" : L"TWM Market · Встреча";
-    DrawTextW(dc, title, -1, &heading, DT_LEFT | DT_SINGLELINE);
-    RECT body = {18, 55, 545, 320};
+    RECT heading = {18, 10, 480, 40};
+    DrawTextW(dc, L"TWM Market", -1, &heading, DT_LEFT | DT_SINGLELINE);
+    RECT close = {518, 10, 550, 40};
+    DrawTextW(dc, L"×", -1, &close, DT_CENTER | DT_SINGLELINE);
+    HBRUSH selected = CreateSolidBrush(RGB(65, 53, 32));
+    RECT active_tab = page == 0 ? RECT{18, 45, 190, 82} : RECT{199, 45, 371, 82};
+    FillRect(dc, &active_tab, selected);
+    DeleteObject(selected);
+    RECT listings_tab = {22, 51, 186, 79};
+    RECT chats_tab = {203, 51, 367, 79};
+    DrawTextW(dc, L"Мои объявления", -1, &listings_tab, DT_CENTER | DT_SINGLELINE);
+    DrawTextW(dc, L"Переписки", -1, &chats_tab, DT_CENTER | DT_SINGLELINE);
+    RECT body = {18, 96, 545, 308};
     DrawTextW(dc, content.c_str(), -1, &body, DT_LEFT | DT_WORDBREAK | DT_NOPREFIX);
     SetTextColor(dc, RGB(165, 170, 185));
-    RECT footer = {18, 325, 545, 355};
-    DrawTextW(dc, L"1 — объявления   2 — встреча   O — открыть приложение   Ctrl+Shift+M — скрыть",
+    RECT footer = {18, 321, 545, 355};
+    DrawTextW(dc, L"Открыть в приложении                         Ctrl+Alt+F10 — скрыть",
               -1, &footer, DT_LEFT | DT_SINGLELINE);
     D3DLOCKED_RECT locked;
     if (SUCCEEDED(texture->LockRect(0, &locked, nullptr, 0))) {
         const auto* source = static_cast<const DWORD*>(pixels);
-        for (int y = 0; y < 360; ++y) {
+        for (int y = 0; y < height; ++y) {
             auto* target = reinterpret_cast<DWORD*>(static_cast<BYTE*>(locked.pBits) + y * locked.Pitch);
-            for (int x = 0; x < 560; ++x) target[x] = source[y * 560 + x] | 0xff000000;
+            for (int x = 0; x < width; ++x) target[x] = source[y * width + x] | 0xff000000;
         }
         texture->UnlockRect(0);
     }
@@ -101,6 +133,41 @@ void update_texture(IDirect3DDevice9* device) {
 }
 
 struct Vertex { float x, y, z, rhw, u, v; };
+struct PointerVertex { float x, y, z, rhw; DWORD color; };
+bool mouse_position(IDirect3DDevice9* device, const D3DVIEWPORT9& viewport, float& x, float& y) {
+    D3DDEVICE_CREATION_PARAMETERS creation = {};
+    if (FAILED(device->GetCreationParameters(&creation)) || !creation.hFocusWindow) return false;
+    POINT point = {};
+    RECT client = {};
+    if (!GetCursorPos(&point) || !ScreenToClient(creation.hFocusWindow, &point) ||
+        !GetClientRect(creation.hFocusWindow, &client)) return false;
+    const LONG client_width = client.right - client.left;
+    const LONG client_height = client.bottom - client.top;
+    if (client_width <= 0 || client_height <= 0) return false;
+    const auto panel = position(viewport);
+    x = float(point.x) * viewport.Width / client_width - panel.left;
+    y = float(point.y) * viewport.Height / client_height - panel.top;
+    return x >= 0 && x < width && y >= 0 && y < height;
+}
+
+void handle_mouse(IDirect3DDevice9* device) {
+    D3DVIEWPORT9 viewport = {};
+    if (FAILED(device->GetViewport(&viewport))) return;
+    float x = 0, y = 0;
+    const bool inside = mouse_position(device, viewport, x, y);
+    const bool pressed = key(VK_LBUTTON);
+    if (pressed && !mouse_down && inside) {
+        if (y >= 45 && y < 83 && x >= 18 && x < 190) { page = 0; refreshed = 0; }
+        else if (y >= 45 && y < 83 && x >= 199 && x < 371) { page = 1; refreshed = 0; }
+        else if (y >= 8 && y < 42 && x >= 510) shown = false;
+        else if (y >= 315 && x >= 18 && x < 225) {
+            ShellExecuteW(nullptr, L"open", page == 0 ? L"twm-market://open/my/listings" :
+                          L"twm-market://open/chats", nullptr, nullptr, SW_SHOWNORMAL);
+        }
+    }
+    mouse_down = pressed;
+}
+
 void render(IDirect3DDevice9* device) {
     D3DVIEWPORT9 viewport;
     if (FAILED(device->GetViewport(&viewport))) return;
@@ -109,11 +176,12 @@ void render(IDirect3DDevice9* device) {
     IDirect3DStateBlock9* saved = nullptr;
     if (FAILED(device->CreateStateBlock(D3DSBT_ALL, &saved))) return;
     saved->Capture();
-    const float left = (viewport.Width > 600 ? (viewport.Width - 560.0f) / 2 : 12.0f) - 0.5f;
-    const float top = 40.0f;
+    const auto panel = position(viewport);
+    const float left = panel.left - 0.5f;
+    const float top = panel.top - 0.5f;
     const Vertex quad[] = {
-        {left, top, 0, 1, 0, 0}, {left + 560, top, 0, 1, 1, 0},
-        {left, top + 360, 0, 1, 0, 1}, {left + 560, top + 360, 0, 1, 1, 1},
+        {left, top, 0, 1, 0, 0}, {left + width, top, 0, 1, 1, 0},
+        {left, top + height, 0, 1, 0, 1}, {left + width, top + height, 0, 1, 1, 1},
     };
     device->SetTexture(0, texture);
     device->SetFVF(D3DFVF_XYZRHW | D3DFVF_TEX1);
@@ -125,25 +193,27 @@ void render(IDirect3DDevice9* device) {
     device->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG1);
     device->SetTextureStageState(0, D3DTSS_ALPHAARG1, D3DTA_TEXTURE);
     device->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, quad, sizeof(Vertex));
+    float mouse_x = 0, mouse_y = 0;
+    if (mouse_position(device, viewport, mouse_x, mouse_y)) {
+        const float px = panel.left + mouse_x, py = panel.top + mouse_y;
+        const PointerVertex pointer[] = {
+            {px, py, 0, 1, 0xffffffff}, {px + 2, py + 17, 0, 1, 0xffffffff},
+            {px + 12, py + 12, 0, 1, 0xffffffff},
+        };
+        device->SetTexture(0, nullptr);
+        device->SetFVF(D3DFVF_XYZRHW | D3DFVF_DIFFUSE);
+        device->SetTextureStageState(0, D3DTSS_COLORARG1, D3DTA_DIFFUSE);
+        device->DrawPrimitiveUP(D3DPT_TRIANGLELIST, 1, pointer, sizeof(PointerVertex));
+    }
     saved->Apply();
     saved->Release();
 }
 
 HRESULT WINAPI hooked_end_scene(IDirect3DDevice9* device) {
-    const bool combo = key(VK_CONTROL) && key(VK_SHIFT) && key('M');
+    const bool combo = key(VK_CONTROL) && key(VK_MENU) && key(VK_F10);
     if (combo && !toggle_down) shown = !shown;
     toggle_down = combo;
-    if (shown) {
-        if (key('1') && page != 0) { page = 0; refreshed = 0; }
-        if (key('2') && page != 1) { page = 1; refreshed = 0; }
-        const bool open = key('O');
-        if (open && !open_down) {
-            ShellExecuteW(nullptr, L"open", page == 0 ? L"twm-market://open/my/listings" :
-                          L"twm-market://open/chats", nullptr, nullptr, SW_SHOWNORMAL);
-        }
-        open_down = open;
-        render(device);
-    }
+    if (shown) { handle_mouse(device); if (shown) render(device); }
     return original_end_scene(device);
 }
 
