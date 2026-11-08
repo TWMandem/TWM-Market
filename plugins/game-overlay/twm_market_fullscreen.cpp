@@ -1,5 +1,6 @@
 #define UNICODE
 #define _UNICODE
+#define NOMINMAX
 #define DIRECTINPUT_VERSION 0x0800
 #include <windows.h>
 #include <d3d9.h>
