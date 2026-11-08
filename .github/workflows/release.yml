@@ -76,14 +76,6 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: pnpm --filter @twm/desktop tauri build
 
-      - uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: x86
-
-      - name: Сборка DLL для Amazing Online
-        shell: cmd
-        run: cl /nologo /utf-8 /std:c++17 /EHsc /W4 /LD plugins\game-overlay\twm_market_fullscreen.cpp /Fe:twm_market.dll /link user32.lib shell32.lib gdi32.lib d3d9.lib dinput8.lib dxguid.lib
-
       - name: Файлы выпуска, контрольные суммы и latest.json
         shell: pwsh
         run: |
@@ -99,10 +91,8 @@ jobs:
           # …/releases/latest/download/TWM-Market-setup.exe всегда ведёт на последнюю версию.
           $stable = "TWM-Market-setup.exe"
           Copy-Item $exe.FullName "out/$stable"
-          Copy-Item twm_market.dll out/twm_market.dll
           $hash = (Get-FileHash "out/$name" -Algorithm SHA256).Hash.ToLower()
-          $dllHash = (Get-FileHash out/twm_market.dll -Algorithm SHA256).Hash.ToLower()
-          @("$hash  $name", "$hash  $stable", "$dllHash  twm_market.dll") | Set-Content -Encoding utf8 out/SHA256SUMS.txt
+          @("$hash  $name", "$hash  $stable") | Set-Content -Encoding utf8 out/SHA256SUMS.txt
           $manifest = [ordered]@{
             version   = $env:VERSION
             notes     = (Get-Content RELEASE_NOTES.md -Raw -Encoding utf8).Trim()
@@ -216,4 +206,3 @@ jobs:
           sha256sum "$name" TWM-Market.apk >> SHA256SUMS.txt
           cat SHA256SUMS.txt
           gh release upload "$tag" --repo "${{ github.repository }}" --clobber "$name" TWM-Market.apk SHA256SUMS.txt
-

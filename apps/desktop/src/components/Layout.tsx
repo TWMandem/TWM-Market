@@ -3,7 +3,6 @@ import { Link, Outlet, useLocation, useNavigate } from "react-router";
 import { useAuth } from "../lib/auth-context";
 import { installDeepLinks, routeFromDeepLink } from "../lib/deep-link";
 import { registerServiceWorker } from "../lib/web-push";
-import { updateGameOverlay } from "../lib/game-overlay";
 import { AppHeader, BottomTabs } from "./AppHeader";
 import { ConnectionStatus } from "./ConnectionStatus";
 import { ErrorBoundary } from "./ErrorBoundary";
@@ -12,19 +11,10 @@ import { UpdateBanner, VersionInfo } from "./UpdateBanner";
 import { WelcomeDialog } from "./WelcomeDialog";
 
 export function Layout() {
-  const { user, status } = useAuth();
+  const { user } = useAuth();
   const { pathname } = useLocation();
   const showVerifyBanner = user && !user.emailVerified && pathname !== "/verify-email";
   const navigate = useNavigate();
-
-  useEffect(() => {
-    if (status === "loading") return;
-    const update = () => void updateGameOverlay(status === "authed").catch(() => {});
-    update();
-    if (status !== "authed") return;
-    const timer = window.setInterval(update, 30_000);
-    return () => window.clearInterval(timer);
-  }, [status]);
 
   // Ссылки «Открыть в приложении» с сайта (twm-market://listing/ID).
   useEffect(() => {
